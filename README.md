@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/RabbitMQ-3.12-FF6600?logo=rabbitmq&logoColor=white" alt="RabbitMQ"/>
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker"/>
   <img src="https://img.shields.io/badge/MVP%20Cost-%240-success" alt="Zero Cost MVP"/>
-  <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License"/>
+  <img src="https://img.shields.io/badge/License-Proprietary-red.svg" alt="License" />
 </p>
 
 ---
@@ -590,7 +590,7 @@ python demo/watch.py
 ./demo/run.sh all
 ~~~
 
-See [`demo/README.md`](https://chat.qwen.ai/c/demo/README.md) for the complete demo runbook.
+See [`demo/README.md`]() for the complete demo runbook.
 
 ---
 
@@ -618,7 +618,7 @@ See [`demo/README.md`](https://chat.qwen.ai/c/demo/README.md) for the complete d
 
 ## 🗺️ Legacy Migration Map
 
-The legacy Laravel monolith (~5 files, ~25,000 lines) has been fully decomposed. Every legacy artifact has an explicit migration target annotated in [`legacy/`](https://chat.qwen.ai/c/legacy/).
+The legacy Laravel monolith (~5 files, ~25,000 lines) has been fully decomposed. Every legacy artifact has an explicit migration target annotated in [`legacy/`]().
 
 | **Legacy File** | **Lines** | **Target Services** |
 |:---|---:|:---|
@@ -639,7 +639,7 @@ The legacy Laravel monolith (~5 files, ~25,000 lines) has been fully decomposed.
 | Inline `Http::withBasicAuth()` credentials | Resilience4J + Vault/env |
 | Three `addMemberData` variants | Single `TpaEnrollmentAdapter` interface |
 
-See [`legacy-service-mapping.md`](https://chat.qwen.ai/c/legacy-service-mapping.md) for the complete method-level mapping.
+See [`legacy-service-mapping.md`]() for the complete method-level mapping.
 
 ---
 
