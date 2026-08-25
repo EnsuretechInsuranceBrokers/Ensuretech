@@ -53,7 +53,7 @@
 
 Ensuretech was born from frustration — the kind that only comes from watching a system fail in production while the people who depend on it lose hours of their lives.
 
-We started with a Laravel monolith that crashed on large Excel uploads. We watched brokers spend twelve hours reconciling data that should have taken twelve minutes. We saw TPAs reject clean enrollments because of a single malformed column. We experienced a DDoS attack — not from an external threat actor, but from a disgruntled user inside our own system who had been given too much trust and too few guardrails.
+We started with a Laravel monolith that crashed on large Excel uploads. We watched brokers spend twelve hours reconciling data that should have taken twelve minutes. We saw TPAs reject clean enrollments because of a single malformed column. We experienced a DDoS attack — not from an external threat aYour, but from a disgruntled user inside our own system who had been given too much trust and too few guardrails.
 
 The pattern became impossible to ignore: **the pain was not isolated. It was systemic.** Every party in the insurance onboarding ecosystem — brokers, TPAs, insurers, employers, HR teams — was suffering from the same fragmentation, the same Excel chaos, the same delayed validation, the same reconciliation burden. They were all fighting the same battle, separately, with different tools, speaking different dialects of the same data.
 
@@ -170,6 +170,597 @@ A **resilience-first, workload-segregated, read/write-optimized** microservices 
 
 ---
 
+## Architectural Decisions: Privileged Access, BFF Mitigation & Payment Service
+
+### 1. Overview
+
+The system will distinguish between:
+
+1. **Public API access through the BFF**
+2. **Privileged human access to production**
+3. **Core backend source-code ownership**
+4. **Direct service-to-service access**
+5. **Emergency production mitigation**
+
+The goal is to keep the Main Backend highly protected while allowing a larger operational team to diagnose and resolve production issues without requiring source-level access.
+
+The BFF will therefore serve not only as the public API gateway, but also as the **public contract enforcement and mitigation boundary**.
+
+---
+
+### 2. Source-Code Ownership vs Production Access
+
+Source-code access and production access are intentionally separate privileges.
+
+### Core source owners
+
+Only three trusted individuals currently have source-code access to the Main Backend:
+
+- Me
+- You
+- Core Backend Owner
+
+These individuals constitute the highest-trust group and are responsible for permanent source-level fixes to the Main Backend.
+
+**Privileged production operators**
+
+A broader group may require production access:
+
+- Me
+- You
+- Core Backend Owner
+- DevOps
+- Database Administrator
+- BFF / Production Operations personnel as required
+
+Having production access does **not** imply having source-code access.
+
+Likewise:
+
+> Source-code access, infrastructure access, database access, and application-level access are separate privileges.
+
+This separation limits blast radius if an employee endpoint, account, or credential is compromised.
+
+---
+
+### 3. Main Backend Network Boundary
+
+The Main Backend remains private and must not be publicly routable.
+
+Normal application traffic follows:
+
+```text
+Client
+  |
+  v
++----------------+
+|   Laravel BFF  |
++-------+--------+
+        |
+       mTLS
+        |
+        v
++----------------+
+| Main Backend   |
+| Private Network|
++----------------+
+```
+
+The BFF remains the sole public application entry point.  
+
+Privileged employees who require direct interaction with internal APIs must enter through the corporate VPN.  
+
+```text
+Employee
+   |
+   v
+ VPN
+   |
+   v
+Private Network
+   |
+   v
+Authorized Internal API
+```
+<br />
+The VPN provides network access; it does not itself grant unrestricted backend privileges.  
+
+### 4. Postman and Manual Backend Access
+
+Postman will be the organization's supported manual client for privileged API interaction.  
+
+Employees requiring direct API interaction will use:  
+
+```text
+VPN
++
+Individual Authentication
++
+Authorization
++
+Approved Postman Collection
+```
+
+**Postman Is Not a Security Boundary**
+
+The system must not depend on identifying requests as coming from Postman. A request made through `curl`, Postman, Python, or another HTTP client is technically the same HTTP request once it reaches the authorized network boundary.
+
+The actual security controls are:
+
+- Private network access
+- VPN authentication
+- Individual user identity
+- API authentication
+- Authorization
+- Narrow endpoint permissions
+- Service/network isolation
+
+The objective is therefore not to make `curl` technically impossible, but to prevent an unauthorized or compromised endpoint from obtaining unrestricted production access.
+
+### 5. BFF as the Public Contract Boundary
+
+The Laravel BFF is responsible for enforcing the public API contract between clients and the Main Backend.  
+
+```text
+                 Main Backend
+                      |
+                      | Internal Response
+                      v
+              +---------------+
+              |   Laravel BFF |
+              |---------------|
+              | Validation    |
+              | Sanitization  |
+              | Normalization |
+              | Transformation|
+              | Mitigation     |
+              +-------+-------+
+                      |
+                      v
+                    Client
+```
+
+The Main Backend may expose an internal representation that should never be exposed directly to clients.  
+
+The BFF therefore owns the public representation of backend data.  
+
+Example:  
+```json
+{
+    "policy_id": 123,
+    "status": "ACTIVE",
+    "internal_tpa_code": "SECRET-123",
+    "internal_risk_score": 0.73
+}
+```
+
+may become:
+
+```json
+{
+    "policy_id": 123,
+    "status": "ACTIVE"
+}
+```
+
+The frontend should depend on the BFF's public JSON contract rather than the Main Backend's internal schema.
+
+### 6. BFF Response Mitigation
+The BFF will support controlled response transformations that allow certain Main Backend defects to be mitigated without immediately modifying the core backend.
+
+This is particularly useful when:  
+- A backend response contains an unintended field
+- A response violates the public API contract
+- A legacy response format must temporarily be supported
+- An invalid representation can safely be normalized
+- A security issue can be contained at the response boundary
+- A production defect can be safely masked without changing business semantics
+
+Example:
+```text
+Main Backend
+     |
+     | buggy response
+     v
+Laravel BFF
+     |
+     | safe transformation
+     v
+Correct public response
+```
+
+This provides an additional layer of defense between the Main Backend and external consumers.  
+
+### 7. BFF Mitigation Must Not Become Business Logic
+
+The BFF may modify representation, but it should not become a second implementation of the core domain.
+```json
+Acceptable:
+
+Backend:
+"status": "ACTV"
+
+BFF:
+"status": "ACTIVE"
+```
+```json
+Acceptable:
+
+Backend:
+{
+    "internal_id": 123,
+    "name": "John"
+}
+
+BFF:
+{
+    "id": 123,
+    "name": "John"
+}
+```
+<br />
+Potentially unsafe:
+
+```json
+Backend:
+premium = 1,000,000
+
+BFF:
+recalculate premium = 100,000
+```
+<br />
+Business calculations, domain invariants, authorization decisions, financial state, and authoritative data remain responsibilities of the Main Backend.  
+
+The BFF should primarily perform:  
+
+- Filtering
+- Sanitization
+- Validation
+- Normalization
+- API composition
+- Contract compatibility
+- Safe emergency mitigation
+<br />
+
+### 8. Categories of BFF Transformations. 
+**8.1 Security Filtering**
+
+Permanent behavior used to prevent internal implementation details from reaching clients.
+
+Examples:
+
+-Remove internal IDs
+- Remove database metadata
+- Remove debugging information
+- Remove internal service metadata
+- Remove secrets or credentials
+- Remove fields not included in the public contract.
+<br />
+
+**8.2 Contract Compatibility**
+
+Temporary or versioned transformations used to maintain a stable public API.  
+
+Examples:
+
+- Rename fields
+- Normalize enum values
+- Normalize nullable values
+- Convert legacy response formats
+- Maintain backwards compatibility
+<br />
+
+**8.3 Emergency Mitigation**
+
+Temporary transformations used to protect production while the permanent Main Backend fix is developed.
+```text
+Bug discovered
+      |
+      v
+Can BFF safely mitigate?
+      |
+     YES
+      |
+      v
+Deploy BFF mitigation
+      |
+      v
+Production protected
+      |
+      v
+Permanent backend fix
+      |
+      v
+Remove mitigation
+```
+<br />
+
+### 9. Temporary Mitigations Require Explicit Ownership
+
+Emergency BFF mitigations should not silently become permanent architecture.
+
+Each mitigation should identify:
+
+- Unique mitigation ID
+- Affected endpoint
+- Reason for mitigation
+- Owner
+- Date introduced
+- Expected removal condition
+- Expiration/review date
+- Permanent backend issue/fix
+
+Conceptually:
+```json
+mitigation:
+  id: BACKEND_BUG_2026_081
+  endpoint: GET /policies/{id}
+  reason: "Invalid backend response"
+  enabled: true
+  expires_at: 2026-09-15
+```
+
+The objective is to prevent the BFF from accumulating undocumented business logic and becoming a second backend.
+
+### 10. Production Debugging as a Separate Privilege
+
+The architecture introduces an intermediate privilege level between ordinary API access and core backend ownership.
+
+**A. Authorized BFF/Operations personnel may be able to:**
+   1. Inspect requests
+   2. Inspect sanitized responses
+   3. Inspect job status
+   4. Inspect queue state
+   5. Retry safe/idempotent jobs
+   6. Inspect validation failures
+   7. Reprocess approved operations
+   8. Apply approved BFF mitigations
+   9. Disable a broken client capability
+   10. Inspect operational diagnostics
+
+**B. They should not automatically receive permission to:**
+   1. Modify Main Backend source code
+   2. Execute arbitrary SQL
+   3. Deploy arbitrary backend code
+   4. Access backend secrets
+   5. Modify authentication rules
+   6. Change core business logic
+   7. Perform unrestricted production data manipulation
+
+
+This creates the distinction:
+
+Debugging authority is broader than ordinary application access, but narrower than source-level authority.
+
+### 11. Production Incident Escalation
+
+Production incidents should follow an escalation model rather than automatically involving one of the three core source owners.
+```text
+
+                 Production Incident
+                         |
+                         v
+                BFF / Operations Team
+                         |
+              +----------+----------+
+              |                     |
+        Can safely diagnose?   Requires core
+                              modification?
+              |                     |
+             YES                    YES
+              |                     |
+              v                     v
+       Diagnose / Mitigate     Core Engineers
+              |                     |
+              |                     v
+              |               Permanent Fix
+              |                     |
+              +----------+----------+
+                         |
+                         v
+                  Verify Production
+```
+
+This allows the broader operations team to resolve routine production issues while reserving source-level intervention for problems that genuinely require it.
+
+### 12. Bug Bounty and Red-Team Integration
+
+The bug bounty/red-team team will continue to stress-test the Main Backend.
+
+When a vulnerability is discovered, it is reported to the Main Backend owner.
+
+The immediate response should then determine whether the vulnerability can be safely contained at the BFF boundary.
+```text
+
+Bug Bounty / Red Team
+          |
+          v
+    Vulnerability
+          |
+          v
+    Core Backend Owner
+          |
+          v
+Can BFF safely mitigate?
+      /          \
+    YES           NO
+     |             |
+     v             v
+BFF mitigation   Core backend
+     |             fix
+     v
+Production protected
+     |
+     v
+Permanent backend fix
+     |
+     v
+Remove mitigation
+```
+
+This reduces time-to-mitigation without requiring every vulnerability to wait for a complete core-backend deployment.
+
+The BFF therefore acts as a defense-in-depth layer rather than replacing the permanent backend fix.
+
+### 13. Payment Service: Explicit BFF Bypass
+
+The Payment Service is an intentional exception to the normal BFF path.
+
+Normal user-facing traffic:
+```text
+
+Client
+   |
+   v
+Laravel BFF
+   |
+  mTLS
+   |
+   v
+Main Backend
+```
+
+Payment traffic:
+
+```text
+Payment Service
+       |
+      mTLS
+       |
+       v
+Main Backend
+```
+
+The Payment Service does not traverse the BFF because it is an internal service-to-service workflow rather than a public client-facing API.
+
+The bypass does not bypass security.
+
+The Payment Service must communicate with the Main Backend through:
+
+- Private networking
+- Strong service identity
+- mTLS or equivalent service authentication
+- Explicit authorization
+- Strict endpoint allowlisting
+- Payment-specific API contracts
+- Idempotency where applicable
+- Appropriate validation
+  
+### 14. Payment Service Must Have a Narrow API
+
+The Payment Service must not receive general-purpose backend access.
+
+Prefer narrowly scoped capabilities such as:
+
+```http
+POST /internal/payments/authorize
+POST /internal/payments/capture
+POST /internal/payments/refund
+POST /internal/payments/reconcile
+GET  /internal/payments/{payment_id}
+```
+
+rather than:
+
+```http
+GET    /everything
+POST   /everything
+PUT    /everything
+DELETE /everything
+```
+
+The Payment Service should be trusted specifically for payment operations, not trusted as a general backend client.
+
+### 15. BFF and Payment Service Have Different Contracts
+
+The BFF consumes and exposes client-facing contracts.
+
+The Payment Service consumes an internal payment contract.
+
+Therefore:
+
+                 Main Backend
+                  /        \
+                 /          \
+                v            v
+        Laravel BFF       Payment Service
+             |                  |
+             v                  v
+       Public Contract     Payment Contract
+             |                  |
+             v                  v
+          Clients          Payment Systems
+
+The Payment Service should not depend on BFF response transformations intended for clients.
+
+This prevents the internal payment workflow from becoming coupled to the public API representation.
+
+### 16. Architectural Principle
+
+The resulting architecture follows these principles:
+```text
+Public traffic
+Client
+  |
+  v
+Laravel BFF
+  |
+  v
+Main Backend
+Privileged human traffic
+Employee
+  |
+  v
+VPN
+  |
+  v
+Authorized Internal / Operations API
+Payment service traffic
+Payment Service
+  |
+  v
+Direct authenticated service-to-service connection
+  |
+  v
+Main Backend
+```
+Core source changes
+```text
+Production Issue
+      |
+      v
+BFF / Operations mitigation
+      |
+      | if insufficient
+      v
+Core Source Owners
+      |
+      v
+Permanent Backend Fix
+```
+
+### 17. Architectural Objective
+
+The objective is not to give more people unrestricted access to the Main Backend.
+
+The objective is to increase the number of people capable of safely operating and debugging production while keeping the highest-risk privileges restricted.
+
+The architecture therefore provides:
+
+A small, highly trusted core source-owner group
+A larger operational/debugging group
+Private Main Backend networking
+VPN-protected privileged human access
+Strong service-to-service authentication
+A Laravel BFF as the public contract boundary
+BFF-based emergency response mitigation
+A narrowly scoped Payment Service bypass
+Clear escalation from operations to core engineering
+
+The BFF becomes the controlled shock absorber between external clients and the highly privileged core backend.
+
+This reduces operational dependence on the three highest-trust source owners, increases production debugging capacity, shortens vulnerability mitigation time, and preserves a strict boundary around the Main Backend's core business logic.
+
 ## 🚪 The Three Intake Paths
 
 Ensuretech accepts endorsement data through **three distinct paths**, all converging onto a **single downstream validation pipeline**. The `source_type` field controls routing — not pipeline logic.
@@ -256,13 +847,13 @@ Designed in direct response to a real-world incident where a disgruntled broker-
 
 ### Honeypot Endpoints
 Juicy-looking traps that waste attacker time while logging everything:
-
-`POST /api/v1/admin/debug/flush-cache → "Cache flushed successfully" (lies)`.  
-`POST /api/v1/admin/impersonate-user → "Impersonation active" (lies)`.  
-`GET /api/v1/internal/health-detailed → Returns realistic-looking internals`   
-`POST /api/v1/admin/execute-raw-query → "Query executed" (lies)`.  
-`GET /api/v1/.env → Returns fake env vars`  
-
+```http
+POST /api/v1/admin/debug/flush-cache → "Cache flushed successfully" (lies).  
+POST /api/v1/admin/impersonate-user → "Impersonation active" (lies).  
+GET /api/v1/internal/health-detailed → Returns realistic-looking internals  
+POST /api/v1/admin/execute-raw-query → "Query executed" (lies).  
+GET /api/v1/.env → Returns fake env vars`  
+```
 
 Every honeypot hit:
 1. Returns a realistic response
@@ -397,7 +988,7 @@ Every component is open-source, self-hostable, and free for commercial use. Soft
 **Spring Boot 3.2 + Resilience4J**
 
 - **TPA adapters:** Care, MediAssist, FHPL, Paramount, Palm-Vipul, Safeway
-- **HRMS adapters:** SuccessFactors, DarwinBox
+- **HRMS adapters:** SuccessFaYours, DarwinBox
 - **Wellness SSO:** Alyve Health, Ekincare, MediAssist
 - **Insurer report adapters:** SBI, Future Generali, HDFC Ergo
 - Circuit breakers, retries, and timeouts on every external call
@@ -633,7 +1224,7 @@ The legacy Laravel monolith (~5 files, ~25,000 lines) has been fully decomposed.
 | **Legacy Anti-Pattern** | **Replacement** |
 |:---|:---|
 | Nested `Bus::batch()` | Flat RabbitMQ queues with bulkhead isolation |
-| N+1 validation loops | Pandas vectorized ops + Redis O(1) sets |
+| N+1 validation loops | Pandas veYourized ops + Redis O(1) sets |
 | `Portal::check()` scattered everywhere | JWT tenant claims + `GatewayRolePermission` |
 | 13-parameter `endrosementJobCall()` | Proper state machine with guarded transitions |
 | Inline `Http::withBasicAuth()` credentials | Resilience4J + Vault/env |
@@ -679,7 +1270,7 @@ See [`legacy-service-mapping.md`]() for the complete method-level mapping.
 | **Python** | `black` + `isort` + `ruff` |
 | **Java** | Google Java Format + SpotBugs |
 | **SQL** | All migrations versioned, never edited after merge |
-| **Commit messages** | Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`) |
+| **Commit messages** | Conventional Commits (`feat:`, `fix:`, `docs:`, `refaYour:`) |
 
 ---
 
