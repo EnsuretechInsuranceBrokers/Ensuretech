@@ -1,0 +1,66 @@
+"""Service-to-service API for integration-service (SYSTEM tokens only, no tenant scoping: the caller is trusted infrastructure).
+
+GET  /api/v1/internal/endorsements/<job>/members/?after=<id>&limit=<n>   keyset-paged roster rows last changed by that job
+POST /api/v1/internal/endorsements/<job>/tpa-member-ids/                  {"members":[{"id":1,"tpa_member_id":"X"}]}
+Rows are those whose `job` is still this job; a later endorsement that touches the same person supersedes them (documented gap)."""
+from django.db import transaction
+from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.permissions import BasePermission
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import EndorsementJob, EndorsementMember
+
+MAX_LIMIT = 1000
+
+
+class IsSystem(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and getattr(request.user, "is_authenticated", False) and request.user.role == "SYSTEM")
+
+
+def _member(m):
+    return {"id": m.id, "employee_code": m.employee_code, "relation_code": m.relation_code, "first_name": m.first_name,
+            "last_name": m.last_name, "date_of_birth": m.date_of_birth.isoformat(), "gender": m.gender, "email": m.email,
+            "mobile": m.mobile, "sum_insured": str(m.sum_insured), "effective_date": m.effective_date.isoformat(),
+            "end_date": m.end_date.isoformat() if m.end_date else None, "is_active": m.is_active, "tpa_member_id": m.tpa_member_id}
+
+
+def _job(job_id):
+    try:
+        return EndorsementJob.objects.get(pk=job_id)
+    except EndorsementJob.DoesNotExist:
+        raise NotFound("No such job.")
+
+
+class JobMembersView(APIView):
+    permission_classes = [IsSystem]
+
+    def get(self, request, job_id):
+        job = _job(job_id)
+        try:
+            after = int(request.query_params.get("after", 0))
+            limit = min(max(int(request.query_params.get("limit", 500)), 1), MAX_LIMIT)
+        except ValueError:
+            raise ValidationError("after and limit must be integers.")
+        rows = list(EndorsementMember.objects.filter(job_id=job.id, id__gt=after).order_by("id")[:limit])
+        return Response({"job_id": str(job.id), "policy_id": job.policy_id, "broker_id": job.broker_id, "op_type": job.op_type,
+                         "members": [_member(m) for m in rows], "next_after": rows[-1].id if len(rows) == limit else None})
+
+
+class TpaMemberIdsView(APIView):
+    permission_classes = [IsSystem]
+
+    @transaction.atomic
+    def post(self, request, job_id):
+        job = _job(job_id)
+        items = request.data.get("members")
+        if not isinstance(items, list) or not 0 < len(items) <= MAX_LIMIT:
+            raise ValidationError(f"members must be a list of 1..{MAX_LIMIT} items.")
+        updated = 0
+        for it in items:
+            if not isinstance(it, dict) or not isinstance(it.get("id"), int) or not str(it.get("tpa_member_id", "")).strip():
+                raise ValidationError("each item needs an integer id and a non-empty tpa_member_id.")
+            updated += EndorsementMember.objects.filter(id=it["id"], policy_id=job.policy_id).update(
+                tpa_member_id=str(it["tpa_member_id"])[:60])
+        return Response({"updated": updated, "ignored": len(items) - updated})

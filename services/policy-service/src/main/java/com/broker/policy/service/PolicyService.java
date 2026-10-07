@@ -128,6 +128,7 @@ public class PolicyService {
         body.put("employer_id", p.getEmployerId());
         body.put("policy_id", p.getId());
         body.put("policy_number", p.getPolicyNumber());
+        body.put("tpa_id", p.getTpaId());
         body.put("status", p.getStatus().name());
         if (premiumTypeCode != null) body.put("premium_type", premiumTypeCode);
         outbox.publish("Policy", p.getId(), type, TOPIC, String.valueOf(p.getBrokerId()), body);

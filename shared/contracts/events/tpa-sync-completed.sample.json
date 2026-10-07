@@ -1,0 +1,14 @@
+{
+  "event_id": "5b0c1c0e-7d57-4b4e-9d8a-0a8f2d0c1a55",
+  "event_type": "TpaSyncCompleted",
+  "sync_job_id": "28c4c0b4-7170-41a7-8a8b-e6ce19600ebc",
+  "endorsement_job_id": "9a1f4a52-5d0e-4c67-a2f1-6f1d3d1b7e01",
+  "broker_id": 1,
+  "employer_id": 10,
+  "policy_id": 1,
+  "tpa_id": 3,
+  "op_type": "ADD",
+  "members_expected": 3,
+  "synced": 3,
+  "rejected": 0
+}

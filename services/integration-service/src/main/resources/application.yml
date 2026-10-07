@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: integration-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ensuretech}
+    username: ${DATABASE_USER:ensuretech}
+    password: ${DATABASE_PASSWORD:ensuretech}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.default_schema: integration
+  flyway:
+    schemas: integration
+    default-schema: integration
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: integration-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+server:
+  port: ${PORT:8085}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+app:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:../identity-service/keys/jwt-public.pem}
+    issuer: ${JWT_ISSUER:ensuretech-identity}
+  kafka:
+    listener:
+      enabled: ${KAFKA_LISTENER_ENABLED:true}
+  engine:
+    base-url: ${ENGINE_BASE_URL:http://localhost:8001}
+    timeout-ms: ${ENGINE_TIMEOUT_MS:5000}
+  identity:
+    token-url: ${IDENTITY_TOKEN_URL:http://localhost:8000/api/v1/auth/service-token/}
+    client-id: ${SERVICE_CLIENT_ID:}
+    client-secret: ${SERVICE_CLIENT_SECRET:}
+  sync:
+    worker-enabled: ${SYNC_WORKER_ENABLED:true}
+    poll-ms: ${SYNC_POLL_MS:2000}
+    lease-seconds: ${SYNC_LEASE_SECONDS:300}      # a worker that dies mid-job loses its claim after this
+    max-attempts: ${SYNC_MAX_ATTEMPTS:8}
+    backoff-base-seconds: ${SYNC_BACKOFF_BASE_SECONDS:30}
+    backoff-max-seconds: ${SYNC_BACKOFF_MAX_SECONDS:3600}
+    call-retries: 3                                 # in-call retries (exponential 1s/2s/4s) before the job-level backoff takes over
+    call-retry-base-ms: 1000
+    breaker-window: 10
+    breaker-min-calls: 5
+    breaker-failure-rate: 50
+    breaker-open-seconds: 30
+  tpa:
+    allow-private-hosts: ${TPA_ALLOW_PRIVATE_HOSTS:false}   # SSRF guard; only true in dev/tests
+    allow-http: ${TPA_ALLOW_HTTP:false}
+  outbox:
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:true}
+      interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
+      batch-size: 100
+      max-retries: 5

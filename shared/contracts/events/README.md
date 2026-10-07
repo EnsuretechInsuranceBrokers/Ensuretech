@@ -8,4 +8,7 @@ Changing a field means changing the sample, which fails whichever side forgot to
 |---|---|---|
 | `endorsement-applied` | endorsement-service (`endorsement.events`) | billing-service (commits the deposit reservation) |
 | `endorsement-state-changed` | endorsement-service | billing-service (releases the reservation on cancel/failed validation) |
-| `policy-approved` | policy-service (`policy.events`) | billing-service (opens the deposit account) |
+| `policy-approved` | policy-service (`policy.events`) | billing-service (opens the deposit account), integration-service (routes the policy to its TPA via `tpa_id`, nullable) |
+| `endorsement-applied` (second consumer) | endorsement-service | integration-service (creates the TPA sync job; fetches members from the engine's internal API) |
+| `tpa-sync-completed` | integration-service (`tpa.events`) | none yet (insurer reports, notifications) |
+| `tpa-sync-failed` | integration-service (`tpa.events`) | none yet (alerting); a dead-lettered sync waits for an operator retry |
