@@ -62,7 +62,7 @@ public class OutboxRelayJob {
                 log.warn("Outbox event {} failed (attempt {}): {}", id, attempts, e.toString());
                 jdbc.sql("""
                         UPDATE outbox.outbox_events
-                        SET status = :st, retry_count = :rc, last_error = :err,
+                        SET status = CAST(:st AS public.outbox_status_enum), retry_count = :rc, last_error = :err,
                             next_retry_at = now() + (:backoff * interval '1 second')
                         WHERE id = :id
                         """)
