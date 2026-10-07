@@ -97,6 +97,10 @@ public final class Dtos {
         }
     }
 
+    public record ContributionDto(@NotBlank String type, java.util.Map<String, java.math.BigDecimal> groups) {
+        public static ContributionDto of(ContributionPlan p) { return new ContributionDto(p.getType().name(), p.getGroups()); }
+    }
+
     public record PutRelationRulesRequest(@NotNull List<@Valid RelationRuleDto> rules) {}
 
     public record PersonDto(@NotBlank String relationCode, @NotNull @PositiveOrZero Integer age, String dob) {}

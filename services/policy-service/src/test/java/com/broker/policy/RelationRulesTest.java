@@ -129,4 +129,26 @@ class RelationRulesTest extends IntegrationTestBase {
         mvc.perform(get(url(age, "/sheet-spec")).header("Authorization", admin(BROKER_A)))
                 .andExpect(jsonPath("$.rating.ageBands", hasSize(2))).andExpect(jsonPath("$.rating.ageBands[1].to", is(60)));
     }
+
+    private void putContrib(long id, String body, org.springframework.test.web.servlet.ResultMatcher expect) throws Exception {
+        mvc.perform(json(put(url(id, "/contributions")), admin(BROKER_A), body)).andExpect(expect);
+    }
+
+    @Test
+    void contributionPlansAreValidatedReplacedAndTenantScoped() throws Exception {
+        long id = policy("C-1", "{\"flat\":1000}");
+        mvc.perform(get(url(id, "/contributions")).header("Authorization", admin(BROKER_A))).andExpect(jsonPath("$.type", is("NONE")));          // unset = not computed
+        putContrib(id, "{\"type\":\"PERCENT\",\"groups\":{\"SELF\":0,\"SPOUSE\":50,\"CHILD\":50,\"PARENT_SINGLE\":100}}", status().isOk());
+        mvc.perform(get(url(id, "/contributions")).header("Authorization", admin(BROKER_A)))
+                .andExpect(jsonPath("$.type", is("PERCENT"))).andExpect(jsonPath("$.groups.SPOUSE", is(50)));
+        putContrib(id, "{\"type\":\"FIXED\",\"groups\":{\"SELF\":1200.50}}", status().isOk());                                              // replaces, does not merge
+        mvc.perform(get(url(id, "/contributions")).header("Authorization", admin(BROKER_A))).andExpect(jsonPath("$.groups.SPOUSE").doesNotExist());
+        for (String bad : new String[]{"{\"type\":\"PERCENT\",\"groups\":{\"SELF\":101}}", "{\"type\":\"FIXED\",\"groups\":{\"SELF\":-1}}",
+                "{\"type\":\"FIXED\",\"groups\":{\"COUSIN\":5}}", "{\"type\":\"NONE\",\"groups\":{\"SELF\":5}}", "{\"type\":\"WEIRD\",\"groups\":{}}"}) {
+            putContrib(id, bad, status().is4xxClientError());
+        }
+        mvc.perform(get(url(id, "/contributions")).header("Authorization", admin(BROKER_A))).andExpect(jsonPath("$.type", is("FIXED")));       // rejected puts changed nothing
+        mvc.perform(get(url(id, "/contributions")).header("Authorization", admin(BROKER_B))).andExpect(status().isNotFound());
+        mvc.perform(json(put(url(id, "/contributions")), bearer("BROKER_NON_ADMIN", BROKER_A, null), "{\"type\":\"NONE\"}")).andExpect(status().isForbidden());
+    }
 }

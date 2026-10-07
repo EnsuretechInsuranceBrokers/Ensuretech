@@ -75,3 +75,11 @@ mvn spring-boot:run
 mvn test   # needs PostgreSQL (DATABASE_URL) and Redis (REDIS_PORT); truncates policy_svc.* and flushes that Redis DB
 ```
 The outbox/security code is duplicated from organization-service; extracting a shared library is a known follow-up.
+
+## Contribution plan (employee / employer split)
+`PUT|GET /api/v1/broker/policies/{id}/contributions` (PUT: BROKER_ADMIN) `{ "type": "NONE|PERCENT|FIXED", "groups": {"SELF": 0, "SPOUSE": 50, "CHILD": 50, "PARENT_SINGLE": 100, ...} }`,
+replaced as a whole. Groups: `SELF, SPOUSE, CHILD, PARENT_SINGLE, PARENT_DOUBLE, PARENT_IN_LAW_SINGLE, PARENT_IN_LAW_DOUBLE, OTHERS` (legacy `*_employee_contribution`).
+PERCENT: the employee pays that % (0-100) of each member's premium; FIXED: that amount per member, never above the premium; the employer pays the rest. Carried to the
+engine on `GetPolicy` (`contribution_type`, `contribution_groups`). No plan = `NONE` = the split is **not computed** (not "employer pays").
+**Assumption to confirm:** legacy's `calculatePremiumWithContribution` was not in the files I was given; I implemented the rule visible in its callers (fixed: `employee = min(premium, contribution)`, employer = remainder;
+percent: employee = premium x %). Fixed amounts are *not* pro-rated separately: the split follows each member's pro-rated charge. Legacy has separate OPD contribution types (`premium_contribution_type_opd`) - not ported.

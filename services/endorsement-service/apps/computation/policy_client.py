@@ -40,6 +40,8 @@ class PolicyInfo:
     premium_type_code: str
     requires_family_construct: bool
     relation_prorata: dict = field(default_factory=dict)      # relation code -> DAILY | MONTHLY | NONE (already resolved by policy-service)
+    contribution_type: str = "NONE"                            # NONE | PERCENT | FIXED
+    contribution_groups: dict = field(default_factory=dict)    # group -> decimal string (see computation/contribution.py)
 
 
 @dataclass(frozen=True)
@@ -132,7 +134,8 @@ class GrpcPolicyClient:
         return PolicyInfo(r.policy_id, r.employer_id, r.policy_number, r.policy_type, r.status,
                           date.fromisoformat(r.start_date), date.fromisoformat(r.end_date), r.pro_rata_type,
                           r.is_inception, r.premium_type_code, r.requires_family_construct,
-                          {x.relation_code: x.pro_rata_type for x in r.relation_rules})
+                          {x.relation_code: x.pro_rata_type for x in r.relation_rules},
+                          r.contribution_type or "NONE", dict(r.contribution_groups))
 
     def validate_families(self, broker_id, policy_id, families):
         pb = self._pb

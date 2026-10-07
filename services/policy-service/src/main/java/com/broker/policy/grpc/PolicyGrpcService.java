@@ -5,6 +5,7 @@ import com.broker.policy.api.ValidationFailedException;
 import com.broker.policy.domain.Policy;
 import com.broker.policy.domain.PremiumType;
 import com.broker.policy.domain.PremiumTypeRepository;
+import com.broker.policy.domain.ContributionPlanRepository;
 import com.broker.policy.domain.RelationRule;
 import com.broker.policy.domain.RelationRuleRepository;
 import com.broker.policy.engine.InvalidRateTableException;
@@ -36,12 +37,14 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
     private final PremiumTypeRepository premiumTypes;
     private final FamilyConstructService families;
     private final RelationRuleRepository relationRules;
+    private final ContributionPlanRepository contributionPlans;
     private final ObjectMapper mapper;
 
     PolicyGrpcService(PolicyService policies, PolicyReadinessService readiness, RateCardService rateCards,
                       PremiumService premiums, PremiumTypeRepository premiumTypes, FamilyConstructService families,
-                      RelationRuleRepository relationRules, ObjectMapper mapper) {
+                      RelationRuleRepository relationRules, ContributionPlanRepository contributionPlans, ObjectMapper mapper) {
         this.relationRules = relationRules;
+        this.contributionPlans = contributionPlans;
         this.policies = policies;
         this.readiness = readiness;
         this.rateCards = rateCards;
@@ -179,6 +182,10 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
                 if (r.getAgeDifference() != null) b.setAgeDifference(r.getAgeDifference()).setDifferenceFromRelation(r.getDifferenceFromRelation());
                 info.addRelationRules(b);
             }
+            contributionPlans.findByPolicyIdAndBrokerId(p.getId(), p.getBrokerId()).ifPresentOrElse(c -> {
+                info.setContributionType(c.getType().name());
+                c.getGroups().forEach((k, v) -> info.putContributionGroups(k, v.stripTrailingZeros().toPlainString()));
+            }, () -> info.setContributionType("NONE"));
             return info.build();
         });
     }

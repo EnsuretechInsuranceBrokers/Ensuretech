@@ -24,10 +24,11 @@ class FakePolicyClient:
     @classmethod
     def add_policy(cls, broker_id, policy_id, employer_id, *, status="APPROVED_AND_LIVE", policy_type="GMC",
                    pro_rata="NONE", start=date(2030, 4, 1), end=date(2031, 3, 31), inception=False, construct=None,
-                   flat=None, relation_prorata=None):
+                   flat=None, relation_prorata=None, contribution=None):
         cls.policies[(broker_id, policy_id)] = PolicyInfo(
             policy_id, employer_id, f"POL-{policy_id}", policy_type, status, start, end, pro_rata, inception, "FLAT",
-            policy_type in ("GMC", "OPD", "WELLNESS"), relation_prorata or {})
+            policy_type in ("GMC", "OPD", "WELLNESS"), relation_prorata or {},
+            *(contribution or ("NONE", {})))
         if construct is not None:
             cls.constructs[(broker_id, policy_id)] = construct
         if flat is not None:

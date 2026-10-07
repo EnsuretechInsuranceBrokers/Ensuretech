@@ -247,4 +247,5 @@ def _max_bytes() -> int:
 def _policy_facts(p) -> dict:
     return {"policy_type": p.policy_type, "requires_family_construct": p.requires_family_construct,
             "start_date": p.start_date.isoformat(), "end_date": p.end_date.isoformat(),
-            "pro_rata_type": p.pro_rata_type, "relation_prorata": p.relation_prorata, "is_inception": p.is_inception, "policy_number": p.policy_number}
+            "pro_rata_type": p.pro_rata_type, "relation_prorata": p.relation_prorata, "contribution_type": p.contribution_type,
+            "contribution_groups": p.contribution_groups, "is_inception": p.is_inception, "policy_number": p.policy_number}

@@ -187,6 +187,9 @@ class PremiumLine(models.Model):
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2)
     tax = models.DecimalField(max_digits=16, decimal_places=2)
     total = models.DecimalField(max_digits=16, decimal_places=2)              # charged + tax
+    # employee / employer split of `charged` (before tax); null when the policy has no contribution plan
+    employee_charged = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    employer_charged = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
     # [{"relation_code": "SELF", "row_index": 3 | null, "member_id": 9 | null, "premium": "1000.00"}]
     member_premiums = models.JSONField(default=list)
 

@@ -28,12 +28,13 @@ public class PolicyController {
     private final PremiumService premiums;
     private final PolicyReadinessService readiness;
     private final RelationRuleService relationRules;
+    private final ContributionService contributions;
     private final SheetSpecService sheetSpecs;
     private final BigDecimal defaultTaxRate;
 
     PolicyController(PolicyService policies, RateCardService rateCards, FamilyConstructService families,
                      PremiumService premiums, PolicyReadinessService readiness,
-                     RelationRuleService relationRules, SheetSpecService sheetSpecs,
+                     RelationRuleService relationRules, ContributionService contributions, SheetSpecService sheetSpecs,
                      @Value("${app.default-tax-rate:18.00}") BigDecimal defaultTaxRate) {
         this.policies = policies;
         this.rateCards = rateCards;
@@ -41,6 +42,7 @@ public class PolicyController {
         this.premiums = premiums;
         this.readiness = readiness;
         this.relationRules = relationRules;
+        this.contributions = contributions;
         this.sheetSpecs = sheetSpecs;
         this.defaultTaxRate = defaultTaxRate;
     }
@@ -136,6 +138,23 @@ public class PolicyController {
     @GetMapping("/{id}/relation-rules")
     List<RelationRuleDto> getRelationRules(@PathVariable long id) {
         return relationRules.get(broker(), id).stream().map(RelationRuleDto::of).toList();
+    }
+
+    @PutMapping("/{id}/contributions")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    ContributionDto putContributions(@PathVariable long id, @Valid @RequestBody ContributionDto r) {
+        ContributionPlan.Type type;
+        try {
+            type = ContributionPlan.Type.valueOf(r.type());
+        } catch (IllegalArgumentException e) {
+            type = null;
+        }
+        return ContributionDto.of(contributions.put(broker(), id, type, r.groups()));
+    }
+
+    @GetMapping("/{id}/contributions")
+    ContributionDto getContributions(@PathVariable long id) {
+        return ContributionDto.of(contributions.get(broker(), id));
     }
 
     @GetMapping("/{id}/sheet-spec")

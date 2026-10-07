@@ -75,7 +75,8 @@ def price_chunk_task(job_id: str, chunk_index: int):
         PremiumLine.objects.bulk_create([PremiumLine(
             job_id=job_id, chunk_index=chunk_index, employee_code=l.employee_code, effective_date=l.effective_date,
             before_annual=l.before, after_annual=l.after, pro_rata_factor=l.factor, charged=l.charged, tax_rate=l.tax_rate,
-            tax=l.tax, total=l.total, member_premiums=l.member_premiums) for l in lines], batch_size=1000)
+            tax=l.tax, total=l.total, member_premiums=l.member_premiums,
+            employee_charged=l.employee_charged, employer_charged=l.employer_charged) for l in lines], batch_size=1000)
         last = chunks.complete(job_id, chunk_index, PRICE, counter="chunks_priced", rows=len(lines))
     if last:
         finalize_pricing(job_id)

@@ -104,6 +104,11 @@ message PolicyInfo {
   string premium_type_code = 11;
   bool requires_family_construct = 12;   // false for GPA/GTL: skip family validation
   repeated RelationRuleInfo relation_rules = 13;
+  // Employee/employer split: NONE (not configured: the split is unknown), PERCENT (employee pays that % of a member's premium) or FIXED
+  // (employee pays that amount per member, capped at the premium). Groups: SELF, SPOUSE, CHILD, PARENT_SINGLE, PARENT_DOUBLE,
+  // PARENT_IN_LAW_SINGLE, PARENT_IN_LAW_DOUBLE, OTHERS. Values are decimal strings.
+  string contribution_type = 14;
+  map<string, string> contribution_groups = 15;
 }
 
 // Per-relation rules (legacy policy_age_details). pro_rata_type is already resolved: NONE if the policy forbids pro-rata, else the

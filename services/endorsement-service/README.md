@@ -81,3 +81,8 @@ celery -A config worker -Q maintenance -B                    # outbox relay + GU
 pytest                                                        # needs PostgreSQL; creates a throwaway UTF-8 test database
 python scripts/e2e_with_policy_service.py                    # real policy-service + real identity tokens (see its docstring)
 ```
+
+## Employee / employer split
+When the policy has a contribution plan (policy-service `/contributions`), each `PremiumLine` carries `employee_charged` and `employer_charged` (sum = `charged`, before tax; tax is on the total).
+Computed per member as the change in the employee's share between "family today" and "family after this endorsement", pro-rated with that member's own factor, so a second parent
+turning "single" into "double" contributions re-prices the first parent's share too. No plan -> both are `NULL` (unknown). Not yet aggregated onto the job or sent in events.

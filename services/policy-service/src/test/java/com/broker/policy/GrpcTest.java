@@ -222,4 +222,17 @@ class GrpcTest extends IntegrationTestBase {
         info = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
         assertThat(info.getRelationRulesList()).extracting(RelationRuleInfo::getProRataType).containsOnly("NONE");
     }
+
+    @Test
+    void getPolicyCarriesTheContributionPlan() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-CT");
+        assertThat(stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getContributionType()).isEqualTo("NONE");
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/contributions")
+                .header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{\"type\":\"FIXED\",\"groups\":{\"SELF\":1200.50,\"CHILD\":300}}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        PolicyInfo info = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
+        assertThat(info.getContributionType()).isEqualTo("FIXED");
+        assertThat(info.getContributionGroupsMap()).containsEntry("SELF", "1200.5").containsEntry("CHILD", "300");
+    }
 }
