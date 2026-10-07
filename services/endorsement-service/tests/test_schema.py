@@ -12,7 +12,7 @@ def test_levenshtein():
 def test_common_headers_map_with_full_confidence():
     s = suggest_mapping(["Emp Code", "Relationship", "Member Name", "D.O.B", "Sum Insured", "Date of Joining"])
     assert {x.header: x.field for x in s} == {"Emp Code": "employee_code", "Relationship": "relation", "Member Name": "full_name",
-                                              "D.O.B": "dob", "Sum Insured": "sum_insured", "Date of Joining": "effective_date"}
+                                              "D.O.B": "dob", "Sum Insured": "sum_insured", "Date of Joining": "date_of_joining"}
     assert all(x.confidence == 1.0 for x in s)
 
 
@@ -45,3 +45,29 @@ def test_auto_confirm_requires_all_required_fields_and_high_confidence():
     good = suggest_mapping(["Emp Code", "Relationship", "Name", "DOB", "Sum Insured"])
     assert is_auto_confirmable(good, "ADD")
     assert not is_auto_confirmable(suggest_mapping(["Emp Code", "Name"]), "ADD")
+
+
+LEGACY = ["Employee Code", "Employee First Name", "Employee Last Name", "Employee Gender", "Employee DOB", "Employee Date of Joining", "Employee Email",
+          "Employee Mobile Number", "Relationship with Employee", "Insured Member First Name", "Insured Member Last Name", "Insured Member Gender",
+          "Insured Member DOB", "Suminsured", "OPD Suminsured", "Employee State", "Employee Annual Salary", "Date of Marriage", "Effective Date",
+          "Should Verify Email", "Default Password", "Batch Id"]
+
+
+def test_legacy_two_block_sheet_maps_each_block_to_its_own_fields():
+    f = fields(LEGACY)
+    assert f["Employee DOB"] == "emp_dob" and f["Insured Member DOB"] == "mem_dob"
+    assert f["Employee First Name"] == "emp_first_name" and f["Insured Member First Name"] == "mem_first_name"
+    assert f["Employee Gender"] == "emp_gender" and f["Employee Email"] == "emp_email" and f["Employee Mobile Number"] == "emp_mobile"
+    assert f["Employee Code"] == "employee_code" and f["Relationship with Employee"] == "relation" and f["Suminsured"] == "sum_insured"
+    assert f["Employee Date of Joining"] == "date_of_joining" and f["Effective Date"] == "effective_date" and f["Date of Marriage"] == "date_of_marriage"
+    assert f["Employee Annual Salary"] == "annual_salary"
+
+
+def test_a_shared_employee_prefix_is_never_mistaken_for_a_match():
+    f = fields(["Employee State", "Employee Pin Code", "Insured Member City", "Should Verify Email", "Default Password"])
+    assert all(v is None for v in f.values()), f                       # these used to map to full_name / employee_code with 0.7-0.8 confidence
+
+
+def test_dual_blocks_satisfy_the_required_fields():
+    mapped = {s.field for s in suggest_mapping(LEGACY) if s.field}
+    assert missing_required(mapped, "ADD") == []

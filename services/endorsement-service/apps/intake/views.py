@@ -37,8 +37,13 @@ def _file(request):
     f = request.FILES.get("file")
     if f is None:
         raise ValidationError({"file": "a CSV file is required (multipart field 'file')"})
-    if not f.name.lower().endswith(".csv"):
-        raise ValidationError({"file": "only .csv files are accepted"})
+    if not f.name.lower().endswith((".csv", ".xlsx")):
+        raise ValidationError({"file": "only .csv and .xlsx files are accepted"})
+    head = f.read(4)
+    f.seek(0)
+    is_zip = head == b"PK\x03\x04"
+    if f.name.lower().endswith(".xlsx") != is_zip:         # the extension must match the content: no CSV renamed .xlsx, no zip renamed .csv
+        raise ValidationError({"file": "the file content does not match its extension"})
     return f
 
 
@@ -175,6 +180,9 @@ class CsvUploadView(APIView):
             with store.open(stored.key) as fh:
                 headers = read_header(fh)
             mapping = self._resolve_mapping(request, headers, op, policy.employer_id)
+        except FileProblem as e:
+            store.delete(stored.key)
+            raise ParseError(str(e)) from e
         except Exception:
             store.delete(stored.key)
             raise

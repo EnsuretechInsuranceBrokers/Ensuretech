@@ -1,15 +1,17 @@
-"""Streaming CSV -> chunks of normalised rows. Never loads the whole file; memory is bounded by one chunk plus the
+"""Streaming CSV / Excel (.xlsx) -> chunks of normalised rows. Never loads the whole file; memory is bounded by one chunk plus the
 set of already-closed employee codes."""
 import codecs
 import csv
 import hashlib
 import io
 import json
+import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import date, datetime, time
 
-from .normalize import normalize_row
-from .schema import norm_header
+from .normalize import normalize_employee_code, normalize_relation, normalize_row
+from .schema import DUAL_FIELDS, norm_header
 
 
 class FileProblem(Exception):
@@ -47,7 +49,51 @@ def _detect_encoding(binary) -> str:
         return "cp1252"
 
 
+XLSX_MAGIC = b"PK\x03\x04"
+MAX_XLSX_UNCOMPRESSED = 300 * 1024 * 1024
+MAX_XLSX_RATIO = 200
+
+
+def _cell(v) -> str:
+    """One spreadsheet cell as the text a CSV would have carried. Dates become ISO; whole numbers lose Excel's trailing .0."""
+    if v is None:
+        return ""
+    if isinstance(v, datetime):
+        return v.date().isoformat() if v.time() == time(0, 0) else v.isoformat()
+    if isinstance(v, date):
+        return v.isoformat()
+    if isinstance(v, bool):
+        return "TRUE" if v else "FALSE"
+    if isinstance(v, float) and v.is_integer() and abs(v) < 1e15:
+        return str(int(v))
+    return str(v).strip()
+
+
+def _xlsx_reader(binary):
+    """First worksheet of an .xlsx, streamed (read-only mode). A .xlsx is a zip, so refuse decompression bombs before opening."""
+    try:
+        with zipfile.ZipFile(binary) as z:
+            infos = z.infolist()
+            total = sum(i.file_size for i in infos)
+            packed = sum(i.compress_size for i in infos) or 1
+            if total > MAX_XLSX_UNCOMPRESSED or total / packed > MAX_XLSX_RATIO:
+                raise FileProblem("the spreadsheet expands to an unreasonable size")
+        binary.seek(0)
+        from openpyxl import load_workbook
+        wb = load_workbook(binary, read_only=True, data_only=True)
+        sheet = wb.worksheets[0]
+    except FileProblem:
+        raise
+    except Exception as e:                    # noqa: BLE001  openpyxl/zipfile raise many types for a corrupt file
+        raise FileProblem(f"not a readable Excel file: {type(e).__name__}") from e
+    return ([_cell(v) for v in row] for row in sheet.iter_rows(values_only=True))
+
+
 def _reader(binary):
+    head = binary.read(4)
+    binary.seek(0)
+    if head == XLSX_MAGIC:
+        return _xlsx_reader(binary)
     enc = _detect_encoding(binary)
     text = io.TextIOWrapper(binary, encoding=enc, errors="replace", newline="")
     sample = text.read(8192)
@@ -67,6 +113,22 @@ def read_header(binary) -> list[str]:
     if not header or not any(c.strip() for c in header):
         raise FileProblem("file has no header row")
     return [c.strip() for c in header]
+
+
+def _merge_dual(raw: dict, source_key: str) -> dict:
+    """Legacy two-block layout: Self rows take the Employee* columns, every other relation takes the Insured Member* columns.
+    A dependant is never silently given the employee's DOB or name: a blank member cell stays blank and fails validation."""
+    if not any(k.startswith(("emp_", "mem_")) for k in raw):
+        return raw
+    rel, _ = normalize_relation(raw.get("relation"), source_key)
+    is_self = rel == "SELF"
+    out = {k: v for k, v in raw.items() if not k.startswith(("emp_", "mem_"))}
+    for canon, (emp, mem) in DUAL_FIELDS.items():
+        own, other = (emp, mem) if is_self else (mem, emp)
+        v = raw.get(own) or (raw.get(other) if is_self else "") or raw.get(canon, "")      # Self may fall back to the member block
+        if v:
+            out[canon] = v
+    return out
 
 
 def row_hash(op_type: str, normalised: dict) -> str:
@@ -92,6 +154,7 @@ def iter_chunks(binary, *, column_map: dict[str, str], op_type: str, source_key:
 
     chunk, index, total = Chunk(0), 0, 0
     last_code, closed = object(), set()      # sentinel: no previous row yet
+    family_doj: dict[str, str] = {}
     try:
         for line_no, cells in enumerate(reader, start=2):
             if not any(c.strip() for c in cells):
@@ -100,6 +163,12 @@ def iter_chunks(binary, *, column_map: dict[str, str], op_type: str, source_key:
             if total > max_rows:
                 raise TooManyRows(f"file has more than {max_rows} rows")
             raw = {f: cells[i].strip() for i, f in enumerate(fields) if f and i < len(cells)}
+            raw = _merge_dual(raw, source_key)
+            code_key = normalize_employee_code(raw.get("employee_code"))
+            if raw.get("date_of_joining") and code_key:
+                family_doj[code_key] = raw["date_of_joining"]
+            if not raw.get("effective_date") and code_key in family_doj:
+                raw["effective_date"] = family_doj[code_key]          # fallback only: an Effective Date column always wins
             norm, errors = normalize_row(raw, source_key=source_key, options=options,
                                          default_effective_date=default_effective_date)
             code = norm["employee_code"]
