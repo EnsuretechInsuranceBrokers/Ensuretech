@@ -71,3 +71,12 @@ def ingest_csv(self, job_id: str):
     store.delete(key)
     run_after_commit(lambda: dispatch_validation(job_id))
     return "ingested"
+
+
+@shared_task(name="apps.intake.tasks.expire_gui_sessions")
+def expire_gui_sessions() -> int:
+    """Open sessions past their deadline become ABANDONED so stale grids cannot be submitted days later."""
+    from django.utils import timezone
+
+    from .models import GuiSession
+    return GuiSession.objects.filter(state="OPEN", expires_at__lt=timezone.now()).update(state="ABANDONED")

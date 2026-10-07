@@ -95,3 +95,13 @@ MAX_UPLOAD_BYTES = env.int("MAX_UPLOAD_BYTES", default=200 * 1024 * 1024)
 # When validation passes CLEANLY, continue straight into premium calculation. Turn off to hold every job for a human
 # to confirm via /proceed/. (Once a job is confirmed or auto-started, the remaining steps always run.)
 PIPELINE_AUTO_CONTINUE = env.bool("PIPELINE_AUTO_CONTINUE", default=True)
+
+GUI_SESSION_TTL_HOURS = env.int("GUI_SESSION_TTL_HOURS", default=4)
+GUI_VALIDATE_RATE_PER_MINUTE = env.int("GUI_VALIDATE_RATE_PER_MINUTE", default=100)
+SSE_POLL_SECONDS = env.float("SSE_POLL_SECONDS", default=0.5)
+SSE_MAX_SECONDS = env.int("SSE_MAX_SECONDS", default=600)
+SSE_HEARTBEAT_SECONDS = env.int("SSE_HEARTBEAT_SECONDS", default=15)
+# Shared cache for rate limits (LocMem would be per-process and let a user multiply their budget by worker count).
+CACHES = {"default": ({"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": env("REDIS_URL")}
+                      if env("REDIS_URL", default="") else {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"})}
+CELERY_BEAT_SCHEDULE["expire-gui-sessions"] = {"task": "apps.intake.tasks.expire_gui_sessions", "schedule": 300.0}

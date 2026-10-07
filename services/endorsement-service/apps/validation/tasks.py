@@ -22,10 +22,11 @@ STAGE = "VALIDATE"
 MAX_ATTEMPTS = 6                          # attempts are counted in the database, so they survive lost messages
 
 
-def dispatch_validation(job_id) -> None:
-    """Queue one task per chunk. Called after the staging transaction has committed."""
+def dispatch_validation(job_id, queue: str | None = None) -> None:
+    """Queue one task per chunk. Called after the staging transaction has committed. Interactive (GUI) jobs pass
+    queue="validation.high" so a person waiting on a screen never sits behind a 1M-row file."""
     for idx in chunks.stage_indexes(job_id, STAGE):
-        validate_chunk.apply_async(args=[str(job_id), idx])
+        validate_chunk.apply_async(args=[str(job_id), idx], **({"queue": queue} if queue else {}))
 
 
 def _fail_job(job_id, idx, reason: str) -> None:
