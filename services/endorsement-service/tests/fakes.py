@@ -47,6 +47,7 @@ class FakePolicyClient:
 
     def validate_families(self, broker_id, policy_id, families):
         self._maybe_fail("validate_families")
+        type(self).seen_families = {ref: list(people) for ref, people in families.items()}     # what policy-service would have received
         c = self.constructs.get((broker_id, policy_id))
         if c is None:
             raise PolicyNotFound("no family construct")

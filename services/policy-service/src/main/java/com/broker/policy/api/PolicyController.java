@@ -147,7 +147,7 @@ public class PolicyController {
     IssuesResponse validateFamily(@PathVariable long id, @Valid @RequestBody FamilyValidateRequest r) {
         policies.get(broker(), id);
         return IssuesResponse.of(families.validate(broker(), id,
-                r.members().stream().map(m -> new FamilyConstructService.Person(m.relationCode(), m.age())).toList()));
+                r.members().stream().map(m -> new FamilyConstructService.Person(m.relationCode(), m.age(), m.dob())).toList()));
     }
 
     @PostMapping("/{id}/premium/quote")

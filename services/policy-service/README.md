@@ -63,7 +63,7 @@ Family construct rules (assumptions): `allowed_relations` is authoritative; savi
 - `PUT/GET /policies/{id}/relation-rules` (the legacy `policy_age_details`): per relation `minAge`, `maxAge`, `ageDifference` + `differenceFromRelation` (SELF or SPOUSE),
   `proRataType` (inherits the policy's; the policy's NONE wins), `maxTwins`. Replaced atomically. Enforced by `ValidateFamilies`: `RELATION_AGE_BELOW_MIN`, `RELATION_AGE_ABOVE_MAX`,
   `AGE_GAP_TOO_SMALL` (whole-year ages, so +-1 year against the legacy date-based check), and `ADULT_UNDER_18` for self, spouse, parents and in-laws when no minimum is set.
-  Stored but **not yet enforced**: `maxTwins` (needs dates of birth, which validation does not receive).
+  `maxTwins` is enforced as `TWINS_EXCEEDED` when validation receives dates of birth (the engine sends them; REST `dob` is optional): children sharing a birth date are twins; the limit is the smallest configured `maxTwins` among them (0 counts as 1). If none of the twins' relations has a rule row, twins are **not** checked (assumption: legacy only limited them when configured; confirm).
 - `GET /policies/{id}/sheet-spec` (`sheet-spec/v1`): the policy's premium type, valid grades / designations / age bands / LOL limits taken from the active rate card, allowed relations and limits,
   relation rules with the resolved pro-rata kind, and what an upload sheet must carry. Missing configuration is reported under `gaps`, never guessed. `GetPolicy` (gRPC) carries `relation_rules`.
 

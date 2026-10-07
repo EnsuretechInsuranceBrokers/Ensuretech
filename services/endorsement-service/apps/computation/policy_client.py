@@ -53,6 +53,7 @@ class FamilyIssue:
 class Person:
     relation_code: str
     age: int
+    dob: str | None = None      # ISO date; lets the policy tell twins from siblings
 
 
 @dataclass(frozen=True)
@@ -136,7 +137,7 @@ class GrpcPolicyClient:
     def validate_families(self, broker_id, policy_id, families):
         pb = self._pb
         req = pb.FamilyValidationRequest(policy_id=policy_id, broker_id=broker_id, families=[
-            pb.Family(family_ref=ref, people=[pb.Person(relation_code=p.relation_code, age=p.age) for p in people])
+            pb.Family(family_ref=ref, people=[pb.Person(relation_code=p.relation_code, age=p.age, dob=p.dob or "") for p in people])
             for ref, people in families.items()])
         r = self._call(self._stub.ValidateFamilies, req)
         return {res.family_ref: [FamilyIssue(i.code, i.message, i.member_index) for i in res.issues]

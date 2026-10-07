@@ -99,7 +99,7 @@ public final class Dtos {
 
     public record PutRelationRulesRequest(@NotNull List<@Valid RelationRuleDto> rules) {}
 
-    public record PersonDto(@NotBlank String relationCode, @NotNull @PositiveOrZero Integer age) {}
+    public record PersonDto(@NotBlank String relationCode, @NotNull @PositiveOrZero Integer age, String dob) {}
 
     public record FamilyValidateRequest(@NotEmpty List<@Valid PersonDto> members) {}
 

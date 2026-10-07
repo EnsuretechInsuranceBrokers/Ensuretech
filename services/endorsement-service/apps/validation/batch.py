@@ -95,11 +95,12 @@ def validate_rows(job: EndorsementJob, staged: list, policy_facts: dict, client:
             if any(i in bad_rows for i in idxs):
                 continue                                    # row-level problems already reported; avoid noise
             ref = date.fromisoformat(df.at[idxs[0], "effective_date"])
-            people = [Person(m.relation_code, _age(m.date_of_birth, ref)) for m in roster if m.employee_code == code]
+            people = [Person(m.relation_code, _age(m.date_of_birth, ref), m.date_of_birth.isoformat()) for m in roster if m.employee_code == code]
             own = [None] * len(people)
             for i in idxs:
                 people.append(Person(df.at[i, "relation_code"], _age(date.fromisoformat(df.at[i, "dob"]),
-                                                                    date.fromisoformat(df.at[i, "effective_date"]))))
+                                                                    date.fromisoformat(df.at[i, "effective_date"])),
+                                     df.at[i, "dob"]))
                 own.append(i)
             # policy-service wants the employee first; roster members already include SELF when it exists
             families[code], owners[code] = people, own

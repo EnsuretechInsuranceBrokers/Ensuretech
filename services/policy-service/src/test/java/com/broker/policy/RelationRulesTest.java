@@ -84,6 +84,19 @@ class RelationRulesTest extends IntegrationTestBase {
     }
 
     @Test
+    void twinsAreCountedFromSharedBirthDatesAndOnlyWhereTheRulesConfigureThem() throws Exception {
+        long id = policy("R-3", "{\"flat\":1000}");
+        String twins = "[{\"relationCode\":\"SELF\",\"age\":40},{\"relationCode\":\"SON\",\"age\":10,\"dob\":\"2016-03-04\"},{\"relationCode\":\"DAUGHTER\",\"age\":10,\"dob\":\"2016-03-04\"}]";
+        org.assertj.core.api.Assertions.assertThat(validate(id, twins)).contains("\"valid\":true");                          // no rules configured: not enforced
+        putRules(id, "[{\"relationCode\":\"SON\",\"maxTwins\":1}]", status().isOk());
+        org.assertj.core.api.Assertions.assertThat(validate(id, twins)).contains("TWINS_EXCEEDED");                             // the rule says no twins
+        String siblings = twins.replace("\"dob\":\"2016-03-04\"}]", "\"dob\":\"2015-01-01\"}]");
+        org.assertj.core.api.Assertions.assertThat(validate(id, siblings)).contains("\"valid\":true");                         // different dates are just siblings
+        putRules(id, "[{\"relationCode\":\"SON\",\"maxTwins\":2}]", status().isOk());
+        org.assertj.core.api.Assertions.assertThat(validate(id, twins)).contains("\"valid\":true");
+    }
+
+    @Test
     void sheetSpecDescribesWhatTheRateCardAndConstructAllow() throws Exception {
         long id = createPolicy(BROKER_A, EMP_A, "S-1", "GRADE", "GMC");
         mvc.perform(get(url(id, "/sheet-spec")).header("Authorization", admin(BROKER_A))).andExpect(status().isOk())

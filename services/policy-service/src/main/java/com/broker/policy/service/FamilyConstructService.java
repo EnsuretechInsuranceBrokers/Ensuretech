@@ -11,7 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FamilyConstructService {
-    public record Person(String relationCode, int age) {}
+    /** {@code dob} (ISO date) is optional; without it twins cannot be told apart from siblings of the same age. */
+    public record Person(String relationCode, int age, String dob) {
+        public Person(String relationCode, int age) { this(relationCode, age, null); }
+    }
 
     private final PolicyRepository policies;
     private final FamilyConstructRepository constructs;
@@ -120,6 +123,28 @@ public class FamilyConstructService {
         return all;
     }
 
+    /**
+     * Children sharing a birth date are twins. They are only counted when the policy has configured per-relation rules for them: the limit is the
+     * smallest max_twins among the configured ones (at least 1, so 0 means "no twins"). No rule row for any of them = not configured, not enforced.
+     */
+    private static void checkTwins(List<Violation> out, List<Person> people, Map<String, RelationType> byCode, Map<String, RelationRule> rules) {
+        Map<String, List<Integer>> byDob = new LinkedHashMap<>();
+        for (int i = 0; i < people.size(); i++) {
+            Person p = people.get(i);
+            RelationType r = byCode.get(p.relationCode());
+            if (p.dob() != null && !p.dob().isBlank() && r != null && "CHILD".equals(r.getRelationGroup())) byDob.computeIfAbsent(p.dob(), k -> new ArrayList<>()).add(i);
+        }
+        byDob.forEach((dob, idx) -> {
+            if (idx.size() < 2) return;
+            OptionalInt limit = idx.stream().map(i -> rules.get(people.get(i).relationCode())).filter(Objects::nonNull)
+                    .mapToInt(r -> Math.max(1, r.getMaxTwins())).min();
+            if (limit.isPresent() && idx.size() > limit.getAsInt()) {
+                out.add(new Violation("TWINS_EXCEEDED", idx.size() + " children share the birth date " + dob + " but the policy allows " + limit.getAsInt()
+                        + " (relation rules: max_twins)", idx.get(limit.getAsInt())));
+            }
+        });
+    }
+
     private static List<Violation> check(FamilyConstruct c, Map<String, RelationType> byCode, Set<Integer> allowed,
                                          Map<String, RelationRule> rules, List<Person> people) {
         List<Violation> out = new ArrayList<>();
@@ -151,6 +176,7 @@ public class FamilyConstructService {
         if (people.size() > c.getMaxMembers()) {
             out.add(new Violation("MAX_MEMBERS_EXCEEDED", people.size() + " members, max " + c.getMaxMembers(), -1));
         }
+        checkTwins(out, people, byCode, rules);
         if (c.getMaxChildren() != null && children > c.getMaxChildren()) {
             out.add(new Violation("MAX_CHILDREN_EXCEEDED", children + " children, max " + c.getMaxChildren(), -1));
         }

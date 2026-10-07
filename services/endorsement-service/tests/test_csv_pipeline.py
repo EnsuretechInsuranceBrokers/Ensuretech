@@ -385,3 +385,14 @@ def test_cancel_after_upload_stops_a_job_that_is_waiting_for_a_decision(world):
     job = job_from(upload(client_for(), csv_text("1,Self,A,1990-01-01,M,1,,", "2,Self,,1990-01-01,M,1,,"), effective_date="2030-04-01"))
     assert job.status == "VALIDATION_PARTIAL"
     assert client_for().post(f"{BASE}{job.id}/cancel/").json()["status"] == "CANCELLED_BY_HR"
+
+
+def test_birth_dates_are_sent_to_policy_service_so_twins_can_be_detected(world):
+    text = csv_text(
+        "4001,Self,Dad,1980-01-01,M,500000,,",
+        "4001,Son,Twin One,2016-03-04,M,500000,,",
+        "4001,Daughter,Twin Two,2016-03-04,F,500000,,",
+    )
+    upload(client_for(), text, effective_date="2030-04-01")
+    people = world.seen_families["4001"]
+    assert [p.dob for p in people] == ["1980-01-01", "2016-03-04", "2016-03-04"]

@@ -121,6 +121,7 @@ message RelationRuleInfo {
 message Person {
   string relation_code = 1;
   int32 age = 2;
+  string dob = 3;                // ISO date, optional; lets the policy detect twins (children sharing a birth date)
 }
 
 message Family {

@@ -190,7 +190,7 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
             policies.get(broker, req.getPolicyId());                      // tenant check first
             List<List<FamilyConstructService.Person>> input = req.getFamiliesList().stream()
                     .map(f -> f.getPeopleList().stream()
-                            .map(p -> new FamilyConstructService.Person(p.getRelationCode(), p.getAge())).toList())
+                            .map(p -> new FamilyConstructService.Person(p.getRelationCode(), p.getAge(), p.getDob().isBlank() ? null : p.getDob())).toList())
                     .toList();
             var results = families.validateMany(broker, req.getPolicyId(), input);
             FamilyValidationResponse.Builder b = FamilyValidationResponse.newBuilder();
