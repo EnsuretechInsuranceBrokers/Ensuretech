@@ -1,0 +1,17 @@
+[project]
+name = "read-service"
+version = "0.1.0"
+description = "Ensuretech read layer: MongoDB read models projected from events, plus tenant-isolated RAG"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.1,<6.2", "djangorestframework>=3.17", "pymongo>=4.10", "pyjwt[crypto]>=2.10", "numpy>=2",
+    "confluent-kafka>=2.8", "anthropic>=1.11", "django-environ>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9", "pytest-django>=4.11"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["."]
+testpaths = ["tests"]

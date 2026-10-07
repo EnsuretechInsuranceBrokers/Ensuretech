@@ -199,6 +199,7 @@ public class CdLedgerService {
         body.put("balance", after.toPlainString());
         body.put("reserved", acct.getReserved().toPlainString());
         body.put("available", acct.available().toPlainString());
+        body.put("threshold", acct.getThresholdAmount().toPlainString());
         body.put("reference_type", refType.name());
         body.put("reference_id", refId);
         outbox.publish("CdAccount", acct.getPolicyId(), "CdBalanceUpdated", TOPIC, String.valueOf(acct.getBrokerId()), body);

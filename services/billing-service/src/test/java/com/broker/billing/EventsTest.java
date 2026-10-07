@@ -79,4 +79,16 @@ class EventsTest extends IntegrationTestBase {
             assertThat(s.key()).isEqualTo("1");
         });
     }
+
+    @Test
+    void cdBalanceUpdatedHasExactlyTheSharedSampleFields() throws Exception {
+        handler.handle(sample("policy-approved"));
+        ledger.credit(1L, 1L, new java.math.BigDecimal("100.00"), com.broker.billing.domain.LedgerEntry.ReferenceType.DEPOSIT, "contract-1", "seed", "test");
+        String real = jdbc.sql("SELECT payload::text FROM outbox.outbox_events WHERE event_type='CdBalanceUpdated'").query(String.class).single();
+        var mapper = new tools.jackson.databind.ObjectMapper();
+        java.util.TreeSet<String> realKeys = new java.util.TreeSet<>(), sampleKeys = new java.util.TreeSet<>();
+        mapper.readTree(real).propertyNames().forEach(realKeys::add);
+        mapper.readTree(sample("cd-balance-updated")).propertyNames().forEach(sampleKeys::add);
+        assertThat(realKeys).as("CdBalanceUpdated fields drifted from shared/contracts/events").isEqualTo(sampleKeys);
+    }
 }

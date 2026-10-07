@@ -1,0 +1,15 @@
+{
+  "event_id": "7d2e3e20-9f79-4d6a-9fac-2c0b4f2e3b77",
+  "event_type": "CdBalanceUpdated",
+  "broker_id": 1,
+  "employer_id": 10,
+  "policy_id": 1,
+  "entry_type": "DEBIT",
+  "amount": "1765.15",
+  "balance": "3234.85",
+  "reserved": "0.00",
+  "available": "3234.85",
+  "threshold": "5000.00",
+  "reference_type": "ENDORSEMENT",
+  "reference_id": "3f6c1c0e-7d57-4b4e-9d8a-0a8f2d0c1a11"
+}

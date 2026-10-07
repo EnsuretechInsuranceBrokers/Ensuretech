@@ -12,3 +12,5 @@ Changing a field means changing the sample, which fails whichever side forgot to
 | `endorsement-applied` (second consumer) | endorsement-service | integration-service (creates the TPA sync job; fetches members from the engine's internal API) |
 | `tpa-sync-completed` | integration-service (`tpa.events`) | none yet (insurer reports, notifications) |
 | `tpa-sync-failed` | integration-service (`tpa.events`) | none yet (alerting); a dead-lettered sync waits for an operator retry |
+| all event samples above | various | read-service (projects them into MongoDB read models and RAG history chunks) |
+| `cd-balance-updated` | billing-service (`cd-balance.updates`) | read-service |
