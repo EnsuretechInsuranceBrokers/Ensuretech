@@ -138,6 +138,11 @@ def split_full_name(raw) -> tuple[str | None, str | None]:
     return " ".join(parts[:-1]) or parts[0], (parts[-1] if len(parts) > 1 else None)
 
 
+AMOUNT_FIELDS = ("sum_insured", "annual_salary", "salary_variables", "number_of_time_salary", "no_of_time_suminsured", "employee_premium", "employer_premium",
+                 "opd_sum_insured", "opd_employee_premium", "opd_employer_premium", "ctc")
+TEXT_FIELDS = ("state", "city", "pincode", "location", "zone", "flex_plan", "self_si_selection", "cover_type", "member_existing_claim", "endorsement_number", "type_of_correction")
+
+
 # ── whole row ─────────────────────────────────────────────────────────────────────────────────────────────
 def normalize_row(raw: dict, *, source_key: str = "", options: dict | None = None,
                   default_effective_date: str | None = None, today: date | None = None) -> tuple[dict, list[dict]]:
@@ -166,9 +171,11 @@ def normalize_row(raw: dict, *, source_key: str = "", options: dict | None = Non
 
     gender, err = normalize_gender(raw.get("gender"))
     out["gender"] = keep("gender", gender, err)
-    for f in ("sum_insured", "annual_salary"):
+    for f in AMOUNT_FIELDS:
         v, err = normalize_amount(raw.get(f))
         out[f] = keep(f, v, err)
+    for f in TEXT_FIELDS:
+        out[f] = _clean(raw.get(f)) or None
 
     out["pan"] = normalize_pan(raw.get("pan"))
     out["mobile"] = normalize_mobile(raw.get("mobile"))

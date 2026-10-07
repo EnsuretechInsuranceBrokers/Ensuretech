@@ -86,3 +86,9 @@ python scripts/e2e_with_policy_service.py                    # real policy-servi
 When the policy has a contribution plan (policy-service `/contributions`), each `PremiumLine` carries `employee_charged` and `employer_charged` (sum = `charged`, before tax; tax is on the total).
 Computed per member as the change in the employee's share between "family today" and "family after this endorsement", pro-rated with that member's own factor, so a second parent
 turning "single" into "double" contributions re-prices the first parent's share too. No plan -> both are `NULL` (unknown). Not yet aggregated onto the job or sent in events.
+
+## Legacy rater inputs on the add-sheet
+Salary, variables in salary, number of times salary (Employee / Insured Member), state, city, pin code, location, zone, flex plan, self SI selection, cover type, `Employee/Employer Premium`, OPD SI and premiums, `No of Time Suminsured`, endorsement number and
+type of correction now map to fields of their own and are normalised and carried in the staged row (they used to be dropped, or worse, mis-mapped: `CTC` was salary, `Mobile No Code` a mobile number). New rules (both validators, parity-fuzzed):
+`sum_insured` is **not required on ADD when annual salary and number of times salary are present** (the legacy salary raters compute it; a dependant row inherits the employee's salary and multiple), a multiple must be > 0, premiums cannot be negative.
+Not done: the engine does not compute sum insured from salary or price state/salary-multiple raters (policy-service's rate cards do not model them), so those values are validated and carried, not used for pricing.

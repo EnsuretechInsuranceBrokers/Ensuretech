@@ -155,6 +155,7 @@ def iter_chunks(binary, *, column_map: dict[str, str], op_type: str, source_key:
     chunk, index, total = Chunk(0), 0, 0
     last_code, closed = object(), set()      # sentinel: no previous row yet
     family_doj: dict[str, str] = {}
+    family_salary: dict[str, tuple[str, str]] = {}
     try:
         for line_no, cells in enumerate(reader, start=2):
             if not any(c.strip() for c in cells):
@@ -169,6 +170,14 @@ def iter_chunks(binary, *, column_map: dict[str, str], op_type: str, source_key:
                 family_doj[code_key] = raw["date_of_joining"]
             if not raw.get("effective_date") and code_key in family_doj:
                 raw["effective_date"] = family_doj[code_key]          # fallback only: an Effective Date column always wins
+            if op_type == "ADD" and code_key:
+                # Legacy raters read salary and the salary multiple from the EMPLOYEE for every member: a dependant row does not repeat them.
+                if raw.get("annual_salary") and raw.get("number_of_time_salary"):
+                    family_salary[code_key] = (raw["annual_salary"], raw["number_of_time_salary"])
+                elif code_key in family_salary and not raw.get("annual_salary"):
+                    raw["annual_salary"] = family_salary[code_key][0]
+                    if not raw.get("number_of_time_salary"):
+                        raw["number_of_time_salary"] = family_salary[code_key][1]
             norm, errors = normalize_row(raw, source_key=source_key, options=options,
                                          default_effective_date=default_effective_date)
             code = norm["employee_code"]

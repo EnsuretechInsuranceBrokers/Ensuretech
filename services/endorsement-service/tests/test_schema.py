@@ -64,8 +64,10 @@ def test_legacy_two_block_sheet_maps_each_block_to_its_own_fields():
 
 
 def test_a_shared_employee_prefix_is_never_mistaken_for_a_match():
-    f = fields(["Employee State", "Employee Pin Code", "Insured Member City", "Should Verify Email", "Default Password"])
+    f = fields(["Should Verify Email", "Default Password", "Employee Unit", "Is VIP Employee"])
     assert all(v is None for v in f.values()), f                       # these used to map to full_name / employee_code with 0.7-0.8 confidence
+    g = fields(["Employee State", "Employee Pin Code"])
+    assert g == {"Employee State": "state", "Employee Pin Code": "pincode"}      # rater inputs now have fields of their own
 
 
 def test_dual_blocks_satisfy_the_required_fields():

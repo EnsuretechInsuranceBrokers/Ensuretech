@@ -16,10 +16,24 @@ SYNONYMS: dict[str, list[str]] = {
     "mobile": ["mobile", "mobile no", "mobile number", "phone", "phone number", "contact number", "contact no"],
     "email": ["email", "e mail", "email id", "email address", "mail"],
     "grade": ["grade", "band", "level", "employee grade"],
-    "designation": ["designation", "title", "job title", "position"],
-    "annual_salary": ["salary", "annual salary", "ctc", "annual ctc", "gross salary", "annual income"],
+    "designation": ["designation", "employee designation", "title", "job title", "position"],
+    "annual_salary": ["salary", "annual salary", "employee annual salary", "annual ctc", "gross salary", "annual income"],
+    "ctc": ["ctc"],
     "sum_insured": ["sum insured", "si", "suminsured", "cover", "coverage", "sum assured", "cover amount"],
-    "effective_date": ["effective date", "eff date", "start date", "coverage start", "date of leaving", "dol", "leaving date", "removal date"],
+    "effective_date": ["effective date", "eff date", "start date", "coverage start", "date of leaving", "dol", "leaving date", "removal date", "employee leaving date"],
+    # Rater inputs of the legacy add-sheet: the legacy rater reads these to compute sum insured / premium, so they are carried, not dropped.
+    "salary_variables": ["variables in salary", "employee variables in salary", "variable pay", "salary variables"],
+    "state": ["state", "employee state"], "city": ["city", "employee city"], "pincode": ["pin code", "employee pin code", "pincode", "postal code", "zip"],
+    "location": ["location", "work location"], "zone": ["zone"], "flex_plan": ["flex plan"], "self_si_selection": ["self si selection"],
+    "cover_type": ["cover type"], "member_existing_claim": ["member existing claim"],
+    "no_of_time_suminsured": ["employee no of time suminsured", "no of time suminsured", "number of time suminsured", "no of times suminsured"],
+    "employee_premium": ["employee premium", "ipd employee premium"], "employer_premium": ["employer premium", "ipd employer premium"],
+    "opd_sum_insured": ["opd suminsured", "opd sum insured"], "opd_employee_premium": ["opd employee premium"], "opd_employer_premium": ["opd employer premium"],
+    "endorsement_number": ["endorsement number", "endrosement number", "endorsement no", "endorsement id", "endrosement id"],
+    # Legacy columns the engine does not use, claimed by name so they are not guessed onto a real field ("Mobile No Code" is not a mobile number).
+    "mobile_code": ["mobile no code", "mobile code", "country code"], "aadhar_number": ["aadhar number", "aadhaar number", "aadhar no"],
+    "account_number": ["account number"], "abha_id": ["abha id"], "insurer_endorsement_id": ["insurer endorsement id"], "insurer_removal_id": ["insurer removal id"], "insurer_correction_id": ["insurer correction id"],
+    "type_of_correction": ["type of correction", "correction type"],
     # Date of joining is only a fallback for the effective date (see parser): an explicit Effective Date column always wins.
     "date_of_joining": ["date of joining", "employee date of joining", "doj", "joining date"],
     "date_of_marriage": ["date of marriage", "marriage date", "dom"],
@@ -31,6 +45,8 @@ SYNONYMS: dict[str, list[str]] = {
     "emp_dob": ["employee dob", "employee date of birth"],
     "emp_email": ["employee email", "employee email id"],
     "emp_mobile": ["employee mobile number", "employee mobile"],
+    "emp_number_of_time_salary": ["employee number of time salary", "employee no of time salary", "employee number of times salary"],
+    "mem_number_of_time_salary": ["insured member number of time salary", "member number of time salary"],
     "mem_first_name": ["insured member first name", "member first name", "dependent first name"],
     "mem_last_name": ["insured member last name", "member last name", "dependent last name"],
     "mem_gender": ["insured member gender", "member gender", "dependent gender"],
@@ -41,7 +57,7 @@ SYNONYMS: dict[str, list[str]] = {
 DUAL_FIELDS = {          # canonical -> (employee-side field, member-side field)
     "first_name": ("emp_first_name", "mem_first_name"), "last_name": ("emp_last_name", "mem_last_name"),
     "gender": ("emp_gender", "mem_gender"), "dob": ("emp_dob", "mem_dob"), "email": ("emp_email", "mem_email"),
-    "mobile": ("emp_mobile", "mem_mobile"),
+    "mobile": ("emp_mobile", "mem_mobile"), "number_of_time_salary": ("emp_number_of_time_salary", "mem_number_of_time_salary"),
 }
 GENERIC_PREFIX = frozenset({"employee", "emp", "insured", "member", "dependent", "dependant"})
 

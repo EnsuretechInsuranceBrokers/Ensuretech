@@ -18,7 +18,7 @@ MOBILE_RE = re.compile(r"^[6-9][0-9]{9}$")
 MAX_AGE = 100
 
 COLUMNS = ["employee_code", "relation_code", "first_name", "last_name", "dob", "gender", "pan", "mobile", "email",
-           "grade", "designation", "annual_salary", "sum_insured", "effective_date"]
+           "grade", "designation", "annual_salary", "sum_insured", "effective_date", "number_of_time_salary", "employee_premium", "employer_premium"]
 UPDATABLE = ["first_name", "last_name", "dob", "gender", "pan", "mobile", "email", "grade", "designation",
              "annual_salary", "sum_insured"]
 REQUIRED = {
@@ -26,9 +26,13 @@ REQUIRED = {
     "REMOVE": ["employee_code", "relation_code", "effective_date"],
     "UPDATE": ["employee_code", "relation_code"],
 }
+# Legacy salary-multiple raters compute the sum insured from salary x number of times salary, and leave the Suminsured column blank:
+# for those rows sum_insured is not required on ADD.
+SALARY_DERIVED_NOTE = "sum_insured is required for ADD unless annual salary and number of times salary are given (the rater computes it)"
 # parse-time error rule code -> canonical column it concerns (so a bad cell is not also reported as "missing")
 PARSE_FIELD = {"relation": "relation_code", "dob": "dob", "effective_date": "effective_date", "gender": "gender",
-               "sum_insured": "sum_insured", "annual_salary": "annual_salary", "employee_code": "employee_code"}
+               "sum_insured": "sum_insured", "annual_salary": "annual_salary", "employee_code": "employee_code",
+               "number_of_time_salary": "number_of_time_salary", "employee_premium": "employee_premium", "employer_premium": "employer_premium"}
 
 
 @dataclass(frozen=True)
@@ -65,7 +69,11 @@ def issues_scalar(row: dict, op: str, today: date, row_index: int = 0) -> list[I
     def add(field, rule, msg, sev="ERROR"):
         out.append(Issue(row_index, field, rule, sev, msg, "" if _blank(row.get(field)) else str(row.get(field))))
 
+    derived = not _blank(row.get("annual_salary")) and not _blank(row.get("number_of_time_salary")) \
+        and "annual_salary" not in parse_bad and "number_of_time_salary" not in parse_bad
     for f in REQUIRED[op]:
+        if f == "sum_insured" and derived:
+            continue
         if _blank(row.get(f)) and f not in parse_bad:
             add(f, "REQUIRED_FIELD", f"{f} is required for {op}")
     if op == "UPDATE" and all(_blank(row.get(f)) for f in UPDATABLE) and not parse_bad & set(UPDATABLE):
@@ -92,6 +100,11 @@ def issues_scalar(row: dict, op: str, today: date, row_index: int = 0) -> list[I
         add("sum_insured", "SUM_INSURED_NOT_POSITIVE", "sum insured must be greater than zero")
     if not _blank(row.get("annual_salary")) and "annual_salary" not in parse_bad and float(row["annual_salary"]) < 0:
         add("annual_salary", "SALARY_NEGATIVE", "annual salary cannot be negative")
+    if not _blank(row.get("number_of_time_salary")) and "number_of_time_salary" not in parse_bad and float(row["number_of_time_salary"]) <= 0:
+        add("number_of_time_salary", "MULTIPLE_NOT_POSITIVE", "number of times salary must be greater than zero")
+    for f in ("employee_premium", "employer_premium"):
+        if not _blank(row.get(f)) and f not in parse_bad and float(row[f]) < 0:
+            add(f, "PREMIUM_NEGATIVE", f"{f.replace('_', ' ')} cannot be negative")
     return out
 
 
@@ -120,8 +133,12 @@ def issues_vectorized(df: pd.DataFrame, op: str, today: date) -> list[Issue]:
             v = df.at[i, field] if field else ""
             out.append(Issue(int(i), field, rule, sev, msg, "" if _blank(v) else str(v)))
 
+    derived = ~blank["annual_salary"] & ~pb["annual_salary"] & ~blank["number_of_time_salary"] & ~pb["number_of_time_salary"]
     for f in REQUIRED[op]:
-        emit(blank[f] & ~pb[f], f, "REQUIRED_FIELD", f"{f} is required for {op}")
+        mask = blank[f] & ~pb[f]
+        if f == "sum_insured":
+            mask = mask & ~derived
+        emit(mask, f, "REQUIRED_FIELD", f"{f} is required for {op}")
     if op == "UPDATE":
         none_set = pd.concat([blank[f] for f in UPDATABLE], axis=1).all(axis=1)
         any_bad = pd.concat([pb[f] for f in UPDATABLE], axis=1).any(axis=1)
@@ -154,4 +171,9 @@ def issues_vectorized(df: pd.DataFrame, op: str, today: date) -> list[Issue]:
     if op == "ADD":
         emit(si.notna() & (si <= 0), "sum_insured", "SUM_INSURED_NOT_POSITIVE", "sum insured must be greater than zero")
     emit(sal.notna() & (sal < 0), "annual_salary", "SALARY_NEGATIVE", "annual salary cannot be negative")
+    mult = pd.to_numeric(df["number_of_time_salary"].where(~blank["number_of_time_salary"] & ~pb["number_of_time_salary"]), errors="coerce")
+    emit(mult.notna() & (mult <= 0), "number_of_time_salary", "MULTIPLE_NOT_POSITIVE", "number of times salary must be greater than zero")
+    for f in ("employee_premium", "employer_premium"):
+        p = pd.to_numeric(df[f].where(~blank[f] & ~pb[f]), errors="coerce")
+        emit(p.notna() & (p < 0), f, "PREMIUM_NEGATIVE", f"{f.replace('_', ' ')} cannot be negative")
     return out

@@ -55,12 +55,22 @@ or when the age rules leave no valid employee age. Nothing is guessed.
   A date of birth is never "updated" blindly.
 
 ## The standalone HTML
-`src/main/resources/static/index.html` is **a superset of the original Add-Sheet Generator**: the original page is included unchanged (sections 1-6: template upload, rater types,
-dependents, optional fields, localStorage counter, xlsx/csv) and **section 7, "Policy mode"**, is added beside it. They share nothing at runtime (separate `pm-*` element ids, separate
-script blocks, separate counter key), so either keeps working if the other is removed.
-It needs no service and no network: open it from disk. (The original's SheetJS/GSAP/fonts still come from a CDN when online; offline it says so and Policy mode, which has its own writers, is unaffected.)
+`src/main/resources/static/index.html` is **a superset of the original Add-Sheet Generator**: the original page (sections 1-6: template upload, rater types, dependents, optional fields, localStorage counter, xlsx/csv) is kept, extended as below, and works offline from disk
+(the original's SheetJS/GSAP/fonts still come from a CDN when online; offline the page says so, and everything below has its own readers/writers).
 
-Policy mode: load a spec (paste/open the JSON from policy-service, "Sample policy" to try it, or - when served by this service - policy id + token), pick ADD / UPDATE / REMOVE, generate, download.
+**Sections 1-6 now support every legacy rater** (`docs/legacy/rater-definitions.md`):
+* Section 3, *Use the full legacy rater model* (off = the original simple raters, unchanged): pick any of the **26 sum-insured subtypes** and **29 premium types**; define the rates by uploading a **sum-insured definition sheet** and a **premium definition sheet**
+  (.xlsx or .csv, one row per rate row, headers = the legacy `master_policy_rates` columns such as `Flat Suminsured`, `Grade`, `Grade Suminsured`, `Age`, `Age Permilly`, `No Of Times Of Salary`, `Min Si Limit`, `Rounding Type`, `No Of Adult`, `Total Cover`, `Self Premium`, `Self Employee Contribution` ...;
+  matched by letters so `Flat Suminsured` = `flat_suminsured`), or use the built-in sample rates / download a sample sheet to fill in.
+* The generator builds each family so the rater finds a row: grade/designation/state/salary multiple from the rows, family shape (adults/children) from a construct row, birth dates inside the age bands. SI follows the legacy rules (salary x multiple rounded, clamped, rounded to the row's unit; construct columns per relation; the second parent of a pair carries 0, ...).
+* **Include premium** toggle: fills Employee / Employer Premium with the premium calculated from the premium definition (annual, before pro-rata), split by the row's own employee contribution or the percentage you give. NO_RULE writes the premiums you type on every row (legacy takes them from the sheet).
+* Marriage dates are now always in the past and 18+ years after both birth dates (fixes the old `dom_is_less_than_18_years` rejects), in the simple raters too.
+* Section 6b, **UPDATE & REMOVE from an enrollment report**: upload the report (.xlsx / .csv), check/re-map which column is which, get a REMOVE or UPDATE sheet naming real members, in your Section 1 template's layout (or a built-in guess).
+
+**Limits you should know:** the legacy rate-upload headers and the enrollment report's headers are *not in the files provided* (their importer / export classes are missing), so the definition sheets use the column names of the rate table, and the report is matched by header with a manual re-map.
+`Type of Correction` values and the exact UPDATE/REMOVE labels are unknown (built-in layouts are a guess; a template you upload is used verbatim). Approximated raters: GDAC sequence groups, family-percentage premium (28), per-mille formulas, flex rows (see `RaterModel.COVERAGE`).
+
+**Section 8, Policy mode**: load a spec (paste/open the JSON from policy-service, "Sample policy" to try it, or - when served by this service - policy id + token), pick ADD / UPDATE / REMOVE, generate, download.
 Built to be run under load by QAs:
 * rows are produced one family at a time in ~30 ms slices and written straight to the output (CSV in 1 MB Blob parts, XLSX as deflate-compressed chunks), so the tab stays responsive and memory stays flat;
   measured headless: 200,000 families (612k rows, 60 MB CSV) in ~7 s with frames never blocked longer than ~100 ms; 30,000 families as .xlsx in ~4.5 s;
@@ -72,7 +82,7 @@ Standalone codes are `prefix + number` that the browser remembers (random prefix
 
 **Drift guard.** The engine is the `<script id="engine">` block. `HtmlEngineTest` runs it under Node: its sheets must pass the **Java** validator, the streaming and one-shot paths must agree, and the JS validator must flag
 exactly the same (row, code) pairs as the Java one on 400 deliberately broken rows per spec. (Needs `node`; skipped with a message otherwise.)
-The original sections keep the original's known defects (see `docs/legacy/addsheet-generator-review.md`); Policy mode is the fixed path.
+The rater model has its own Node-run test (`RaterModelTest`): hand-computed legacy cases and every SI subtype / premium type resolving against its sample rates. Remaining original defects (see `docs/legacy/addsheet-generator-review.md`: no child/twin limits, parent ages) stay in the original sections; Policy mode is the policy-driven path.
 
 ## Run / test
 ```
@@ -80,7 +90,7 @@ DATABASE_URL=jdbc:postgresql://localhost:5432/ensuretech DATABASE_USER=… DATAB
 POLICY_SERVICE_URL=http://localhost:8082 JWT_PUBLIC_KEY_LOCATION=file:../identity-service/keys/jwt-public.pem mvn spring-boot:run
 mvn test      # 43 tests; needs PostgreSQL (schema created by Flyway) and, for HtmlEngineTest, Node
 ```
-Tested end to end: sheets from both the service and the HTML tool were read by endorsement-service's intake (all headers auto-map at ≥ 0.9, zero row errors).
+Tested end to end: sheets from the service and the HTML tool (all 34 SI/premium pairs of the rater model, REMOVE and UPDATE) were read by endorsement-service's intake with zero row errors.
 
 ## NOT done / decisions for you
 * **Premium types and SI subtypes beyond what the spec exposes.** The generator knows grade, designation, salary, flex plan, NO_RULE premiums and sum-insured lists. Rater-specific inputs the spec does not carry

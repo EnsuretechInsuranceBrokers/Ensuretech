@@ -24,6 +24,9 @@ POOLS = {
     "annual_salary": ["100000.00", "-1.00", "0.00", None],
     "sum_insured": ["500000.00", "0.00", "-5.00", None, ""],
     "effective_date": ["2030-04-01", "1990-01-01", "1850-01-01", "2030-06-15", None, ""],
+    "number_of_time_salary": ["1.00", "3.00", "0.00", "-2.00", None, ""],
+    "employee_premium": ["100.00", "-1.00", None, ""],
+    "employer_premium": ["0.00", "-5.00", None],
 }
 PARSE_ERRORS = [
     {"field": "dob", "rule": "INVALID_DOB", "message": "unreadable date 'zz'", "value": "zz"},
