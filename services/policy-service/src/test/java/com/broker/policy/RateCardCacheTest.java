@@ -10,7 +10,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** Runs against a real Redis (REDIS_PORT). Verifies cache-aside, TTL, post-commit eviction and tenant-keyed entries. */
+/** Runs against a real Redis (REDIS_PORT). Verifies TTL, never-stale replacement and tenant safety of the card cache. */
 class RateCardCacheTest extends IntegrationTestBase {
     @Autowired RateCardService rateCards;
 
@@ -28,37 +28,38 @@ class RateCardCacheTest extends IntegrationTestBase {
     private Set<String> keys() { return redis.keys("policy-svc:*"); }
 
     @Test
-    void secondReadIsServedFromRedisWithOneHourTtl() throws Exception {
+    void cardBodyIsServedFromRedisWithOneHourTtl() throws Exception {
         long id = policyWithCard(BROKER_A, EMP_A, "P-1", 1000);
         assertThat(rateCards.getActive(BROKER_A, id).table().get("flat")).isEqualTo(1000);
-        assertThat(keys()).hasSize(1).first().asString().contains("1:" + id);
-        Long ttl = redis.getExpire(keys().iterator().next());
-        assertThat(ttl).isBetween(3500L, 3600L);
+        assertThat(keys()).hasSize(1);
+        String key = keys().iterator().next();
+        assertThat(key).startsWith("policy-svc:rateCards::");
+        assertThat(redis.getExpire(key)).isBetween(3500L, 3600L);
 
-        // change the row behind the service's back: a cache hit must still return the old card
+        // change the row behind the service's back: the cached body (keyed by immutable card id) is served
         jdbc.sql("UPDATE policy_svc.rate_cards SET rate_table='{\"flat\": 5}'::jsonb WHERE policy_id=:p").param("p", id).update();
         assertThat(rateCards.getActive(BROKER_A, id).table().get("flat")).isEqualTo(1000);
     }
 
     @Test
-    void replacingTheCardEvictsAfterCommitAndReadsFresh() throws Exception {
+    void replacingTheCardIsVisibleImmediatelyWithoutAnyEviction() throws Exception {
         long id = policyWithCard(BROKER_A, EMP_A, "P-1", 1000);
-        rateCards.getActive(BROKER_A, id);
-        assertThat(keys()).hasSize(1);
-        putCard(BROKER_A, id, 2222);
-        assertThat(keys()).isEmpty();
-        mvc.perform(get("/api/v1/broker/policies/" + id + "/rate-card").header("Authorization", admin(BROKER_A)))
-                .andExpect(jsonPath("$.rateTable.flat", is(2222)));
+        rateCards.getActive(BROKER_A, id);                      // cache card #1
+        for (int i = 0; i < 25; i++) {                          // hammer it: a replacement must never read stale
+            putCard(BROKER_A, id, 2000 + i);
+            assertThat(rateCards.getActive(BROKER_A, id).table().get("flat")).isEqualTo(2000 + i);
+            mvc.perform(get("/api/v1/broker/policies/" + id + "/rate-card").header("Authorization", admin(BROKER_A)))
+                    .andExpect(jsonPath("$.rateTable.flat", is(2000 + i)));
+        }
     }
 
     @Test
-    void cacheEntriesAreKeyedPerBroker() throws Exception {
+    void aBrokerCanNeverReachAnotherBrokersCard() throws Exception {
         long a = policyWithCard(BROKER_A, EMP_A, "P-1", 1000);
         long b = policyWithCard(BROKER_B, EMP_B, "P-1", 9000);
         assertThat(rateCards.getActive(BROKER_A, a).table().get("flat")).isEqualTo(1000);
         assertThat(rateCards.getActive(BROKER_B, b).table().get("flat")).isEqualTo(9000);
-        // broker B asking for broker A's policy id must miss, never be served A's cached card
-        assertThat(keys()).anyMatch(k -> k.endsWith("1:" + a)).anyMatch(k -> k.endsWith("2:" + b));
+        // even though A's card body is hot in Redis, B asking for A's policy fails at the tenant-checked pointer lookup
         org.junit.jupiter.api.Assertions.assertThrows(com.broker.policy.api.NotFoundException.class,
                 () -> rateCards.getActive(BROKER_B, a));
         mvc.perform(get("/api/v1/broker/policies/" + a + "/rate-card").header("Authorization", admin(BROKER_B)))

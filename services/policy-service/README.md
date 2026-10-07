@@ -26,8 +26,8 @@ Statuses: `NOT_APPROVED → APPROVED_AND_LIVE → INACTIVE`; a nightly sweep mov
 Domain failures are 422 with machine-readable `issues`; bad shape is 400.
 
 ## gRPC (`shared/contracts/grpc/policy_validation.proto`, port 9090)
-`ValidatePolicyConfig`, `GetRateCard` (Redis cache-aside, 1 h TTL, key = `broker:policy`, evicted after the new card commits),
-`CalculatePremium` (addition to the original contract: the engine lives here, so callers ask rather than re-implement it).
+`ValidatePolicyConfig`, `GetRateCard` (the active card is found by a tiny tenant-checked DB lookup; its immutable body is cached in Redis by card id, 1 h TTL, so a replaced card is never read stale and no eviction ordering exists to get wrong),
+`CalculatePremium`, `GetPolicy` and batch `ValidateFamilies` (additions to the original contract: the engine and family rules live here, so callers ask rather than re-implement them; each family issue carries the offending `member_index`).
 Send `authorization: Bearer <jwt>` metadata. Broker tokens act on their own tenant (the request's `broker_id` is ignored);
 `SYSTEM` service tokens must name `broker_id`; employer/TPA tokens are rejected. Plaintext for now, TLS/mTLS comes with deployment.
 

@@ -10,6 +10,7 @@ import com.broker.policy.engine.Member;
 import com.broker.policy.engine.RatingException;
 import com.broker.policy.grpc.gen.*;
 import com.broker.policy.security.TenantContext;
+import com.broker.policy.service.FamilyConstructService;
 import com.broker.policy.service.PolicyReadinessService;
 import com.broker.policy.service.PolicyService;
 import com.broker.policy.service.PremiumService;
@@ -31,15 +32,18 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
     private final RateCardService rateCards;
     private final PremiumService premiums;
     private final PremiumTypeRepository premiumTypes;
+    private final FamilyConstructService families;
     private final ObjectMapper mapper;
 
     PolicyGrpcService(PolicyService policies, PolicyReadinessService readiness, RateCardService rateCards,
-                      PremiumService premiums, PremiumTypeRepository premiumTypes, ObjectMapper mapper) {
+                      PremiumService premiums, PremiumTypeRepository premiumTypes, FamilyConstructService families,
+                      ObjectMapper mapper) {
         this.policies = policies;
         this.readiness = readiness;
         this.rateCards = rateCards;
         this.premiums = premiums;
         this.premiumTypes = premiumTypes;
+        this.families = families;
         this.mapper = mapper;
     }
 
@@ -78,7 +82,7 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
             Policy p = policies.get(brokerFor(req.getBrokerId()), req.getPolicyId());
             var issues = readiness.check(p);
             ValidationResult.Builder b = ValidationResult.newBuilder().setValid(issues.isEmpty());
-            issues.forEach(i -> b.addIssues(ValidationIssue.newBuilder().setCode(i.code()).setMessage(i.message())));
+            issues.forEach(i -> b.addIssues(ValidationIssue.newBuilder().setCode(i.code()).setMessage(i.message()).setMemberIndex(-1)));
             return b.build();
         });
     }
@@ -110,6 +114,42 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
                     .setTotal(q.total().toPlainString());
             q.members().forEach(m -> b.addMembers(MemberPremium.newBuilder().setMemberRef(m.memberRef())
                     .setPremium(m.premium().toPlainString())));
+            return b.build();
+        });
+    }
+
+    @Override
+    public void getPolicy(PolicyRequest req, StreamObserver<PolicyInfo> out) {
+        call(out, () -> {
+            Policy p = policies.get(brokerFor(req.getBrokerId()), req.getPolicyId());
+            PremiumType pt = premiumTypes.findById(p.getPremiumTypeId()).orElseThrow();
+            return PolicyInfo.newBuilder().setPolicyId(p.getId()).setEmployerId(p.getEmployerId())
+                    .setPolicyNumber(p.getPolicyNumber()).setPolicyType(p.getPolicyType())
+                    .setStatus(p.getStatus().name()).setStartDate(p.getStartDate().toString())
+                    .setEndDate(p.getEndDate().toString()).setProRataType(p.getProRataType().name())
+                    .setIsInception(p.isInception()).setPremiumTypeId(pt.getId()).setPremiumTypeCode(pt.getCode())
+                    .setRequiresFamilyConstruct(java.util.Set.of("GMC", "OPD", "WELLNESS").contains(p.getPolicyType()))
+                    .build();
+        });
+    }
+
+    @Override
+    public void validateFamilies(FamilyValidationRequest req, StreamObserver<FamilyValidationResponse> out) {
+        call(out, () -> {
+            long broker = brokerFor(req.getBrokerId());
+            policies.get(broker, req.getPolicyId());                      // tenant check first
+            List<List<FamilyConstructService.Person>> input = req.getFamiliesList().stream()
+                    .map(f -> f.getPeopleList().stream()
+                            .map(p -> new FamilyConstructService.Person(p.getRelationCode(), p.getAge())).toList())
+                    .toList();
+            var results = families.validateMany(broker, req.getPolicyId(), input);
+            FamilyValidationResponse.Builder b = FamilyValidationResponse.newBuilder();
+            for (int i = 0; i < results.size(); i++) {
+                FamilyResult.Builder r = FamilyResult.newBuilder().setFamilyRef(req.getFamilies(i).getFamilyRef());
+                results.get(i).forEach(v -> r.addIssues(ValidationIssue.newBuilder().setCode(v.code())
+                        .setMessage(v.message()).setMemberIndex(v.memberIndex())));
+                b.addResults(r);
+            }
             return b.build();
         });
     }

@@ -117,4 +117,47 @@ class GrpcTest extends IntegrationTestBase {
         assertThat(code(() -> s.getRateCard(RateCardRequest.newBuilder().setPolicyId(noCard).build()))).isEqualTo(Status.Code.NOT_FOUND);
         assertThat(code(() -> s.validatePolicyConfig(PolicyConfigRequest.newBuilder().setPolicyId(99999).build()))).isEqualTo(Status.Code.NOT_FOUND);
     }
+
+    @Test
+    void getPolicyReturnsFactsAndIsTenantScoped() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-1");
+        PolicyInfo info = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
+        assertThat(info.getEmployerId()).isEqualTo(EMP_A);
+        assertThat(info.getPolicyNumber()).isEqualTo("P-1");
+        assertThat(info.getStartDate()).isEqualTo("2030-04-01");
+        assertThat(info.getProRataType()).isEqualTo("NONE");
+        assertThat(info.getPremiumTypeCode()).isEqualTo("FLAT");
+        assertThat(info.getRequiresFamilyConstruct()).isFalse();       // GPA
+        assertThat(code(() -> stub(admin(BROKER_B)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build())))
+                .isEqualTo(Status.Code.NOT_FOUND);
+    }
+
+    @Test
+    void validateFamiliesBatchesAndPointsAtTheOffendingMember() throws Exception {
+        long id = createPolicy(BROKER_A, EMP_A, "P-GMC", "FLAT", "GMC");
+        mvc.perform(json(put("/api/v1/broker/policies/" + id + "/family-construct"), admin(BROKER_A),
+                "{\"allowedRelations\":[2,5],\"maxMembers\":3,\"maxChildren\":1}")).andExpect(status().isOk());
+        var good = Family.newBuilder().setFamilyRef("E1")
+                .addPeople(Person.newBuilder().setRelationCode("SELF").setAge(40))
+                .addPeople(Person.newBuilder().setRelationCode("SPOUSE").setAge(38)).build();
+        var bad = Family.newBuilder().setFamilyRef("E2")
+                .addPeople(Person.newBuilder().setRelationCode("SELF").setAge(40))
+                .addPeople(Person.newBuilder().setRelationCode("FATHER").setAge(70))
+                .addPeople(Person.newBuilder().setRelationCode("SON").setAge(30)).build();
+        var r = stub(admin(BROKER_A)).validateFamilies(FamilyValidationRequest.newBuilder().setPolicyId(id)
+                .addFamilies(good).addFamilies(bad).build());
+        assertThat(r.getResultsList()).extracting(FamilyResult::getFamilyRef).containsExactly("E1", "E2");
+        assertThat(r.getResults(0).getIssuesCount()).isZero();
+        var issues = r.getResults(1).getIssuesList();
+        assertThat(issues).anySatisfy(i -> {
+            assertThat(i.getCode()).isEqualTo("RELATION_NOT_ALLOWED");
+            assertThat(i.getMemberIndex()).isEqualTo(1);               // FATHER
+        });
+        assertThat(issues).anySatisfy(i -> {
+            assertThat(i.getCode()).isEqualTo("DEPENDENT_OVER_MAX_AGE");
+            assertThat(i.getMemberIndex()).isEqualTo(2);               // the 30-year-old SON
+        });
+        assertThat(code(() -> stub(admin(BROKER_B)).validateFamilies(FamilyValidationRequest.newBuilder()
+                .setPolicyId(id).addFamilies(good).build()))).isEqualTo(Status.Code.NOT_FOUND);
+    }
 }

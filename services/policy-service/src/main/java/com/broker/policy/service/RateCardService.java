@@ -8,13 +8,8 @@ import com.broker.policy.outbox.OutboxPublisher;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class RateCardService {
@@ -25,27 +20,27 @@ public class RateCardService {
     private final PremiumTypeRepository premiumTypes;
     private final PremiumEngine engine;
     private final OutboxPublisher outbox;
-    private final CacheManager caches;
+    private final RateCardLoader loader;
 
     RateCardService(PolicyRepository policies, RateCardRepository rateCards, PremiumTypeRepository premiumTypes,
-                    PremiumEngine engine, OutboxPublisher outbox, CacheManager caches) {
+                    PremiumEngine engine, OutboxPublisher outbox, RateCardLoader loader) {
         this.policies = policies;
         this.rateCards = rateCards;
         this.premiumTypes = premiumTypes;
         this.engine = engine;
         this.outbox = outbox;
-        this.caches = caches;
+        this.loader = loader;
     }
 
-    static String key(long brokerId, long policyId) { return brokerId + ":" + policyId; }
-
-    /** Cache-aside, keyed by broker AND policy so one tenant can never be served another's entry. */
-    @Cacheable(cacheNames = CACHE, key = "#brokerId + ':' + #policyId")
+    /**
+     * Active card for a policy. The pointer lookup always hits the database and carries the tenant check;
+     * only the immutable card body comes from Redis (1h TTL), so a replaced card is visible immediately.
+     */
     @Transactional(readOnly = true)
     public RateCardView getActive(long brokerId, long policyId) {
-        return rateCards.findByPolicyIdAndBrokerIdAndActiveTrue(policyId, brokerId)
-                .map(RateCardView::of)
+        long cardId = rateCards.findActiveCardId(policyId, brokerId)
                 .orElseThrow(() -> new NotFoundException("No active rate card for policy"));
+        return loader.byId(cardId);
     }
 
     @Transactional
@@ -67,20 +62,6 @@ public class RateCardService {
         RateCard card = rateCards.saveAndFlush(new RateCard(policyId, brokerId, effectiveFrom, taxRate, table));
         outbox.publish("Policy", policyId, "RateCardChanged", "policy.events", String.valueOf(brokerId),
                 Map.of("broker_id", brokerId, "policy_id", policyId, "rate_card_id", card.getId()));
-        evictAfterCommit(key(brokerId, policyId));
         return RateCardView.of(card);
-    }
-
-    /** Evict only once the new card is committed, so a concurrent reader cannot re-cache the old one. */
-    private void evictAfterCommit(String key) {
-        Cache cache = caches.getCache(CACHE);
-        if (cache == null) return;
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override public void afterCommit() { cache.evict(key); }
-            });
-        } else {
-            cache.evict(key);
-        }
     }
 }
