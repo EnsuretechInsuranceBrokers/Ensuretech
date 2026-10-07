@@ -1,124 +1,2271 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
-<title>Endorsement Sheet Generator</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endorsement Add-Sheet Generator</title>
+<meta name="description" content="Generate realistic, validation-safe bulk-upload test data for insurance endorsement add-sheets — entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --muted:#5b6675; --line:#d9dee5; --accent:#1f5fbf; --accent-ink:#fff; --bad:#b3261e; --warn:#8a5a00; --ok:#1b7a3d; --code:#eef1f5; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#12161c; --card:#1b212a; --ink:#e7ebf0; --muted:#9aa6b5; --line:#2e3744; --accent:#6aa3f5; --accent-ink:#0b1320; --bad:#ff8a80; --warn:#f2c16b; --ok:#6fd195; --code:#242c37; } }
-  :root[data-theme="dark"] { --bg:#12161c; --card:#1b212a; --ink:#e7ebf0; --muted:#9aa6b5; --line:#2e3744; --accent:#6aa3f5; --accent-ink:#0b1320; --bad:#ff8a80; --warn:#f2c16b; --ok:#6fd195; --code:#242c37; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
-  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 12px; }
-  .sub { color:var(--muted); margin:0 0 20px; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
-  label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
-  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); font:inherit; }
-  textarea { min-height:110px; font:12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; }
-  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
-  .tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
-  button { padding:8px 14px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font:inherit; cursor:pointer; }
-  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  button[aria-selected="true"] { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  .chk { display:flex; gap:8px; align-items:center; font-size:14px; color:var(--ink); } .chk input { width:auto; }
-  .note { font-size:13px; color:var(--muted); } .bad { color:var(--bad); } .warn { color:var(--warn); } .ok { color:var(--ok); }
-  .facts { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:6px 16px; font-size:13px; margin-top:10px; }
-  .facts b { color:var(--muted); font-weight:500; display:block; }
-  .tbl { overflow:auto; max-height:420px; border:1px solid var(--line); border-radius:6px; margin-top:12px; }
-  table { border-collapse:collapse; width:100%; font-size:12px; } th, td { padding:5px 8px; border-bottom:1px solid var(--line); white-space:nowrap; text-align:left; }
-  th { position:sticky; top:0; background:var(--code); }
-  ul.issues { margin:8px 0 0; padding-left:18px; font-size:13px; } code { background:var(--code); padding:1px 5px; border-radius:4px; }
-  [hidden] { display:none !important; }
+:root{
+  --paper:#EEF1EA;
+  --surface:#FFFFFF;
+  --surface-2:#F7F8F4;
+  --ink:#182821;
+  --ink-soft:#4C5D55;
+  --ink-faint:#8A978F;
+  --line:#D7DCD0;
+  --line-strong:#B9C2B1;
+  --accent:#C07C25;
+  --accent-ink:#5A3B10;
+  --accent-soft:#F3E3C6;
+  --good:#2E6B54;
+  --good-soft:#DCEBE2;
+  --bad:#AB3B31;
+  --bad-soft:#F5DEDA;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(24,40,33,.06), 0 8px 24px -12px rgba(24,40,33,.18);
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --display: 'Space Grotesk', var(--sans);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:14.5px;
+  line-height:1.5;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 100% 34px, 34px 100%;
+  background-position: 0 64px, 0 0;
+  background-attachment: local, local;
+}
+::selection{background:var(--accent-soft); color:var(--accent-ink);}
+a{color:var(--accent-ink);}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0 0 4px;}
+code, .mono{font-family:var(--mono);}
+button{font-family:var(--sans);}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:40;
+  background:rgba(238,241,234,.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line-strong);
+}
+.topbar-inner{
+  max-width:1180px; margin:0 auto; padding:14px 24px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:12px;}
+.brand-mark{
+  width:34px;height:34px;border-radius:8px;
+  background:var(--ink); color:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono); font-weight:600; font-size:15px;
+  transform:rotate(-3deg);
+}
+.brand-text h1{font-size:17px; letter-spacing:-.01em;}
+.brand-text p{margin:0; font-size:12px; color:var(--ink-soft);}
+.counter-badge{
+  font-family:var(--mono); font-size:12px; color:var(--ink-soft);
+  background:var(--surface); border:1px solid var(--line-strong);
+  border-radius:999px; padding:6px 12px; display:flex; align-items:center; gap:8px;
+  box-shadow:var(--shadow);
+}
+.counter-badge b{color:var(--accent-ink); font-size:13px;}
+.counter-dot{width:6px;height:6px;border-radius:50%;background:var(--good); box-shadow:0 0 0 3px var(--good-soft);}
+
+/* ---------- Layout ---------- */
+.layout{max-width:1180px; margin:0 auto; padding:28px 24px 80px; display:grid; grid-template-columns:212px 1fr; gap:28px;}
+@media (max-width:900px){ .layout{grid-template-columns:1fr;} .railnav{display:none;} }
+
+.railnav{position:sticky; top:74px; align-self:start;}
+.railnav ol{list-style:none; margin:0; padding:0; border-left:2px solid var(--line);}
+.railnav li{position:relative; padding:8px 0 8px 20px;}
+.railnav li::before{
+  content:attr(data-n); position:absolute; left:-11px; top:6px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--surface); border:2px solid var(--line-strong);
+  font-family:var(--mono); font-size:10px; color:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center;
+}
+.railnav a{display:block; font-size:12.5px; font-weight:500; color:var(--ink-soft); text-decoration:none;}
+.railnav a:hover{color:var(--ink);}
+.railnav li.done::before{background:var(--good); border-color:var(--good); color:#fff;}
+
+main{min-width:0;}
+.lede{margin-bottom:22px;}
+.lede h2{font-size:22px;}
+.lede p{color:var(--ink-soft); max-width:62ch; margin:6px 0 0;}
+
+.card{
+  background:var(--surface); border:1px solid var(--line-strong);
+  border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:22px 24px; margin-bottom:20px; scroll-margin-top:80px;
+}
+.card-head{display:flex; align-items:baseline; gap:10px; margin-bottom:4px;}
+.card-num{
+  font-family:var(--mono); font-size:11px; color:var(--accent-ink);
+  background:var(--accent-soft); border-radius:5px; padding:2px 7px;
+}
+.card h3{font-size:16.5px;}
+.card > .sub{color:var(--ink-soft); font-size:12.5px; margin:2px 0 16px;}
+
+.field-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:14px;}
+.field{display:flex; flex-direction:column; gap:5px;}
+.field label{font-size:12px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em;}
+.field .hint{font-size:11.5px; color:var(--ink-faint); font-weight:400; text-transform:none; letter-spacing:0;}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  font-family:var(--sans); font-size:13.5px; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--line-strong); border-radius:7px;
+  padding:8px 10px; width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent); outline-offset:1px; background:var(--surface);}
+textarea{font-family:var(--mono); font-size:12.5px; min-height:64px; resize:vertical;}
+.radiogroup{display:flex; gap:8px; flex-wrap:wrap;}
+.chip{
+  display:flex; align-items:center; gap:6px;
+  border:1px solid var(--line-strong); border-radius:999px; padding:6px 13px;
+  font-size:12.5px; cursor:pointer; background:var(--surface-2); user-select:none;
+}
+.chip input{accent-color:var(--accent);}
+.chip.active{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink); font-weight:600;}
+.toggle-row{display:flex; align-items:center; gap:10px; padding:9px 0;}
+.toggle-row label{font-size:13px; font-weight:500;}
+.switch{position:relative; width:38px; height:21px; flex:none;}
+.switch input{opacity:0; width:100%; height:100%; margin:0; position:absolute; cursor:pointer;}
+.switch .track{position:absolute; inset:0; background:var(--line-strong); border-radius:999px; transition:.15s; pointer-events:none;}
+.switch .knob{position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transition:.15s; pointer-events:none;}
+.switch input:checked + .track{background:var(--good);}
+.switch input:checked + .track .knob{transform:translateX(17px);}
+
+.subpanel{background:var(--surface-2); border:1px dashed var(--line-strong); border-radius:8px; padding:16px; margin-top:6px;}
+.subpanel[hidden]{display:none;}
+
+.btn{
+  font-size:13px; font-weight:600; border-radius:7px; padding:9px 16px; cursor:pointer;
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  display:inline-flex; align-items:center; gap:7px;
+}
+.btn:hover{border-color:var(--ink-soft);}
+.btn.primary{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+.btn.primary:hover{background:#0e1a15;}
+.btn.accent{background:var(--accent); color:#fff; border-color:var(--accent);}
+.btn.accent:hover{background:#a86a1e;}
+.btn:disabled{opacity:.45; cursor:not-allowed;}
+.btn.small{padding:5px 10px; font-size:11.5px;}
+
+.filedrop{
+  border:2px dashed var(--line-strong); border-radius:9px; padding:24px;
+  text-align:center; cursor:pointer; background:var(--surface-2);
+}
+.filedrop.drag{border-color:var(--accent); background:var(--accent-soft);}
+.filedrop p{margin:4px 0; font-size:13px; color:var(--ink-soft);}
+.filedrop strong{color:var(--ink);}
+
+.pill{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11px; padding:3px 8px; border-radius:5px;}
+.pill.ok{background:var(--good-soft); color:var(--good);}
+.pill.no{background:var(--bad-soft); color:var(--bad);}
+
+.colgrid{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; max-height:220px; overflow:auto; padding:2px;}
+.coltag{
+  font-family:var(--mono); font-size:11px; border-radius:6px; padding:5px 9px;
+  border:1px solid var(--line-strong); background:var(--surface);
+  display:flex; flex-direction:column; gap:2px; min-width:110px;
+}
+.coltag .name{font-weight:600;}
+.coltag .fill{color:var(--ink-faint); font-size:10px;}
+.coltag.rec{border-color:var(--good); background:var(--good-soft);}
+.coltag.rec .fill{color:var(--good);}
+.coltag.unrec{border-color:var(--line-strong); background:var(--surface-2);}
+
+table.previewtbl{border-collapse:collapse; width:100%; font-family:var(--mono); font-size:11.5px;}
+table.previewtbl th, table.previewtbl td{border:1px solid var(--line); padding:6px 9px; text-align:left; white-space:nowrap;}
+table.previewtbl th{background:var(--ink); color:var(--paper); position:sticky; top:0; font-weight:500;}
+table.previewtbl tr:nth-child(even) td{background:var(--surface-2);}
+.tablewrap{overflow:auto; max-height:420px; border:1px solid var(--line-strong); border-radius:8px;}
+
+.progresswrap{background:var(--surface-2); border:1px solid var(--line-strong); border-radius:8px; padding:16px; margin-top:14px;}
+.progressbar{height:8px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:8px;}
+.progressbar > div{height:100%; background:var(--accent); width:0%; transition:width .12s;}
+.progress-stats{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); font-family:var(--mono); margin-top:6px;}
+
+.statgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin:14px 0;}
+.stat{background:var(--surface-2); border:1px solid var(--line-strong); border-radius:8px; padding:12px 14px;}
+.stat b{display:block; font-family:var(--display); font-size:20px;}
+.stat span{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em;}
+
+.note{font-size:12px; color:var(--ink-soft); background:var(--surface-2); border-left:3px solid var(--accent); padding:9px 12px; border-radius:5px; margin-top:10px;}
+.warn{border-left-color:var(--bad); color:var(--bad);}
+
+footer{max-width:1180px; margin:0 auto; padding:10px 24px 60px; color:var(--ink-faint); font-size:11.5px;}
+footer a{color:var(--ink-soft);}
 </style>
 </head>
 <body>
-<main>
-  <h1>Endorsement Sheet Generator</h1>
-  <p class="sub">Builds ADD, UPDATE and REMOVE sheets that satisfy one policy's rules. Everything runs in this page; nothing is uploaded unless you press “Generate on server”.</p>
+<noscript><div style="padding:20px;font-family:sans-serif;background:#F5DEDA;color:#AB3B31;">This tool generates data entirely in your browser and requires JavaScript to be enabled.</div></noscript>
 
-  <section id="s1">
-    <h2>1 · Policy</h2>
-    <div class="tabs" role="tablist" id="srcTabs">
-      <button role="tab" data-src="paste" aria-selected="true">Paste or open a spec file</button>
-      <button role="tab" data-src="service" aria-selected="false">Load from the service</button>
-      <button role="tab" data-src="sample" aria-selected="false">Sample policy</button>
-    </div>
-    <div id="src-paste">
-      <label for="specText">sheet-spec/v1 JSON (the output of <code>GET /api/v1/broker/policies/{id}/sheet-spec</code>)</label>
-      <textarea id="specText" spellcheck="false" placeholder='{"schema":"sheet-spec/v1", ...}'></textarea>
-      <div class="row"><input type="file" id="specFile" accept=".json,application/json" style="width:auto"><button id="useSpec" class="primary">Use this spec</button></div>
-    </div>
-    <div id="src-service" hidden>
-      <div class="grid">
-        <div><label for="policyId">Policy id</label><input id="policyId" type="number" min="1"></div>
-        <div style="grid-column:span 2"><label for="token">Your access token (kept in memory only)</label><input id="token" type="password" autocomplete="off"></div>
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark">#01</div>
+      <div class="brand-text">
+        <h1>Endorsement Add-Sheet Generator</h1>
+        <p>Bulk test-data, generated entirely in your browser</p>
       </div>
-      <div class="row"><button id="loadSpec" class="primary">Load spec</button><span class="note">Works when this page is served by the sheet-generator service.</span></div>
     </div>
-    <div id="src-sample" hidden>
-      <p class="note">A made-up flat GMC policy for the current financial year, only to try the tool. Real work starts from a real policy's spec.</p>
-      <div class="row"><button id="useSample" class="primary">Use the sample</button></div>
-    </div>
-    <p id="specMsg" class="note" role="status"></p>
-    <div id="specFacts" class="facts" hidden></div>
-    <ul id="specGaps" class="issues bad" hidden></ul>
-  </section>
+    <div class="counter-badge"><span class="counter-dot"></span>Next employee code <b id="topNextCode">—</b></div>
+  </div>
+</div>
 
-  <section id="s2">
-    <h2>2 · What to generate</h2>
-    <div class="tabs" role="tablist" id="opTabs">
-      <button role="tab" data-op="ADD" aria-selected="true">ADD</button>
-      <button role="tab" data-op="UPDATE" aria-selected="false">UPDATE</button>
-      <button role="tab" data-op="REMOVE" aria-selected="false">REMOVE</button>
-    </div>
-    <div id="opts-add">
-      <div class="grid">
-        <div><label for="families">Families</label><input id="families" type="number" min="1" max="20000" value="20"></div>
-        <div><label for="spousePct">Spouse %</label><input id="spousePct" type="number" min="0" max="100" value="80"></div>
-        <div><label for="childPct">Children %</label><input id="childPct" type="number" min="0" max="100" value="60"></div>
-        <div><label for="twinPct">Twins % (if allowed)</label><input id="twinPct" type="number" min="0" max="100" value="10"></div>
-        <div><label for="parentPct">Parents / in-laws %</label><input id="parentPct" type="number" min="0" max="100" value="20"></div>
-        <div><label for="midTermPct">Mid-term effective date %</label><input id="midTermPct" type="number" min="0" max="100" value="30"></div>
-        <div><label for="effDate">Fixed effective date (optional)</label><input id="effDate" placeholder="dd-mm-yyyy"></div>
-        <div><label for="seed">Seed (optional)</label><input id="seed" type="number" placeholder="repeatable run"></div>
-        <div><label for="prefix">Employee code prefix</label><input id="prefix" maxlength="10"></div>
-        <div><label for="startNo">First number</label><input id="startNo" type="number" min="1" value="1"></div>
-        <div><label for="siFree">Sum insured (when any value is allowed)</label><input id="siFree" placeholder="500000"></div>
-        <div><label for="flex">Flex plan (if the policy has one)</label><input id="flex"></div>
-        <div><label for="empPrem">Employee premium (no-rule policies)</label><input id="empPrem" placeholder="12000"></div>
-        <div><label for="erPrem">Employer premium</label><input id="erPrem" placeholder="8000"></div>
-      </div>
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="fillOptional"> Add state and city</label>
-        <label class="chk"><input type="checkbox" id="inclPrem"> Always add premium columns</label>
-      </div>
-      <p class="note">Codes here are yours to keep unique (prefix + number). “Generate on server” takes them from a shared counter so two testers can never collide.</p>
-    </div>
-    <div id="opts-change" hidden>
-      <div class="grid">
-        <div><label for="count" id="countLabel">How many</label><input id="count" type="number" min="1" value="10"></div>
-        <div id="modeBox"><label for="mode">Remove</label><select id="mode"><option value="MIX">Whole families and single members</option><option value="FAMILY">Whole families</option><option value="MEMBER">Single dependants</option></select></div>
-      </div>
-      <p class="note" id="srcNote"></p>
-      <div class="row"><label for="srcFile" class="note" style="margin:0">Or use another sheet (CSV) as the source:</label><input type="file" id="srcFile" accept=".csv,text/csv" style="width:auto"></div>
-    </div>
-    <div class="row"><button id="go" class="primary" disabled>Generate</button><button id="goServer" disabled hidden>Generate on server (.xlsx)</button></div>
-  </section>
+<div class="layout">
+  <nav class="railnav">
+    <ol>
+      <li data-n="1"><a href="#s-template">Template</a></li>
+      <li data-n="2"><a href="#s-identity">Identity &amp; volume</a></li>
+      <li data-n="3"><a href="#s-rater">Sum insured rule</a></li>
+      <li data-n="4"><a href="#s-family">Dependents</a></li>
+      <li data-n="5"><a href="#s-optional">Optional fields</a></li>
+      <li data-n="6"><a href="#s-generate">Generate &amp; download</a></li>
+      <li data-n="7"><a href="#s-policy">Policy mode</a></li>
+    </ol>
+  </nav>
 
-  <section id="s3" hidden>
-    <h2>3 · Result</h2>
-    <p id="summary" role="status"></p>
-    <ul id="warnings" class="issues warn" hidden></ul>
-    <ul id="issues" class="issues bad" hidden></ul>
-    <div class="row"><button id="dlXlsx">Download .xlsx</button><button id="dlCsv">Download .csv</button><button id="copyJson">Copy JSON</button></div>
-    <div class="tbl"><table id="tbl"></table></div>
-  </section>
-</main>
+  <main>
+    <div class="lede">
+      <h2>Fill out a real add-sheet with fake — but valid — people.</h2>
+      <p>Upload the sample sheet exported for your policy (or use a built-in layout), configure how strict your sum-insured rater is, and generate as many rows as you need. Employee codes and emails are guaranteed unique, even across separate runs on this device.</p>
+    </div>
+
+    <!-- ============ SECTION 1: TEMPLATE ============ -->
+    <section class="card" id="s-template">
+      <div class="card-head"><span class="card-num">1</span><h3>Template</h3></div>
+      <p class="sub">Upload the exact sheet your policy expects — column order and labels are preserved verbatim. No file? Use a built-in layout instead.</p>
+
+      <div class="radiogroup" style="margin-bottom:14px;">
+        <label class="chip active" id="chipUpload"><input type="radio" name="tmplMode" value="upload" checked>Upload my sheet</label>
+        <label class="chip" id="chipBuiltin"><input type="radio" name="tmplMode" value="builtin">Use a built-in layout</label>
+      </div>
+
+      <div id="uploadPanel">
+        <div class="filedrop" id="filedrop">
+          <input type="file" id="tmplFile" accept=".xls,.xlsx" style="display:none">
+          <p><strong>Click to choose</strong> or drop your sample/template .xls / .xlsx here</p>
+          <p style="font-size:11.5px;">Only the header row (row 1) of the first sheet is read.</p>
+        </div>
+        <div id="uploadStatus" class="note" style="display:none;"></div>
+      </div>
+
+      <div id="builtinPanel" style="display:none;">
+        <div class="field-row">
+          <div class="field">
+            <label for="builtinTemplate">Layout</label>
+            <select id="builtinTemplate">
+              <option value="standard">Standard add-sheet (35 columns — mirrors a real production export)</option>
+              <option value="simple">Simple (self + family, 18 core columns)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="columnDetectWrap" style="display:none;">
+        <p class="sub" style="margin-top:16px; margin-bottom:0;"><span id="colRecognizedCount"></span> — columns this tool doesn't recognize are always left blank, never guessed at.</p>
+        <div class="colgrid" id="columnDetect"></div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 2: IDENTITY & VOLUME ============ -->
+    <section class="card" id="s-identity">
+      <div class="card-head"><span class="card-num">2</span><h3>Identity &amp; volume</h3></div>
+      <p class="sub">How many employees, and how their codes / emails / names / dates are built.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="numEmployees">Employees to generate</label>
+          <input type="number" id="numEmployees" value="100" min="1" step="1">
+        </div>
+        <div class="field">
+          <label for="genderMode">Gender mix</label>
+          <select id="genderMode">
+            <option value="random">Random mix</option>
+            <option value="male">All male</option>
+            <option value="female">All female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Employee age range</label>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="dobMinAge" value="21" min="18" max="80" aria-label="Minimum employee age">
+            <input type="number" id="dobMaxAge" value="58" min="18" max="80" aria-label="Maximum employee age">
+          </div>
+        </div>
+        <div class="field">
+          <label for="dojMaxYearsAgo">Joined within last (years)</label>
+          <input type="number" id="dojMaxYearsAgo" value="6" min="0" max="40">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="dobFixedValue">Same DOB for everyone <span class="hint">on by default — matches "DOB is a constant" in the field spec; uncheck for a random per-employee age range</span></label>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <div class="switch"><input type="checkbox" id="dobFixedEnabled" checked><div class="track"><div class="knob"></div></div></div>
+            <input type="date" id="dobFixedValue" value="1995-06-15" aria-label="Fixed date of birth for everyone">
+          </div>
+        </div>
+        <div class="field">
+          <label for="dojFixedValue">Same DOJ for everyone <span class="hint">on by default, pre-filled recent — some policies reject a DOJ older than a configured number of days, so this defaults to ~30 days ago rather than a fixed date that goes stale</span></label>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <div class="switch"><input type="checkbox" id="dojFixedEnabled" checked><div class="track"><div class="knob"></div></div></div>
+            <input type="date" id="dojFixedValue" aria-label="Fixed date of joining for everyone">
+          </div>
+        </div>
+        <div class="field" style="grid-column:span 2;">
+          <label>&nbsp;</label>
+          <p class="sub" style="margin:0;">Date of Joining must land at least 18 years after Date of Birth for every employee — if you fix both and that gap is short, generation will stop and tell you rather than silently drifting either date.</p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="codeFormat">Employee code format</label>
+          <select id="codeFormat">
+            <option value="numeric">Numeric</option>
+            <option value="alphanumeric" selected>Alphanumeric</option>
+            <option value="alpha">Alphabetic</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="codeLength">Code min. length <span class="hint">(grows automatically to stay unique)</span></label>
+          <input type="number" id="codeLength" value="6" min="1" max="20">
+        </div>
+        <div class="field">
+          <label for="codePrefix">Code prefix <span class="hint">(optional)</span></label>
+          <input type="text" id="codePrefix" placeholder="e.g. EMP">
+        </div>
+        <div class="field">
+          <label>Next code starts at</label>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="startCounter" value="1" min="1" aria-label="Next code starts at">
+            <button class="btn small" id="resetCounterBtn" type="button" title="Reset uniqueness memory back to 1">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="emailDomain">Email domain</label>
+          <input type="text" id="emailDomain" value="fyntune.com">
+        </div>
+        <div class="field">
+          <label for="emailPattern">Email pattern</label>
+          <select id="emailPattern">
+            <option value="code">code@domain</option>
+            <option value="name">firstname.lastname+code@domain</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="namesMode">Name source</label>
+          <select id="namesMode">
+            <option value="builtin">Built-in name list (50 first + 50 last)</option>
+            <option value="custom">Paste my own names</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="employerName">Employer / Entity name <span class="hint">optional</span></label>
+          <input type="text" id="employerName" placeholder="leave blank to skip">
+        </div>
+      </div>
+
+      <div class="subpanel" id="customNamesPanel" hidden>
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field">
+            <label for="customFirstNames">First names <span class="hint">comma or newline separated</span></label>
+            <textarea id="customFirstNames" placeholder="Alex, Priya, Sam, ..."></textarea>
+          </div>
+          <div class="field">
+            <label for="customLastNames">Last names <span class="hint">comma or newline separated — reuse the first-name list if you only have one</span></label>
+            <textarea id="customLastNames" placeholder="Roy, Fernandes, Iyer, ..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="note" id="uniquenessNote">Uniqueness memory: your browser remembers every code this tool has generated on this device, so re-running the tool tomorrow — or generating a million rows today — never repeats a code or email.</div>
+    </section>
+
+    <!-- ============ SECTION 3: RATER ============ -->
+    <section class="card" id="s-rater">
+      <div class="card-head"><span class="card-num">3</span><h3>Sum insured rule (rater type)</h3></div>
+      <p class="sub">Match this to how your policy is actually configured — it decides which columns get filled and which stay blank, same as the validation logic on upload.</p>
+
+      <div class="field-row">
+        <div class="field" style="grid-column:1/-1; max-width:420px;">
+          <label for="raterType">Rater type</label>
+          <select id="raterType">
+            <option value="flat">Flat — one sum insured for everyone</option>
+            <option value="no_rule">No rule — same as flat, sheet-driven value</option>
+            <option value="grade">Grade-based</option>
+            <option value="designation">Designation-based</option>
+            <option value="salary_multiple">Number-of-times salary</option>
+            <option value="state">State-wise</option>
+            <option value="age">Age-based (no SI column needed)</option>
+            <option value="family_construct">Family construct-wise (no SI column needed)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="subpanel" id="raterPanel-flat">
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field">
+            <label for="suminsuredValue">Sum insured</label>
+            <input type="number" id="suminsuredValue" value="500000" min="0" step="1000">
+          </div>
+          <div class="field">
+            <label>Also fill OPD sum insured?</label>
+            <div class="toggle-row" style="padding-top:4px;">
+              <div class="switch"><input type="checkbox" id="opdEnabled"><div class="track"><div class="knob"></div></div></div>
+              <label for="opdEnabled">Enable</label>
+            </div>
+          </div>
+          <div class="field" id="opdValueField" hidden>
+            <label for="opdSuminsuredValue">OPD sum insured</label>
+            <input type="number" id="opdSuminsuredValue" value="50000" min="0" step="1000">
+          </div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="raterPanel-grade" hidden>
+        <div class="field">
+          <label for="gradesList">Valid grades for this policy <span class="hint">comma separated — must match your real policy's configured grades</span></label>
+          <textarea id="gradesList">Grade A, Grade B, Grade C, Grade D, Grade E</textarea>
+        </div>
+      </div>
+
+      <div class="subpanel" id="raterPanel-designation" hidden>
+        <div class="field">
+          <label for="designationsList">Valid designations for this policy <span class="hint">comma separated</span></label>
+          <textarea id="designationsList">Executive, Senior Executive, Assistant Manager, Manager, Senior Manager, AVP, VP</textarea>
+        </div>
+      </div>
+
+      <div class="subpanel" id="raterPanel-salary_multiple" hidden>
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field">
+            <label>Annual salary range</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="salaryMin" value="400000" min="0" step="10000" aria-label="Minimum annual salary">
+              <input type="number" id="salaryMax" value="2000000" min="0" step="10000" aria-label="Maximum annual salary">
+            </div>
+          </div>
+          <div class="field">
+            <label for="salaryMultiplesList">Valid multiples <span class="hint">must match your policy's configured multiples</span></label>
+            <input type="text" id="salaryMultiplesList" value="1, 2, 3">
+          </div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="raterPanel-state" hidden>
+        <div class="field">
+          <label for="statesList">Valid states for this policy <span class="hint">comma separated</span></label>
+          <textarea id="statesList">Maharashtra, Karnataka, Tamil Nadu, Delhi, Gujarat, Rajasthan, Uttar Pradesh, West Bengal, Telangana, Kerala</textarea>
+        </div>
+      </div>
+
+      <div class="note" id="raterNote-age" hidden>Age-based raters compute sum insured from date of birth on the insurer's side — the Suminsured column is intentionally left blank; just make sure your age range (Section 2) sits inside your policy's configured bands.</div>
+      <div class="note" id="raterNote-family_construct" hidden>Family construct raters compute sum insured from how many adults/children are in the family — the Suminsured column is left blank. Turn on <strong>Dependents</strong> below so families actually have a construct to rate.</div>
+    </section>
+
+    <!-- ============ SECTION 4: FAMILY ============ -->
+    <section class="card" id="s-family">
+      <div class="card-head"><span class="card-num">4</span><h3>Dependents</h3></div>
+      <p class="sub">Off by default — each employee is just a "Self" row, like a flat/simple upload. Turn this on to also generate spouse, children and parents.</p>
+
+      <div class="toggle-row">
+        <div class="switch"><input type="checkbox" id="includeFamily"><div class="track"><div class="knob"></div></div></div>
+        <label for="includeFamily">Generate dependents for each employee</label>
+      </div>
+
+      <div class="subpanel" id="familyPanel" hidden>
+        <div class="field-row">
+          <div class="field">
+            <label for="spouseChancePct">% of employees with a spouse</label>
+            <input type="number" id="spouseChancePct" value="55" min="0" max="100">
+          </div>
+          <div class="field">
+            <label for="childChancePct">% of employees with children</label>
+            <input type="number" id="childChancePct" value="45" min="0" max="100">
+          </div>
+          <div class="field">
+            <label>Children count (min–max)</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="childMin" value="1" min="0" max="10" aria-label="Minimum children count">
+              <input type="number" id="childMax" value="2" min="0" max="10" aria-label="Maximum children count">
+            </div>
+          </div>
+          <div class="field">
+            <label for="parentsMode">Parents</label>
+            <select id="parentsMode">
+              <option value="random" selected>Randomly parents, parents-in-law, or none</option>
+              <option value="parents">Always parents (Father/Mother)</option>
+              <option value="parents_in_law">Always parents-in-law</option>
+              <option value="none">Never</option>
+            </select>
+          </div>
+        </div>
+        <div class="toggle-row" style="padding-top:0;">
+          <div class="switch"><input type="checkbox" id="includeDOM" checked><div class="track"><div class="knob"></div></div></div>
+          <label for="includeDOM">Fill Date of Marriage for Self + Spouse (kept consistent between the two rows)</label>
+        </div>
+        <div class="note">A given employee only ever gets parents <em>or</em> parents-in-law, never both — most policies reject mixing the two.</div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 5: OPTIONAL FIELDS ============ -->
+    <section class="card" id="s-optional">
+      <div class="card-head"><span class="card-num">5</span><h3>Optional fields</h3></div>
+      <p class="sub">Employee Code, First/Last Name, Gender, DOB, DOJ, Email, Mobile Number, Suminsured, Relationship, Should Verify Email and Default Password are always filled — they're confirmed mandatory. Everything below is confirmed <strong>not</strong> mandatory: leave it off and the column stays genuinely blank (nothing to fail validation on); only turn it on where you actually want the value tested.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="shouldVerifyEmail">Should Verify Email</label>
+          <select id="shouldVerifyEmail"><option value="">Leave blank</option><option value="No" selected>No</option><option value="Yes">Yes</option></select>
+        </div>
+        <div class="field">
+          <label for="isDummyEmail">Is Dummy Email</label>
+          <select id="isDummyEmail"><option value="">Leave blank</option><option value="Yes">Yes</option><option value="No">No</option></select>
+        </div>
+        <div class="field">
+          <label for="isVip">Is VIP Employee</label>
+          <select id="isVip"><option value="" selected>Leave blank</option><option value="No">No</option><option value="Yes">Yes</option></select>
+        </div>
+        <div class="field">
+          <label for="memberExistingClaim">Member Existing Claim</label>
+          <select id="memberExistingClaim"><option value="" selected>Leave blank</option><option value="NO">NO</option><option value="YES">YES</option></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="hasDeathCertificate">Has Death Certificate</label>
+          <select id="hasDeathCertificate"><option value="" selected>Leave blank</option><option value="No">No</option><option value="Yes">Yes</option></select>
+        </div>
+        <div class="field">
+          <label for="toHideEmail">To Hide Email</label>
+          <select id="toHideEmail"><option value="">Leave blank</option><option value="No">No</option><option value="Yes">Yes</option></select>
+        </div>
+        <div class="field">
+          <label for="isDummyMobile">Is Dummy Mobile</label>
+          <select id="isDummyMobile"><option value="">Leave blank</option><option value="No">No</option><option value="Yes">Yes</option></select>
+        </div>
+        <div class="field">
+          <label for="toHideMobile">To Hide Mobile</label>
+          <select id="toHideMobile"><option value="">Leave blank</option><option value="No">No</option><option value="Yes">Yes</option></select>
+        </div>
+      </div>
+
+      <div class="note">Employee Mobile Number (10 digits, starts 7/8/9) and Default Password are mandatory and always generated now — no toggle needed.</div>
+
+      <div class="toggle-row">
+        <div class="switch"><input type="checkbox" id="coverTypeEnabled"><div class="track"><div class="knob"></div></div></div>
+        <label for="coverTypeEnabled">Fill Cover Type</label>
+        <select id="coverTypeValue" style="max-width:160px; margin-left:8px;" aria-label="Cover type value"><option>Individual</option><option>Family Cover</option></select>
+      </div>
+      <div class="toggle-row">
+        <div class="switch"><input type="checkbox" id="premiumEnabled"><div class="track"><div class="knob"></div></div></div>
+        <label for="premiumEnabled">Fill Premium fields <span class="hint">— almost always computed by the system, not sheet-driven; only turn this on if your template actually has a Premium column</span></label>
+      </div>
+      <div class="subpanel" id="premiumPanel" hidden>
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field">
+            <label for="employeePremiumValue">Employee Premium</label>
+            <input type="number" id="employeePremiumValue" value="5000" min="0" step="100">
+          </div>
+          <div class="field">
+            <label for="employerPremiumValue">Employer Premium <span class="hint">optional</span></label>
+            <input type="number" id="employerPremiumValue" min="0" step="100" placeholder="leave blank to skip">
+          </div>
+          <div class="field" id="opdPremiumField" hidden>
+            <label for="opdEmployeePremiumValue">OPD Employee Premium</label>
+            <input type="number" id="opdEmployeePremiumValue" min="0" step="100" placeholder="leave blank to skip">
+          </div>
+        </div>
+      </div>
+
+      <div class="field-row" style="margin-top:6px;">
+        <div class="field">
+          <label for="batchId">Batch / Insurer Endorsement ID <span class="hint">letters &amp; numbers only — anything else is stripped</span></label>
+          <input type="text" id="batchId" placeholder="e.g. QATEST0001">
+        </div>
+        <div class="field">
+          <label for="effectiveDate">Inception / Endorsement date <span class="hint">optional — leave blank to skip. Fills Inception/Endorsement Date only; Effective Date is left blank since it's checked against your policy's actual start/end dates, which this tool can't see</span></label>
+          <input type="date" id="effectiveDate">
+        </div>
+        <div class="field">
+          <label for="defaultPasswordValue">Default Password value <span class="hint">mandatory — same for every employee</span></label>
+          <input type="text" id="defaultPasswordValue" value="Test@12345">
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div class="switch"><input type="checkbox" id="fillOptionalFieldsEnabled"><div class="track"><div class="knob"></div></div></div>
+        <label for="fillOptionalFieldsEnabled">Also fill non-mandatory fields <span class="hint">State, City, Pincode, Address, CTC, Location, Installment, Data Received On — best-guess values that may not match your validator's exact rules; leave off unless you specifically need them populated</span></label>
+      </div>
+      <div class="subpanel" id="optionalFieldsPanel" hidden>
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field">
+            <label>CTC range</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="ctcMin" value="300000" min="0" step="10000" aria-label="Minimum CTC">
+              <input type="number" id="ctcMax" value="2000000" min="0" step="10000" aria-label="Maximum CTC">
+            </div>
+          </div>
+          <div class="field">
+            <label for="installmentValue">Installment</label>
+            <select id="installmentValue">
+              <option value="1" selected>1 — Annual / single installment</option>
+              <option value="2">2 — Half-yearly</option>
+              <option value="4">4 — Quarterly</option>
+              <option value="12">12 — Monthly</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 6: GENERATE ============ -->
+    <section class="card" id="s-generate">
+      <div class="card-head"><span class="card-num">6</span><h3>Generate &amp; download</h3></div>
+      <p class="sub">Rows are built in your browser in small batches so the tab never freezes, even at very large volumes.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="outputFormat">Output format</label>
+          <select id="outputFormat">
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="csv">CSV — recommended above ~50,000 rows</option>
+          </select>
+        </div>
+        <div class="field" style="justify-content:flex-end;">
+          <button class="btn accent" id="generateBtn" type="button">Generate dataset</button>
+        </div>
+      </div>
+
+      <div class="note warn" id="volumeWarning" hidden></div>
+
+      <div class="progresswrap" id="progressWrap" hidden>
+        <div class="progress-stats"><span id="progressLabel">Generating…</span><span style="display:flex; align-items:center; gap:10px;"><span id="progressPct">0%</span><button class="btn small" id="cancelBtn" type="button">Stop</button></span></div>
+        <div class="progressbar"><div id="progressFill"></div></div>
+      </div>
+
+      <div id="resultsWrap" hidden>
+        <div class="statgrid">
+          <div class="stat"><b id="statEmployees">0</b><span>Employees</span></div>
+          <div class="stat"><b id="statRows">0</b><span>Total rows</span></div>
+          <div class="stat"><b id="statColumns">0</b><span>Columns</span></div>
+          <div class="stat"><b id="statNextCounter">—</b><span>Next code will be</span></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:14px;">
+          <button class="btn primary" id="downloadBtn" type="button">Download file</button>
+          <span id="downloadFileName" class="note" style="margin:0; align-self:center; border:none; background:none; padding:0;"></span>
+        </div>
+        <h3 style="font-size:14px; margin-bottom:8px; display:flex; align-items:center; gap:10px;">Preview <span class="hint" style="font-weight:400; font-size:11.5px;" id="previewHint"></span><button class="btn small" id="previewEditBtn" type="button" style="margin-left:auto;">✏️ Edit</button></h3>
+        <div class="note" id="editingNote" hidden>Editing preview rows — click a cell to change it. Your edits are folded into the downloaded file; anything you don't touch keeps its original value (and original Excel date formatting).</div>
+        <div class="tablewrap"><table class="previewtbl" id="previewTable"></table></div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 7: POLICY MODE (enhancement; independent of sections 1-6) ============ -->
+    <section class="card" id="s-policy">
+      <div class="card-head"><span class="card-num">7</span><h3>Policy mode <span class="pill ok" style="margin-left:6px;">new</span></h3></div>
+      <p class="sub">Sheets built from one real policy's rules (its <code>sheet-spec/v1</code> JSON): ADD, UPDATE and REMOVE, every sheet valid for that policy. Works fully offline and on its own &mdash; sections 1&ndash;6 above are untouched.</p>
+
+      <div class="field">
+        <label>Policy</label>
+        <div class="radiogroup" id="pm-srcChips">
+          <label class="chip active"><input type="radio" name="pm-src" value="paste" checked> Paste / open spec file</label>
+          <label class="chip"><input type="radio" name="pm-src" value="service"> Load from the service</label>
+          <label class="chip"><input type="radio" name="pm-src" value="sample"> Sample policy</label>
+        </div>
+      </div>
+      <div class="subpanel" id="pm-src-paste">
+        <div class="field"><label for="pm-specText">sheet-spec/v1 JSON <span class="hint">the output of GET /api/v1/broker/policies/{id}/sheet-spec</span></label>
+          <textarea id="pm-specText" spellcheck="false" placeholder='{"schema":"sheet-spec/v1", ...}'></textarea></div>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+          <input type="file" id="pm-specFile" accept=".json,application/json" style="width:auto;">
+          <button class="btn primary" id="pm-useSpec" type="button">Use this spec</button>
+        </div>
+      </div>
+      <div class="subpanel" id="pm-src-service" hidden>
+        <div class="field-row">
+          <div class="field"><label for="pm-policyId">Policy id</label><input type="number" id="pm-policyId" min="1"></div>
+          <div class="field"><label for="pm-token">Access token <span class="hint">kept in memory only</span></label><input type="text" id="pm-token" autocomplete="off" style="-webkit-text-security:disc;"></div>
+        </div>
+        <button class="btn primary" id="pm-loadSpec" type="button">Load spec</button>
+        <div class="note" id="pm-serviceNote">Only available when this page is served by the sheet-generator service. Opened from disk, use "Paste / open spec file".</div>
+      </div>
+      <div class="subpanel" id="pm-src-sample" hidden>
+        <p class="sub" style="margin:0 0 10px;">A made-up flat GMC policy for the current financial year, just to try this section.</p>
+        <button class="btn primary" id="pm-useSample" type="button">Use the sample</button>
+      </div>
+      <div class="note" id="pm-specMsg" hidden></div>
+      <div class="statgrid" id="pm-facts" hidden></div>
+      <div class="note warn" id="pm-gaps" hidden></div>
+
+      <div class="field" style="margin-top:18px;">
+        <label>What to generate</label>
+        <div class="radiogroup" id="pm-opChips">
+          <label class="chip active"><input type="radio" name="pm-op" value="ADD" checked> ADD</label>
+          <label class="chip"><input type="radio" name="pm-op" value="UPDATE"> UPDATE</label>
+          <label class="chip"><input type="radio" name="pm-op" value="REMOVE"> REMOVE</label>
+        </div>
+      </div>
+
+      <div id="pm-opts-add">
+        <div class="field-row">
+          <div class="field"><label for="pm-families">Families</label><input type="number" id="pm-families" value="100" min="1" step="1"></div>
+          <div class="field"><label for="pm-spousePct">Spouse %</label><input type="number" id="pm-spousePct" value="80" min="0" max="100"></div>
+          <div class="field"><label for="pm-childPct">Children %</label><input type="number" id="pm-childPct" value="60" min="0" max="100"></div>
+          <div class="field"><label for="pm-twinPct">Twins % <span class="hint">only if the policy allows</span></label><input type="number" id="pm-twinPct" value="10" min="0" max="100"></div>
+          <div class="field"><label for="pm-parentPct">Parents / in-laws %</label><input type="number" id="pm-parentPct" value="20" min="0" max="100"></div>
+          <div class="field"><label for="pm-midTermPct">Mid-term effective date %</label><input type="number" id="pm-midTermPct" value="30" min="0" max="100"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="pm-effDate">Fixed effective date <span class="hint">optional, dd-mm-yyyy</span></label><input type="text" id="pm-effDate"></div>
+          <div class="field"><label for="pm-prefix">Employee code prefix</label><input type="text" id="pm-prefix" maxlength="10"></div>
+          <div class="field"><label for="pm-startNo">First number</label><input type="number" id="pm-startNo" value="1" min="1"></div>
+          <div class="field"><label for="pm-seed">Seed <span class="hint">optional, repeatable data shape</span></label><input type="number" id="pm-seed"></div>
+          <div class="field"><label for="pm-siFree">Sum insured <span class="hint">only when the policy accepts any value</span></label><input type="text" id="pm-siFree" placeholder="500000"></div>
+          <div class="field"><label for="pm-flex">Flex plan <span class="hint">if the policy has one</span></label><input type="text" id="pm-flex"></div>
+          <div class="field"><label for="pm-empPrem">Employee premium <span class="hint">no-rule policies</span></label><input type="text" id="pm-empPrem" placeholder="12000"></div>
+          <div class="field"><label for="pm-erPrem">Employer premium</label><input type="text" id="pm-erPrem" placeholder="8000"></div>
+        </div>
+        <div class="toggle-row"><div class="switch"><input type="checkbox" id="pm-fillOptional"><div class="track"><div class="knob"></div></div></div><label for="pm-fillOptional">Add state and city columns</label></div>
+        <div class="toggle-row"><div class="switch"><input type="checkbox" id="pm-inclPrem"><div class="track"><div class="knob"></div></div></div><label for="pm-inclPrem">Always add premium columns</label></div>
+      </div>
+
+      <div id="pm-opts-change" hidden>
+        <div class="field-row">
+          <div class="field"><label for="pm-count" id="pm-countLabel">How many</label><input type="number" id="pm-count" value="10" min="1"></div>
+          <div class="field" id="pm-modeBox"><label for="pm-mode">Remove</label>
+            <select id="pm-mode"><option value="MIX">Whole families and single members</option><option value="FAMILY">Whole families</option><option value="MEMBER">Single dependants</option></select></div>
+          <div class="field"><label for="pm-srcFile">Source sheet <span class="hint">CSV in this tool's layout; default: the last ADD you generated here</span></label><input type="file" id="pm-srcFile" accept=".csv,text/csv"></div>
+        </div>
+        <div class="note" id="pm-srcNote"></div>
+      </div>
+
+      <div class="field-row" style="margin-top:14px;">
+        <div class="field"><label for="pm-format">Output format</label>
+          <select id="pm-format"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV &mdash; recommended above ~50,000 rows</option></select></div>
+        <div class="field" style="justify-content:flex-end;"><div style="display:flex; gap:10px;"><button class="btn accent" id="pm-go" type="button" disabled>Generate</button></div></div>
+      </div>
+      <div class="note warn" id="pm-volumeWarning" hidden></div>
+
+      <div class="progresswrap" id="pm-progressWrap" hidden>
+        <div class="progress-stats"><span id="pm-progressLabel">Generating&hellip;</span><span style="display:flex; align-items:center; gap:10px;"><span id="pm-progressPct">0%</span><button class="btn small" id="pm-cancel" type="button">Stop</button></span></div>
+        <div class="progressbar"><div id="pm-progressFill"></div></div>
+      </div>
+
+      <div id="pm-results" hidden>
+        <div class="statgrid">
+          <div class="stat"><b id="pm-statOp">&mdash;</b><span>Sheet</span></div>
+          <div class="stat"><b id="pm-statRows">0</b><span>Rows</span></div>
+          <div class="stat"><b id="pm-statCols">0</b><span>Columns</span></div>
+          <div class="stat"><b id="pm-statCheck">&mdash;</b><span>Policy check</span></div>
+        </div>
+        <div class="note" id="pm-checkNote" hidden></div>
+        <ul id="pm-warnings" class="note warn" style="list-style:disc inside;" hidden></ul>
+        <div style="display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; align-items:center;">
+          <button class="btn primary" id="pm-download" type="button">Download file</button>
+          <button class="btn" id="pm-useAsSource" type="button" hidden>Use as source for UPDATE / REMOVE</button>
+          <span id="pm-fileName" class="note" style="margin:0; border:none; background:none; padding:0;"></span>
+        </div>
+        <h3 style="font-size:14px; margin-bottom:8px;">Preview <span class="hint" id="pm-previewHint" style="font-weight:400; font-size:11.5px;"></span></h3>
+        <div class="tablewrap"><table class="previewtbl" id="pm-table"></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  Runs 100% client-side — nothing you upload or generate ever leaves this browser tab. Built for generating test data only; always keep production employee data out of tools like this.
+</footer>
+
+<script>
+/* ---- Data generation engine ---- */
+/* ============================================================
+   Endorsement Add-Sheet Test Data Engine
+   Pure logic, no DOM — testable under Node, then inlined into
+   the standalone HTML tool.
+   ============================================================ */
+
+// ---------- Name / reference pools (defaults; overridable in UI) ----------
+const DEFAULT_FIRST_NAMES_MALE = [
+  "Aarav","Vivaan","Aditya","Vihaan","Arjun","Sai","Reyansh","Krishna","Ishaan","Rohan",
+  "Karan","Nikhil","Rahul","Amit","Sandeep","Vikram","Ankit","Deepak","Manoj","Suresh",
+  "Rajesh","Anil","Sunil","Ashok","Prakash","Nitesh","Jidnesh","Rakesh","Vijay","Manish"
+];
+const DEFAULT_FIRST_NAMES_FEMALE = [
+  "Priya","Ananya","Diya","Saanvi","Aadhya","Ishita","Kavya","Riya","Neha","Pooja",
+  "Sneha","Anjali","Divya","Meera","Shreya","Nisha","Swati","Kavita","Rekha","Sunita",
+  "Aisha","Zoya","Manasvi","Radhika","Bhavna","Preeti","Simran","Tanvi","Vidya","Komal"
+];
+// Flat pool kept for contexts where gender-matched picking doesn't apply
+// (e.g. a user pastes their own unlabeled name list).
+const DEFAULT_FIRST_NAMES = DEFAULT_FIRST_NAMES_MALE.concat(DEFAULT_FIRST_NAMES_FEMALE);
+
+const DEFAULT_LAST_NAMES = [
+  "Sharma","Verma","Gupta","Iyer","Nair","Menon","Reddy","Rao","Naidu","Pillai",
+  "Khan","Ahmed","Sheikh","Patel","Shah","Mehta","Desai","Joshi","Kulkarni","Deshmukh",
+  "Chavan","Pawar","Jadhav","More","Bhosale","Singh","Kaur","Chauhan","Rathore","Yadav",
+  "Mishra","Tiwari","Pandey","Dubey","Trivedi","Bose","Banerjee","Chatterjee","Mukherjee","Sen",
+  "Das","Roy","Ghosh","Kapoor","Malhotra","Chopra","Bhatia","Arora","Sethi","Anand"
+];
+
+const DEFAULT_STATES = [
+  "Maharashtra","Karnataka","Tamil Nadu","Delhi","Gujarat","Rajasthan","Uttar Pradesh",
+  "West Bengal","Telangana","Andhra Pradesh","Kerala","Madhya Pradesh","Haryana","Punjab",
+  "Bihar","Odisha","Assam","Chandigarh","Goa","Jharkhand"
+];
+
+// City pool per state, used for Employee/Insured Member City and for
+// Location (kept to plain letters + spaces only - no commas, slashes or
+// punctuation - since some validators reject special characters there).
+const STATE_CITY_MAP = {
+  "Maharashtra": ["Mumbai","Pune","Nagpur"],
+  "Karnataka": ["Bengaluru","Mysuru","Mangaluru"],
+  "Tamil Nadu": ["Chennai","Coimbatore","Madurai"],
+  "Delhi": ["New Delhi"],
+  "Gujarat": ["Ahmedabad","Surat","Vadodara"],
+  "Rajasthan": ["Jaipur","Jodhpur","Udaipur"],
+  "Uttar Pradesh": ["Lucknow","Kanpur","Noida"],
+  "West Bengal": ["Kolkata","Howrah"],
+  "Telangana": ["Hyderabad","Warangal"],
+  "Andhra Pradesh": ["Vijayawada","Visakhapatnam"],
+  "Kerala": ["Kochi","Thiruvananthapuram"],
+  "Madhya Pradesh": ["Bhopal","Indore"],
+  "Haryana": ["Gurugram","Faridabad"],
+  "Punjab": ["Ludhiana","Amritsar"],
+  "Bihar": ["Patna","Gaya"],
+  "Odisha": ["Bhubaneswar","Cuttack"],
+  "Assam": ["Guwahati"],
+  "Chandigarh": ["Chandigarh"],
+  "Goa": ["Panaji","Margao"],
+  "Jharkhand": ["Ranchi","Jamshedpur"]
+};
+function cityForState(state) {
+  const list = STATE_CITY_MAP[state];
+  return list ? pick(list) : "Head Office";
+}
+
+const DEFAULT_GRADES = ["Grade A","Grade B","Grade C","Grade D","Grade E"];
+const DEFAULT_DESIGNATIONS = ["Executive","Senior Executive","Assistant Manager","Manager","Senior Manager","AVP","VP"];
+const DEFAULT_SALARY_MULTIPLES = ["1","2","3"];
+
+// ---------- Canonical field alias map ----------
+// Keys are canonical field ids used internally; values are normalized
+// (lowercase, alnum-only) header variants that should map to that field.
+// Built from the real sample sheets + DefaultEndrosementFormatFeildsMapping
+// labels referenced throughout the endorsement controllers/jobs.
+const FIELD_ALIASES = {
+  employer_name: ["entity","employername","employer","entityname","companyname"],
+  employee_code: ["employeecode","empcode","employeeid","empid","employeenumber","code"],
+  employee_first_name: ["employeefirstname","empfirstname","firstname","employeename"],
+  employee_last_name: ["employeelastname","emplastname","lastname"],
+  employee_gender: ["employeegender","empgender","gender"],
+  employee_dob: ["employeedob","empdob","dateofbirth","dob"],
+  employee_doj: ["employeedateofjoining","dateofjoining","doj","joiningdate"],
+  employee_designation: ["employeedesignation","designation"],
+  employee_grade: ["employeegrade","grade"],
+  employee_unit: ["employeeunit","unit"],
+  employee_email: ["employeeemail","empemail","email","emailid","employeeemailid"],
+  employee_alt_email: ["employeealternateemail","alternateemail"],
+  is_dummy_email: ["isdummyemail"],
+  to_hide_email: ["tohideemail"],
+  is_demo_email: ["isdemoemail"],
+  demo_email_expiry: ["demoemailexpirydate","demoemaildate"],
+  is_dummy_mobile: ["isdummymobile","isdummymobileno"],
+  to_hide_mobile: ["tohidemobile","tohidemobileno"],
+  employee_mobile: ["employeemobilenumber","mobilenumber","empmobile","mobileno","contactnumber"],
+  employee_alt_mobile: ["employeealternatemobilenumber","alternatemobilenumber"],
+  mobile_no_code: ["mobilenocode"],
+  relationship: ["relationshipwithemployee","relation","relationship"],
+  insured_member_first_name: ["insuredmemberfirstname","memberfirstname","dependentfirstname"],
+  insured_member_last_name: ["insuredmemberlastname","memberlastname","dependentlastname"],
+  insured_member_gender: ["insuredmembergender","membergender","dependentgender"],
+  insured_member_dob: ["insuredmemberdob","memberdob","dependentdob"],
+  insured_member_email: ["insuredmemberemail","memberemail"],
+  insured_member_mobile: ["insuredmembermobilenumber","membermobilenumber"],
+  date_of_marriage: ["dateofmarriage","marriagedate","dom"],
+  effective_date: ["effectivedate"],
+  member_existing_claim: ["memberexistingclaim","existingclaim"],
+  has_death_certificate: ["hasdeathcertificate","deathcertificate"],
+  inception_endorsement_date: ["inceptionendorsementdate","endorsementdate"],
+  ctc: ["ctc"],
+  data_received_on: ["datareceivedon","receivedon","datarecievedon"],
+  batch_id: ["batchid","batch"],
+  insurer_endorsement_id: ["insurerendorsementid"],
+  insurer_endorsement_date: ["insurerendorsementdate"],
+  should_verify_email: ["shouldverifyemail"],
+  default_password: ["defaultpassword","password"],
+  is_password_reset: ["ispasswordreset"],
+  is_vip: ["isvipemployee","isvip","vip"],
+  employee_city: ["employeecity","city"],
+  employee_state: ["employeestate","state"],
+  employee_pincode: ["employeepincode","pincode","pincodeno"],
+  employee_address: ["employeeaddress","address"],
+  insured_member_city: ["insuredmembercity","membercity"],
+  insured_member_state: ["insuredmemberstate","memberstate"],
+  insured_member_address: ["insuredmemberaddress","memberaddress"],
+  insured_member_pincode: ["insuredmemberpincode","memberpincode"],
+  suminsured: ["suminsured","suminsuredamount"],
+  opd_suminsured: ["opdsuminsured","opdsuminsuredamount"],
+  employee_premium: ["employeepremium","ipdemployeepremium","premium"],
+  employer_premium: ["employerpremium","ipdemployerpremium"],
+  opd_employee_premium: ["opdemployeepremium","opdpremium"],
+  opd_employer_premium: ["opdemployerpremium"],
+  employee_annual_salary: ["employeeannualsalary","annualsalary","salary"],
+  employee_annual_salary_2: ["employeeannualsalary2"],
+  employee_annual_salary_3: ["employeeannualsalary3"],
+  employee_variables_salary: ["employeevariablesinsalary"],
+  employee_number_of_time_salary: ["employeenumberoftimesalary","numberoftimesalary"],
+  insured_member_number_of_time_salary: ["insuredmembernumberoftimesalary"],
+  employee_no_of_time_suminsured: ["employeenooftimesuminsured","employeenumberoftimesuminsured"],
+  cover_type: ["covertype"],
+  copayment: ["copayment"],
+  copayment_percentage: ["copaymentpercentage"],
+  zone: ["zone"],
+  flex_plan: ["flexplan"],
+  self_si_selection: ["selfsiselection"],
+  installment: ["installment"],
+  location: ["location"],
+  department: ["department"],
+  salutation: ["salutation"],
+  occupation: ["occupation"],
+  nominee_name: ["nomineename"],
+  nominee_dob: ["nomineedob"],
+  relationship_with_insured: ["relationshipwithinsured"],
+  relation_of_appointee: ["relationofappointeewithnominee"],
+  appointee_name: ["appointeename"],
+  nominee_contribution: ["nomineecontribution"],
+  nominee_email: ["nomineeemail"],
+  nominee_mobile: ["nomineemobilenumber"],
+  vpn: ["vpn","vpnid"],
+  serial_number: ["serialnumber"],
+  aadhar_number: ["aadharnumber"],
+  organization: ["organization"],
+  circle: ["circle"],
+  salary_package: ["salarypackage"]
+};
+
+function normalizeHeader(label) {
+  return String(label == null ? "" : label).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Build a reverse lookup once: normalized alias -> canonical field id
+function buildAliasLookup() {
+  const lookup = new Map();
+  for (const canonical in FIELD_ALIASES) {
+    for (const alias of FIELD_ALIASES[canonical]) {
+      lookup.set(alias, canonical);
+    }
+  }
+  return lookup;
+}
+const ALIAS_LOOKUP = buildAliasLookup();
+
+function resolveColumn(label) {
+  const norm = normalizeHeader(label);
+  if (!norm) return null;
+  if (ALIAS_LOOKUP.has(norm)) return ALIAS_LOOKUP.get(norm);
+  return null;
+}
+
+// headers: array of raw header strings from row 1 of the template
+// returns: array (parallel to headers) of { raw, canonical, recognized }
+function buildColumnPlan(headers) {
+  return headers.map((h) => {
+    const canonical = resolveColumn(h);
+    return { raw: h, canonical, recognized: !!canonical };
+  });
+}
+
+// ---------- RNG helpers ----------
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function pick(arr) {
+  return arr[randInt(0, arr.length - 1)];
+}
+function chance(pct) {
+  return Math.random() * 100 < pct;
+}
+
+// ---------- Date helpers (UTC to dodge timezone drift) ----------
+function makeUTCDate(y, m, d) {
+  return new Date(Date.UTC(y, m, d));
+}
+function addYears(date, years) {
+  const d = new Date(date.getTime());
+  d.setUTCFullYear(d.getUTCFullYear() + years);
+  return d;
+}
+function addDays(date, days) {
+  const d = new Date(date.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+function randomDateBetween(start, end) {
+  // Every caller in this app wants a plain calendar date (DOB, DOJ, DOM) -
+  // truncate to whole-day UTC midnight so no spurious time-of-day leaks
+  // into the generated Excel date cells.
+  const s = start.getTime();
+  const e = end.getTime();
+  const t = new Date(s + Math.random() * (e - s));
+  return makeUTCDate(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+}
+function dobForAge(minAge, maxAge, asOf) {
+  const age = randInt(minAge, maxAge);
+  const latest = addYears(asOf, -age);
+  const earliest = addDays(addYears(latest, -1), 1);
+  return randomDateBetween(earliest, latest);
+}
+function ageOn(dob, asOf) {
+  let age = asOf.getUTCFullYear() - dob.getUTCFullYear();
+  const m = asOf.getUTCMonth() - dob.getUTCMonth();
+  if (m < 0 || (m === 0 && asOf.getUTCDate() < dob.getUTCDate())) age--;
+  return age;
+}
+
+// ---------- Sequence / code encoding (uniqueness backbone) ----------
+// A monotonically increasing counter (persisted outside this module)
+// guarantees uniqueness deterministically - no probabilistic collisions.
+function padStart(str, len, ch) {
+  str = String(str);
+  while (str.length < len) str = ch + str;
+  return str;
+}
+function toBase(num, digits) {
+  // BigInt-safe: a plain Number loses integer precision past 2^53, which
+  // long alphanumeric codes (length up to 20) can exceed.
+  let n = typeof num === "bigint" ? num : BigInt(Math.floor(num));
+  const base = BigInt(digits.length);
+  if (n === 0n) return digits[0];
+  let out = "";
+  while (n > 0n) {
+    out = digits[Number(n % base)] + out;
+    n = n / base;
+  }
+  return out;
+}
+const ALPHA_DIGITS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const ALNUM_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+// Every code starts at base^(length-1) - the smallest value that already
+// occupies exactly `length` digits - the same way a real integer never
+// shows leading zeros: 100000000 has 9 significant digits, not "1" padded
+// with 8 filler zeros. Any "0" that shows up after the leading digit is
+// therefore a real digit of the number, not padding, and a run like
+// "E100004000" is exactly as meaningful as any other value in the range.
+// Past base^length the number naturally grows an extra digit - no
+// separate overflow handling needed, same as counting past 999 to 1000.
+function encodeSequence(counter, format, length, prefix) {
+  const len = Math.max(1, length);
+  let core;
+  switch (format) {
+    case "numeric": {
+      const offset = 10n ** BigInt(len - 1);
+      core = String(offset + BigInt(counter - 1));
+      break;
+    }
+    case "alpha": {
+      const base = BigInt(ALPHA_DIGITS.length);
+      const offset = base ** BigInt(len - 1);
+      core = toBase(offset + BigInt(counter - 1), ALPHA_DIGITS);
+      break;
+    }
+    case "alphanumeric": {
+      const base = BigInt(ALNUM_DIGITS.length);
+      const offset = base ** BigInt(len - 1);
+      core = toBase(offset + BigInt(counter - 1), ALNUM_DIGITS);
+      break;
+    }
+    default: {
+      const offset = 10n ** BigInt(len - 1);
+      core = String(offset + BigInt(counter - 1));
+    }
+  }
+  return (prefix || "") + core;
+}
+
+// ---------- Relation catalogue (must match RelationMaster names exactly) ----------
+const RELATIONS = {
+  SELF: "Self",
+  SPOUSE: "Spouse",
+  SON: "Son",
+  DAUGHTER: "Daughter",
+  FATHER: "Father",
+  MOTHER: "Mother",
+  FATHER_IN_LAW: "Father-in-law",
+  MOTHER_IN_LAW: "Mother-in-law"
+};
+
+// ============================================================
+// Row generation
+// ============================================================
+
+function buildEmail(code, firstName, lastName, domain, pattern) {
+  domain = (domain || "testcompany.com").replace(/^@+/, "");
+  if (pattern === "name") {
+    const slug = (firstName + "." + lastName).toLowerCase().replace(/[^a-z.]/g, "");
+    return `${slug}${code}`.toLowerCase() + "@" + domain;
+  }
+  return `${code}`.toLowerCase() + "@" + domain;
+}
+
+function yesNo(flag) {
+  return flag ? "Yes" : "No";
+}
+
+// Produces the canonical-keyed value map for the *employee* (Self) row.
+function buildSelfValues(ctx) {
+  const { cfg, code, firstName, lastName, gender, dob, doj, asOf, state, city, pincode, address, ctc } = ctx;
+  const v = {
+    employer_name: cfg.employerName || "",
+    employee_code: code,
+    employee_first_name: firstName,
+    employee_last_name: lastName,
+    employee_gender: gender,
+    employee_dob: dob,
+    employee_doj: doj,
+    employee_email: buildEmail(code, firstName, lastName, cfg.emailDomain, cfg.emailPattern),
+    relationship: RELATIONS.SELF,
+    // Insured Member fields are deliberately left OUT here. The employee
+    // is never their own insured member on the Self row - only dependent
+    // rows (buildDependentValues) populate Insured Member columns. Setting
+    // them to the employee's own name/DOB here is exactly what makes a
+    // validator reject the row as "employee cannot be their own dependent".
+    //
+    // Mandatory fields only, per the confirmed field list: Code, First/Last
+    // Name, Gender, DOB, DOJ, Email, Mobile, Suminsured, Relationship,
+    // Should Verify Email, Default Password. Mobile Number and Default
+    // Password used to be toggle-gated (off by default) - that was the
+    // "passwords all blank" bug. They're unconditional now.
+    employee_mobile: String(randInt(7, 9)) + padStart(randInt(0, 999999999), 9, "0").slice(0, 9),
+    mobile_no_code: "91", // paired with Mobile Number - a blank code next to a filled number is what triggered "country code is invalid"
+    default_password: cfg.defaultPasswordValue || "Test@12345",
+    is_password_reset: "No"
+  };
+  if (cfg.shouldVerifyEmail) v.should_verify_email = cfg.shouldVerifyEmail;
+
+  // Everything below is confirmed NOT mandatory. It only gets filled when
+  // "Also fill non-mandatory fields" is switched on - guessed values here
+  // (State names, Installment codes, CTC ranges, Location text rules) are
+  // exactly what produced the last batch of validator errors, and leaving
+  // an optional field genuinely blank passes validation trivially.
+  if (cfg.fillOptionalFields) {
+    v.employee_state = state;
+    v.employee_city = city;
+    v.employee_pincode = pincode;
+    v.employee_address = address;
+    v.location = city;
+    v.ctc = ctc;
+    v.data_received_on = asOf;
+    if (cfg.installment) v.installment = cfg.installment;
+  }
+
+  if (cfg.isDummyEmail) v.is_dummy_email = cfg.isDummyEmail;
+  if (cfg.toHideEmail) v.to_hide_email = cfg.toHideEmail;
+  if (cfg.isDummyMobile) v.is_dummy_mobile = cfg.isDummyMobile;
+  if (cfg.toHideMobile) v.to_hide_mobile = cfg.toHideMobile;
+  if (cfg.isVip) v.is_vip = cfg.isVip;
+
+  // Rater-driven fields - only populated when the chosen rule needs them,
+  // mirroring the mandatory-field logic in the validation/rater code.
+  if (cfg.raterType === "flat" || cfg.raterType === "no_rule") {
+    v.suminsured = cfg.suminsuredValue;
+    if (cfg.opdEnabled) v.opd_suminsured = cfg.opdSuminsuredValue;
+  } else if (cfg.raterType === "grade") {
+    v.employee_grade = pick(cfg.grades);
+  } else if (cfg.raterType === "designation") {
+    v.employee_designation = pick(cfg.designations);
+  } else if (cfg.raterType === "salary_multiple") {
+    v.employee_annual_salary = randInt(cfg.salaryMin, cfg.salaryMax);
+    v.employee_number_of_time_salary = pick(cfg.salaryMultiples);
+  }
+  // "state" rater: Employee State is populated above only when "Also fill
+  // non-mandatory fields" is on (paired with City) - nothing extra here.
+  // age / family_construct / none: nothing extra required beyond DOB and
+  // family structure, both already handled elsewhere.
+
+  if (cfg.premiumEnabled) {
+    v.employee_premium = cfg.employeePremiumValue;
+    if (cfg.employerPremiumValue !== "" && cfg.employerPremiumValue != null) v.employer_premium = cfg.employerPremiumValue;
+    if (cfg.opdEnabled && cfg.opdEmployeePremiumValue !== "" && cfg.opdEmployeePremiumValue != null) v.opd_employee_premium = cfg.opdEmployeePremiumValue;
+  }
+
+  if (cfg.coverType) v.cover_type = cfg.coverType;
+  if (cfg.memberExistingClaim) v.member_existing_claim = cfg.memberExistingClaim;
+  if (cfg.hasDeathCertificate) v.has_death_certificate = cfg.hasDeathCertificate;
+  if (cfg.batchId) {
+    v.batch_id = cfg.batchId;
+    v.insurer_endorsement_id = cfg.batchId;
+  }
+  if (cfg.effectiveDate) {
+    // Inception/Endorsement Date is just a date-format check. Effective
+    // Date is different - it's validated against the *policy's actual*
+    // start_date/end_date (a DB field on the policy, not this sheet) and
+    // against DOJ, none of which we can see from here. Deriving one from
+    // the other was comparing against the wrong date entirely, so
+    // Effective Date is left genuinely blank (skips validation) rather
+    // than guessed.
+    v.inception_endorsement_date = cfg.effectiveDate;
+    v.insurer_endorsement_date = cfg.effectiveDate;
+  }
+
+  return v;
+}
+
+// Produces the canonical-keyed value map for one dependent row.
+function buildDependentValues(ctx) {
+  const { cfg, code, relation, firstName, lastName, gender, dob, asOf, state, city, pincode, address, ctc } = ctx;
+  const v = {
+    employer_name: cfg.employerName || "",
+    employee_code: code,
+    relationship: relation,
+    // Insured Member = this dependent's own identity - never the employee's.
+    insured_member_first_name: firstName,
+    insured_member_last_name: lastName,
+    insured_member_gender: gender,
+    insured_member_dob: dob
+  };
+  if (cfg.fillOptionalFields) {
+    v.insured_member_state = state;
+    v.insured_member_city = city;
+    v.insured_member_pincode = pincode;
+    v.insured_member_address = address;
+    v.location = city;
+    v.ctc = ctc;
+    v.data_received_on = asOf;
+    if (cfg.installment) v.installment = cfg.installment;
+  }
+
+  if (cfg.raterType === "flat" || cfg.raterType === "no_rule") {
+    v.suminsured = cfg.suminsuredValue;
+    if (cfg.opdEnabled) v.opd_suminsured = cfg.opdSuminsuredValue;
+  } else if (cfg.raterType === "salary_multiple") {
+    v.insured_member_number_of_time_salary = pick(cfg.salaryMultiples);
+  }
+
+  if (cfg.premiumEnabled) {
+    v.employee_premium = cfg.employeePremiumValue;
+    if (cfg.employerPremiumValue !== "" && cfg.employerPremiumValue != null) v.employer_premium = cfg.employerPremiumValue;
+    if (cfg.opdEnabled && cfg.opdEmployeePremiumValue !== "" && cfg.opdEmployeePremiumValue != null) v.opd_employee_premium = cfg.opdEmployeePremiumValue;
+  }
+
+  if (cfg.coverType) v.cover_type = cfg.coverType;
+  if (cfg.memberExistingClaim) v.member_existing_claim = cfg.memberExistingClaim;
+  if (cfg.hasDeathCertificate) v.has_death_certificate = cfg.hasDeathCertificate;
+  if (cfg.batchId) {
+    v.batch_id = cfg.batchId;
+    v.insurer_endorsement_id = cfg.batchId;
+  }
+  if (cfg.effectiveDate) {
+    v.inception_endorsement_date = cfg.effectiveDate;
+    v.insurer_endorsement_date = cfg.effectiveDate;
+  }
+  return v;
+}
+
+function pickGender(mode) {
+  if (mode === "male") return "Male";
+  if (mode === "female") return "Female";
+  return chance(50) ? "Male" : "Female";
+}
+
+// Picks a first name matching the given gender when the caller is using the
+// built-in gender-labelled pools; falls back to a flat random pick when the
+// user has supplied their own unlabeled custom name list (names don't need
+// to be semantically perfect there - any string is fine test data).
+function pickFirstName(cfg, gender) {
+  if (cfg.namesAreCustom || !cfg.firstNamesMale || !cfg.firstNamesFemale) {
+    return pick(cfg.firstNames);
+  }
+  return gender === "Male" ? pick(cfg.firstNamesMale) : pick(cfg.firstNamesFemale);
+}
+
+// ---------- Precomputed pools ----------
+// Building a fresh random DOB/DOJ via Math.random() + several Date
+// allocations for every one of up to millions of rows is the single
+// biggest per-row cost in this engine. Repeated DOB/DOJ values across
+// employees are completely fine test-data-wise (real bulk sheets often
+// share a handful of dates across a whole cohort), so we precompute a
+// pool ONCE per "Generate" click and every row just cycles through it -
+// O(poolSize) expensive work instead of O(employeeCount).
+const MIN_POOL_SIZE = 100;
+const MAX_POOL_SIZE = 5000;
+function poolSizeFor(employeeCount) {
+  return Math.min(MAX_POOL_SIZE, Math.max(MIN_POOL_SIZE, employeeCount));
+}
+function buildDobPool(minAge, maxAge, asOf, size) {
+  const pool = new Array(size);
+  for (let i = 0; i < size; i++) pool[i] = dobForAge(minAge, maxAge, asOf);
+  return pool;
+}
+function buildDojPool(maxYearsAgo, minDaysAgo, asOf, size) {
+  const start = addYears(asOf, -maxYearsAgo);
+  const end = addDays(asOf, -minDaysAgo);
+  const pool = new Array(size);
+  for (let i = 0; i < size; i++) pool[i] = randomDateBetween(start, end);
+  return pool;
+}
+// Built once per generateDataset(Async) call and threaded through every
+// buildFamily() call for that run - see buildDatePools() below.
+function buildDatePools(cfg, asOf) {
+  const size = poolSizeFor(cfg.employeeCount);
+  return {
+    dob: cfg.dobFixedDate ? null : buildDobPool(cfg.dobMinAge, cfg.dobMaxAge, asOf, size),
+    doj: cfg.dojFixedDate ? null : buildDojPool(cfg.dojMaxYearsAgo, cfg.dojMinDaysAgo, asOf, size)
+  };
+}
+
+// Builds one full family (Self + optional dependents) for a single counter
+// value. Returns an array of canonical value-maps (one per person).
+// `poolIndex` is the 0-based position of this employee in the run, used to
+// pull DOB/DOJ from the precomputed pools instead of generating fresh.
+function buildFamily(counter, cfg, asOf, pools, poolIndex) {
+  const code = encodeSequence(counter, cfg.codeFormat, cfg.codeLength, cfg.codePrefix);
+  const gender = pickGender(cfg.genderMode);
+  const firstName = pickFirstName(cfg, gender);
+  const lastName = pick(cfg.lastNames);
+
+  const dob = cfg.dobFixedDate ? cfg.dobFixedDate : pools.dob[poolIndex % pools.dob.length];
+  let doj = cfg.dojFixedDate ? cfg.dojFixedDate : pools.doj[poolIndex % pools.doj.length];
+  // DOJ must land at least 18 years after DOB (a person can't join a job
+  // before turning 18) - and can never exactly equal DOB. When DOJ is a
+  // fixed, shared value this was already checked once up front in
+  // gatherConfig(), so it's left alone here rather than silently shifted.
+  if (!cfg.dojFixedDate) {
+    const minDoj = addYears(dob, 18);
+    if (doj.getTime() < minDoj.getTime()) doj = minDoj;
+  }
+  if (doj.getTime() === dob.getTime()) doj = addDays(doj, 1);
+
+  // One shared address / CTC per family - a dependent doesn't have their
+  // own city or pay, so they reuse the employee's.
+  const state = pick(cfg.states);
+  const city = cityForState(state);
+  const pincode = String(randInt(100000, 999999));
+  const address = "House " + randInt(1, 999) + ", " + city;
+  const ctc = String(randInt(cfg.ctcMin, cfg.ctcMax));
+  const addr = { state, city, pincode, address, ctc };
+
+  const rows = [];
+  const selfCtx = Object.assign({ cfg, code, firstName, lastName, gender, dob, doj, asOf }, addr);
+  const selfValues = buildSelfValues(selfCtx);
+  rows.push(selfValues);
+
+  if (cfg.includeFamily) {
+    // Spouse
+    if (chance(cfg.spouseChancePct)) {
+      const spouseGender = gender === "Male" ? "Female" : "Male";
+      const spouseAge = Math.max(18, ageOn(dob, asOf) + randInt(-4, 4));
+      const spouseDob = dobForAge(Math.max(18, spouseAge - 1), spouseAge + 1, asOf);
+      const spFirst = pickFirstName(cfg, spouseGender);
+      const values = buildDependentValues(Object.assign({
+        cfg, code, relation: RELATIONS.SPOUSE, firstName: spFirst,
+        lastName, gender: spouseGender, dob: spouseDob, asOf
+      }, addr));
+      if (cfg.includeDateOfMarriage) {
+        const dom = randomDateBetween(addYears(asOf, -10), addDays(asOf, -1));
+        values.date_of_marriage = dom;
+        selfValues.date_of_marriage = dom;
+      }
+      rows.push(values);
+    }
+
+    // Children
+    const childCount = chance(cfg.childChancePct) ? randInt(cfg.childMin, cfg.childMax) : 0;
+    for (let c = 0; c < childCount; c++) {
+      const childRelation = chance(50) ? RELATIONS.SON : RELATIONS.DAUGHTER;
+      const childGender = childRelation === RELATIONS.SON ? "Male" : "Female";
+      const employeeAge = ageOn(dob, asOf);
+      const maxChildAge = Math.min(25, Math.max(0, employeeAge - 18));
+      const childDob = dobForAge(0, Math.max(0, maxChildAge), asOf);
+      const values = buildDependentValues(Object.assign({
+        cfg, code, relation: childRelation, firstName: pickFirstName(cfg, childGender),
+        lastName, gender: childGender, dob: childDob, asOf
+      }, addr));
+      rows.push(values);
+    }
+
+    // Parents / parents-in-law (never both, matches has_parent_cross_selection=0 default)
+    let mode = cfg.parentsMode;
+    if (mode === "random") {
+      const roll = Math.random();
+      mode = roll < 0.34 ? "parents" : roll < 0.68 ? "parents_in_law" : "none";
+    }
+    if (mode === "parents" || mode === "parents_in_law") {
+      const employeeAge = ageOn(dob, asOf);
+      const isInLaw = mode === "parents_in_law";
+      const fatherRelation = isInLaw ? RELATIONS.FATHER_IN_LAW : RELATIONS.FATHER;
+      const motherRelation = isInLaw ? RELATIONS.MOTHER_IN_LAW : RELATIONS.MOTHER;
+      const parentAge = Math.min(90, employeeAge + randInt(22, 35));
+      const fatherDob = dobForAge(Math.max(45, parentAge - 3), Math.min(95, parentAge + 3), asOf);
+      const motherDob = dobForAge(Math.max(45, parentAge - 5), Math.min(95, parentAge + 1), asOf);
+      const parentLastName = isInLaw ? pick(cfg.lastNames) : lastName;
+      rows.push(buildDependentValues(Object.assign({
+        cfg, code, relation: fatherRelation, firstName: pickFirstName(cfg, "Male"),
+        lastName: parentLastName, gender: "Male", dob: fatherDob, asOf
+      }, addr)));
+      rows.push(buildDependentValues(Object.assign({
+        cfg, code, relation: motherRelation, firstName: pickFirstName(cfg, "Female"),
+        lastName: parentLastName, gender: "Female", dob: motherDob, asOf
+      }, addr)));
+    }
+  }
+
+  return rows;
+}
+
+// Maps a canonical value-map to the raw row array using the columnPlan.
+function projectRow(valueMap, columnPlan) {
+  return columnPlan.map((col) => {
+    if (!col.canonical) return null;
+    const val = valueMap[col.canonical];
+    return val === undefined || val === null || val === "" ? null : val;
+  });
+}
+
+function generateDataset(headers, cfg, opts) {
+  opts = opts || {};
+  const asOf = cfg.asOf || new Date();
+  const columnPlan = buildColumnPlan(headers);
+  const pools = buildDatePools(cfg, asOf);
+  const outRows = [];
+  const usedCodes = new Set(); // defensive check only; counter already guarantees this
+  const usedEmails = new Set();
+  let counter = cfg.startCounter;
+  let employeesBuilt = 0;
+
+  for (let i = 0; i < cfg.employeeCount; i++) {
+    const family = buildFamily(counter, cfg, asOf, pools, i);
+    counter++;
+    employeesBuilt++;
+    // Uniqueness applies once per employee (the Self row, always index 0 of
+    // the family) - dependents intentionally repeat the same employee_code.
+    const selfPerson = family[0];
+    if (selfPerson.employee_code) {
+      if (usedCodes.has(selfPerson.employee_code)) throw new Error("Duplicate code generated: " + selfPerson.employee_code);
+      usedCodes.add(selfPerson.employee_code);
+    }
+    if (selfPerson.employee_email) {
+      if (usedEmails.has(selfPerson.employee_email)) throw new Error("Duplicate email generated: " + selfPerson.employee_email);
+      usedEmails.add(selfPerson.employee_email);
+    }
+    for (const person of family) {
+      outRows.push(projectRow(person, columnPlan));
+    }
+    if (opts.onProgress && (i % (opts.progressEvery || 1000) === 0)) {
+      opts.onProgress(i + 1, cfg.employeeCount, outRows.length);
+    }
+  }
+
+  return {
+    columnPlan,
+    rows: outRows,
+    nextCounter: counter,
+    employeesBuilt,
+    totalRows: outRows.length
+  };
+}
+
+// Browser-friendly variant: builds the same dataset as generateDataset but
+// yields to the event loop every CHUNK employees so the tab stays responsive
+// (and the progress bar / cancel button actually work) at very large volumes.
+// Uniqueness guarantee is identical - it's the same counter-driven encoder.
+async function generateDatasetAsync(headers, cfg, onProgress, shouldCancel) {
+  const asOf = cfg.asOf || new Date();
+  const columnPlan = buildColumnPlan(headers);
+  const pools = buildDatePools(cfg, asOf);
+  const outRows = [];
+  let counter = cfg.startCounter;
+  let employeesBuilt = 0;
+  const CHUNK = 1500;
+  let cancelled = false;
+
+  for (let i = 0; i < cfg.employeeCount; i++) {
+    const family = buildFamily(counter, cfg, asOf, pools, i);
+    counter++;
+    employeesBuilt++;
+    for (const person of family) outRows.push(projectRow(person, columnPlan));
+
+    if ((i + 1) % CHUNK === 0 || i === cfg.employeeCount - 1) {
+      if (onProgress) onProgress(i + 1, cfg.employeeCount, outRows.length);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (shouldCancel && shouldCancel()) { cancelled = true; break; }
+    }
+  }
+
+  return {
+    columnPlan,
+    rows: outRows,
+    nextCounter: counter,
+    employeesBuilt,
+    totalRows: outRows.length,
+    cancelled
+  };
+}
+
+// ---------- Formatting helpers shared by preview / CSV export ----------
+function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+function formatDateDDMMYYYY(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return "";
+  return pad2(d.getUTCDate()) + "-" + pad2(d.getUTCMonth() + 1) + "-" + d.getUTCFullYear();
+}
+function displayValue(v) {
+  if (v instanceof Date) return formatDateDDMMYYYY(v);
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+// RFC4180-ish CSV field escaping.
+function csvEscape(v) {
+  const s = displayValue(v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+// XLSX cell export: Dates become plain "dd-mm-yyyy" TEXT (never a native
+// Excel date serial - that's what let a timezone offset leak a spurious
+// time-of-day into every date cell). Numbers/strings pass through
+// unchanged so numeric columns (CTC, Suminsured, ...) stay real numbers,
+// and null stays null so SheetJS leaves the cell genuinely empty instead
+// of writing an empty-string cell that some validators treat as "present
+// but invalid" rather than "blank, skip validation".
+function toXlsxCell(v) {
+  if (v instanceof Date) return formatDateDDMMYYYY(v);
+  return v;
+}
+
+
+</script>
+<script>
+/* ---- Built-in templates ---- */
+// ============================================================
+// Built-in template layouts (used when the person doesn't upload
+// their own sample sheet). "standard" mirrors a real production
+// export verbatim; "simple" is a lean self+family layout.
+// ============================================================
+const BUILTIN_TEMPLATES = {
+  // Full production column set, exact order - this is your real uploaded
+  // sheet's structure verbatim (103 columns). Unfilled columns still exist
+  // as empty headers; nothing here is dropped or reordered.
+  standard: [
+    "Employee Code","Employee First Name","Employee Last Name","Employee Gender","Employee DOB",
+    "Employee Date of Joining","Employee Email","Employee Alternate Email","Employee Mobile Number",
+    "Mobile No Code","Employee Alternate Mobile Number","Employee Designation","Employee Grade",
+    "Employee Annual Salary","Employee Variables in Salary","Employee Number of Time Salary",
+    "Employee Address","Employee State","Employee City","Employee Pin Code","Suminsured","Employee Premium",
+    "Employer Premium","OPD Suminsured","OPD Employer Premium","OPD Employee Premium",
+    "Relationship with Employee","Date of Marriage","Employee Unit","Insured Member First Name","Salutation",
+    "Insured Member Last Name","Insured Member Gender","Insured Member DOB","Insured Member Email",
+    "Insured Member Mobile Number","Insured Member Number of Time Salary","Insured Member Address",
+    "Employee No of Time Suminsured","Insured Member City","Insured Member State","Insured Member Pin Code",
+    "Inception/Endorsement Date","Effective Date","CTC","Location","Zone","Is VIP Employee","Is Demo Email",
+    "Demo Email Expiry Date","Should Verify Email","Default Password","Is Dummy Email","To Hide Email",
+    "Is Dummy Mobile","To Hide Mobile","Is Password Reset","Employee Annual Salary 2",
+    "Employee Variables in Salary 2","Employee Annual Salary 3","Employee Variables in Salary 3","Flex Plan",
+    "Self SI Selection","Cover Type","Other 1","Other 2","Other 3","Other 4","Other 5",
+    "Member Existing Claim","Data Received On","Other 6","Insurer Endorsement Id","Other 7",
+    "Insurer Endorsement Date","Other 8","Insurer Removal Id","Other 9","Insurer Correction Id","Other 10",
+    "Insurer Correction Date","Insurer Removal Date","Installment","Has Death Certificate","Batch Id",
+    "Insurer Client Id","Tpa Member Id","Tpa Member Name","Ecard Url","Serial Number","Occupation",
+    "Aadhar Number","ABHA ID","Account Number","VPN ID","Nominee Name","Nominee DOB","Nominee Email",
+    "Nominee Mobile Number","Appointee Name","Relationship With Insured","Relation Of Appointee With Nominee",
+    "Nominee Contribution"
+  ],
+  simple: [
+    "Employee Code","Employee First Name","Employee Last Name","Employee Gender","Employee DOB",
+    "Employee Date of Joining","Employee Email","Employee Mobile Number","Relationship with Employee",
+    "Insured Member First Name","Insured Member Last Name","Insured Member Gender","Insured Member DOB",
+    "Suminsured","OPD Suminsured","Should Verify Email","Default Password","Batch Id"
+  ]
+};
+
+</script>
+<script>
+/* ---- App wiring ---- */
+// ============================================================
+// App wiring — DOM interactivity on top of the pure engine
+// functions defined above (buildColumnPlan, generateDatasetAsync,
+// encodeSequence, csvEscape, etc.) and BUILTIN_TEMPLATES.
+// ============================================================
+(function () {
+  "use strict";
+
+  const LS_COUNTER = "aesg_counter_v1";
+  const LS_SETTINGS = "aesg_settings_v1";
+
+  const state = {
+    headers: [],
+    columnPlan: [],
+    lastResult: null,
+    cancelRequested: false,
+    generating: false,
+    previewEditing: false
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const on = (el, ev, fn) => { if (el) el.addEventListener(ev, fn); };
+
+  // ---------- Human-readable hints for the column-detection panel ----------
+  const FILL_HINTS = {
+    employer_name: "employer name", employee_code: "unique code", employee_first_name: "first name",
+    employee_last_name: "last name", employee_gender: "gender", employee_dob: "date of birth",
+    employee_doj: "joining date", employee_designation: "designation", employee_grade: "grade",
+    employee_unit: "unit", employee_email: "unique email", employee_alt_email: "blank",
+    is_dummy_email: "blank/Yes/No", to_hide_email: "blank/Yes/No", is_demo_email: "blank",
+    demo_email_expiry: "blank", is_dummy_mobile: "blank/Yes/No", to_hide_mobile: "blank/Yes/No",
+    employee_mobile: "10-digit mobile, starts 7/8/9", employee_alt_mobile: "blank", mobile_no_code: "91",
+    relationship: "Self / Spouse / Son ...", insured_member_first_name: "member first name",
+    insured_member_last_name: "member last name", insured_member_gender: "member gender",
+    insured_member_dob: "member DOB", insured_member_email: "blank", insured_member_mobile: "blank",
+    date_of_marriage: "blank unless enabled", effective_date: "blank unless set",
+    member_existing_claim: "blank/NO/YES", has_death_certificate: "blank/Yes/No",
+    inception_endorsement_date: "blank unless set", batch_id: "blank unless set",
+    insurer_endorsement_id: "blank unless set", insurer_endorsement_date: "blank unless set",
+    should_verify_email: "const No", default_password: "const Test@12345",
+    is_password_reset: "blank", is_vip: "blank/Yes/No", employee_city: "blank",
+    employee_state: "blank unless 'fill non-mandatory fields' is on", employee_pincode: "blank", employee_address: "blank",
+    insured_member_city: "blank", insured_member_state: "blank", insured_member_address: "blank",
+    insured_member_pincode: "blank", suminsured: "sum insured (rater-dependent)", opd_suminsured: "blank unless enabled",
+    employee_annual_salary: "salary (if rater = salary multiple)", employee_annual_salary_2: "blank",
+    employee_annual_salary_3: "blank", employee_variables_salary: "blank",
+    employee_number_of_time_salary: "multiple (if rater)", insured_member_number_of_time_salary: "blank",
+    employee_no_of_time_suminsured: "blank", cover_type: "blank unless enabled", copayment: "blank",
+    copayment_percentage: "blank", zone: "blank", flex_plan: "blank", self_si_selection: "blank",
+    installment: "blank", location: "blank", department: "blank", salutation: "blank",
+    occupation: "blank", nominee_name: "blank", nominee_dob: "blank", relationship_with_insured: "blank",
+    relation_of_appointee: "blank", appointee_name: "blank", nominee_contribution: "blank",
+    nominee_email: "blank", nominee_mobile: "blank", vpn: "blank", serial_number: "blank",
+    aadhar_number: "blank", organization: "blank", circle: "blank", salary_package: "blank",
+    employee_premium: "blank unless enabled", employer_premium: "blank unless enabled",
+    opd_employee_premium: "blank unless enabled", opd_employer_premium: "blank"
+  };
+
+  // ---------- localStorage ----------
+  function loadCounter() {
+    const v = parseInt(localStorage.getItem(LS_COUNTER), 10);
+    return Number.isFinite(v) && v > 0 ? v : 1;
+  }
+  function saveCounter(n) {
+    try { localStorage.setItem(LS_COUNTER, String(n)); } catch (e) { /* storage unavailable, ignore */ }
+  }
+  function saveSettings(obj) {
+    try { localStorage.setItem(LS_SETTINGS, JSON.stringify(obj)); } catch (e) { /* ignore */ }
+  }
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(LS_SETTINGS);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function updateNextCodeBadge() {
+    const n = parseInt($("startCounter").value, 10) || loadCounter();
+    const format = $("codeFormat").value;
+    const length = parseInt($("codeLength").value, 10) || 6;
+    const prefix = $("codePrefix").value || "";
+    const preview = encodeSequence(n, format, length, prefix);
+    $("topNextCode").textContent = preview;
+  }
+
+  // ---------- Column detection panel ----------
+  function renderColumnDetect(headers) {
+    const wrap = $("columnDetectWrap");
+    const grid = $("columnDetect");
+    grid.innerHTML = "";
+    const plan = buildColumnPlan(headers);
+    state.headers = headers;
+    state.columnPlan = plan;
+    let recCount = 0;
+    plan.forEach((col) => {
+      if (col.recognized) recCount++;
+      const div = document.createElement("div");
+      div.className = "coltag " + (col.recognized ? "rec" : "unrec");
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = col.raw || "(blank header)";
+      const fill = document.createElement("div");
+      fill.className = "fill";
+      fill.textContent = col.recognized ? ("→ " + (FILL_HINTS[col.canonical] || "recognized")) : "→ left blank";
+      div.appendChild(name);
+      div.appendChild(fill);
+      grid.appendChild(div);
+    });
+    $("colRecognizedCount").textContent = recCount + " of " + plan.length + " columns recognized";
+    wrap.style.display = "";
+    // Any previous result is now stale.
+    $("resultsWrap").hidden = true;
+    $("downloadBtn").disabled = true;
+  }
+
+  // ---------- Template mode (upload vs builtin) ----------
+  function setTemplateMode(mode) {
+    $("chipUpload").classList.toggle("active", mode === "upload");
+    $("chipBuiltin").classList.toggle("active", mode === "builtin");
+    $("uploadPanel").style.display = mode === "upload" ? "" : "none";
+    $("builtinPanel").style.display = mode === "builtin" ? "" : "none";
+    if (mode === "builtin") loadBuiltinTemplate();
+  }
+  function loadBuiltinTemplate() {
+    const key = $("builtinTemplate").value;
+    const headers = (BUILTIN_TEMPLATES[key] || BUILTIN_TEMPLATES.standard).slice();
+    renderColumnDetect(headers);
+  }
+
+  function showUploadStatus(msg, isError) {
+    const el = $("uploadStatus");
+    el.style.display = "";
+    el.textContent = msg;
+    el.classList.toggle("warn", !!isError);
+  }
+
+  function handleUploadedFile(file) {
+    if (!file) return;
+    showUploadStatus("Reading " + file.name + " …", false);
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: "array" });
+        const firstSheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", blankrows: false });
+        if (!rows.length || !rows[0].length) {
+          showUploadStatus("That file doesn't seem to have a header row in its first sheet.", true);
+          return;
+        }
+        const headers = rows[0].map((h) => String(h == null ? "" : h).trim()).filter((h, idx, arr) => true);
+        // Trim trailing fully-blank columns.
+        while (headers.length && headers[headers.length - 1] === "") headers.pop();
+        if (!headers.length) {
+          showUploadStatus("Couldn't find any column headers in the first row.", true);
+          return;
+        }
+        renderColumnDetect(headers);
+        showUploadStatus("Loaded " + headers.length + " columns from \u201c" + file.name + "\u201d (sheet: " + firstSheetName + ").", false);
+      } catch (err) {
+        showUploadStatus("Couldn't read that file: " + err.message, true);
+      }
+    };
+    reader.onerror = function () {
+      showUploadStatus("Couldn't read that file.", true);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ---------- Rater / family / names / toggle panel switching ----------
+  const RATER_PANELS = ["raterPanel-flat", "raterPanel-grade", "raterPanel-designation", "raterPanel-salary_multiple", "raterPanel-state"];
+  const RATER_NOTES = ["raterNote-age", "raterNote-family_construct"];
+  function updateRaterPanels() {
+    const type = $("raterType").value;
+    RATER_PANELS.concat(RATER_NOTES).forEach((id) => { const el = $(id); if (el) el.hidden = true; });
+    if (type === "flat" || type === "no_rule") $("raterPanel-flat").hidden = false;
+    else if (type === "grade") $("raterPanel-grade").hidden = false;
+    else if (type === "designation") $("raterPanel-designation").hidden = false;
+    else if (type === "salary_multiple") $("raterPanel-salary_multiple").hidden = false;
+    else if (type === "state") $("raterPanel-state").hidden = false;
+    else if (type === "age") $("raterNote-age").hidden = false;
+    else if (type === "family_construct") $("raterNote-family_construct").hidden = false;
+  }
+
+  function updateOpdVisibility() {
+    $("opdValueField").hidden = !$("opdEnabled").checked;
+    $("opdPremiumField").hidden = !($("opdEnabled").checked && $("premiumEnabled").checked);
+  }
+  function updateFamilyVisibility() {
+    $("familyPanel").hidden = !$("includeFamily").checked;
+  }
+  function updateNamesVisibility() {
+    $("customNamesPanel").hidden = $("namesMode").value !== "custom";
+  }
+  function updatePremiumVisibility() {
+    $("premiumPanel").hidden = !$("premiumEnabled").checked;
+    updateOpdVisibility();
+  }
+  function updateCoverTypeVisibility() {
+    $("coverTypeValue").disabled = !$("coverTypeEnabled").checked;
+    $("coverTypeValue").style.opacity = $("coverTypeEnabled").checked ? "1" : ".5";
+  }
+  function updateOptionalFieldsVisibility() {
+    $("optionalFieldsPanel").hidden = !$("fillOptionalFieldsEnabled").checked;
+  }
+
+  // ---------- Config gathering ----------
+  function parseList(str, fallback) {
+    if (!str) return fallback.slice();
+    const parts = str.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+    return parts.length ? parts : fallback.slice();
+  }
+  function numOr(id, def) {
+    const v = parseFloat($(id).value);
+    return Number.isFinite(v) ? v : def;
+  }
+  function intOr(id, def) {
+    const v = parseInt($(id).value, 10);
+    return Number.isFinite(v) ? v : def;
+  }
+  function selectOrNull(id) {
+    const v = $(id).value;
+    return v === "" ? null : v;
+  }
+  // Batch Id / Insurer Endorsement Id must be alphanumeric only.
+  function sanitizeAlnum(str) {
+    return String(str || "").replace(/[^A-Za-z0-9]/g, "");
+  }
+
+  function gatherConfig() {
+    const namesCustom = $("namesMode").value === "custom";
+    const customFirst = parseList($("customFirstNames").value, []);
+    const customLast = parseList($("customLastNames").value, []);
+    const useCustomNames = namesCustom && customFirst.length > 0 && customLast.length > 0;
+
+    let dobMin = intOr("dobMinAge", 21), dobMax = intOr("dobMaxAge", 58);
+    if (dobMin > dobMax) { const t = dobMin; dobMin = dobMax; dobMax = t; }
+
+    let childMin = intOr("childMin", 0), childMax = intOr("childMax", 0);
+    if (childMin > childMax) { const t = childMin; childMin = childMax; childMax = t; }
+
+    const effRaw = $("effectiveDate").value; // yyyy-mm-dd or ""
+    let effectiveDate = null;
+    if (effRaw) {
+      const [y, m, d] = effRaw.split("-").map(Number);
+      effectiveDate = makeUTCDate(y, m - 1, d);
+    }
+
+    function parseFixedDate(enabledId, valueId) {
+      if (!$(enabledId).checked) return null;
+      const raw = $(valueId).value;
+      if (!raw) return null;
+      const [y, m, d] = raw.split("-").map(Number);
+      return makeUTCDate(y, m - 1, d);
+    }
+    const dobFixedDate = parseFixedDate("dobFixedEnabled", "dobFixedValue");
+    const dojFixedDate = parseFixedDate("dojFixedEnabled", "dojFixedValue");
+    if (dobFixedDate && dojFixedDate) {
+      const gapYears = ageOn(dobFixedDate, dojFixedDate);
+      if (gapYears < 18) {
+        throw new Error(
+          "Date of Joining must be at least 18 years after Date of Birth (currently " +
+          gapYears + " year" + (gapYears === 1 ? "" : "s") +
+          " apart). Adjust the fixed DOB/DOJ dates in Section 2."
+        );
+      }
+    }
+
+    const cfg = {
+      employeeCount: Math.max(1, intOr("numEmployees", 100)),
+      startCounter: Math.max(1, intOr("startCounter", loadCounter())),
+      codeFormat: $("codeFormat").value,
+      codeLength: Math.max(1, intOr("codeLength", 6)),
+      codePrefix: $("codePrefix").value || "",
+      emailDomain: $("emailDomain").value || "testcompany.com",
+      emailPattern: $("emailPattern").value,
+      employerName: $("employerName").value || "",
+      genderMode: $("genderMode").value,
+      namesAreCustom: useCustomNames,
+      firstNames: useCustomNames ? customFirst : DEFAULT_FIRST_NAMES,
+      firstNamesMale: useCustomNames ? null : DEFAULT_FIRST_NAMES_MALE,
+      firstNamesFemale: useCustomNames ? null : DEFAULT_FIRST_NAMES_FEMALE,
+      lastNames: useCustomNames ? customLast : DEFAULT_LAST_NAMES,
+      dobMinAge: dobMin, dobMaxAge: dobMax,
+      dojMinDaysAgo: 30, dojMaxYearsAgo: Math.max(0, numOr("dojMaxYearsAgo", 6)),
+      dobFixedDate: dobFixedDate, dojFixedDate: dojFixedDate,
+
+      raterType: $("raterType").value,
+      suminsuredValue: numOr("suminsuredValue", 500000),
+      opdEnabled: $("opdEnabled").checked,
+      opdSuminsuredValue: numOr("opdSuminsuredValue", 50000),
+      grades: parseList($("gradesList").value, DEFAULT_GRADES),
+      designations: parseList($("designationsList").value, DEFAULT_DESIGNATIONS),
+      salaryMin: numOr("salaryMin", 400000),
+      salaryMax: numOr("salaryMax", 2000000),
+      salaryMultiples: parseList($("salaryMultiplesList").value, DEFAULT_SALARY_MULTIPLES),
+      states: parseList($("statesList").value, DEFAULT_STATES),
+
+      coverType: $("coverTypeEnabled").checked ? $("coverTypeValue").value : null,
+
+      premiumEnabled: $("premiumEnabled").checked,
+      employeePremiumValue: numOr("employeePremiumValue", 5000),
+      employerPremiumValue: $("employerPremiumValue").value === "" ? null : numOr("employerPremiumValue", null),
+      opdEmployeePremiumValue: $("opdEmployeePremiumValue").value === "" ? null : numOr("opdEmployeePremiumValue", null),
+
+      includeFamily: $("includeFamily").checked,
+      spouseChancePct: numOr("spouseChancePct", 55),
+      childChancePct: numOr("childChancePct", 45),
+      childMin: childMin, childMax: Math.max(childMin, childMax),
+      parentsMode: $("parentsMode").value,
+      includeDateOfMarriage: $("includeDOM").checked,
+
+      defaultPasswordValue: $("defaultPasswordValue").value || "Test@12345",
+      fillOptionalFields: $("fillOptionalFieldsEnabled").checked,
+
+      ctcMin: numOr("ctcMin", 300000),
+      ctcMax: numOr("ctcMax", 2000000),
+      installment: $("installmentValue").value || "1",
+
+      shouldVerifyEmail: selectOrNull("shouldVerifyEmail"),
+      isDummyEmail: selectOrNull("isDummyEmail"),
+      isVip: selectOrNull("isVip"),
+      memberExistingClaim: selectOrNull("memberExistingClaim"),
+      hasDeathCertificate: selectOrNull("hasDeathCertificate"),
+      toHideEmail: selectOrNull("toHideEmail"),
+      isDummyMobile: selectOrNull("isDummyMobile"),
+      toHideMobile: selectOrNull("toHideMobile"),
+
+      batchId: sanitizeAlnum($("batchId").value),
+      effectiveDate: effectiveDate,
+
+      asOf: new Date()
+    };
+    return cfg;
+  }
+
+  // ---------- Preview / stats rendering ----------
+  function renderPreview(headers, rows) {
+    const table = $("previewTable");
+    table.innerHTML = "";
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    headers.forEach((h) => { const th = document.createElement("th"); th.textContent = h || "(blank)"; trh.appendChild(th); });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    const n = Math.min(100, rows.length);
+    for (let i = 0; i < n; i++) {
+      const tr = document.createElement("tr");
+      rows[i].forEach((cell, colIdx) => {
+        const td = document.createElement("td");
+        const text = displayValue(cell);
+        if (state.previewEditing) {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.value = text;
+          input.dataset.row = String(i);
+          input.dataset.col = String(colIdx);
+          input.dataset.original = text;
+          input.style.cssText = "width:100%; min-width:80px; border:1px solid transparent; background:transparent; font:inherit; color:inherit; padding:2px 3px; border-radius:3px;";
+          input.addEventListener("focus", () => { input.style.borderColor = "var(--accent)"; input.style.background = "var(--surface)"; });
+          input.addEventListener("blur", () => { input.style.borderColor = "transparent"; input.style.background = "transparent"; });
+          td.appendChild(input);
+        } else {
+          td.textContent = text;
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    $("previewHint").textContent = "— showing first " + n + " of " + rows.length + " rows" + (state.previewEditing ? " (editable)" : "");
+  }
+
+  // Folds any edited preview cells back into state.lastResult.rows. Cells
+  // left untouched keep their original value/type (Date objects included -
+  // toXlsxCell() converts any remaining Date to dd-mm-yyyy text at export
+  // time, whether it came from here untouched or was typed by hand).
+  function syncPreviewEdits() {
+    if (!state.lastResult) return;
+    const inputs = document.querySelectorAll("#previewTable input[data-row]");
+    inputs.forEach((input) => {
+      if (input.value === input.dataset.original) return; // untouched
+      const r = parseInt(input.dataset.row, 10);
+      const c = parseInt(input.dataset.col, 10);
+      if (state.lastResult.rows[r]) state.lastResult.rows[r][c] = input.value;
+    });
+  }
+
+  function togglePreviewEdit() {
+    if (!state.lastResult) return;
+    if (state.previewEditing) {
+      syncPreviewEdits();
+      state.previewEditing = false;
+      $("previewEditBtn").textContent = "✏️ Edit";
+      $("editingNote").hidden = true;
+    } else {
+      state.previewEditing = true;
+      $("previewEditBtn").textContent = "✓ Done editing";
+      $("editingNote").hidden = false;
+    }
+    renderPreview(state.headers, state.lastResult.rows);
+  }
+
+  function renderStats(result) {
+    $("statEmployees").textContent = result.employeesBuilt.toLocaleString();
+    $("statRows").textContent = result.totalRows.toLocaleString();
+    $("statColumns").textContent = String(state.headers.length);
+    $("statNextCounter").textContent = encodeSequence(result.nextCounter, $("codeFormat").value, intOr("codeLength", 6), $("codePrefix").value || "");
+  }
+
+  // ---------- Generate ----------
+  function setProgress(done, total, rows) {
+    const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+    $("progressFill").style.width = pct + "%";
+    $("progressPct").textContent = pct + "%";
+    $("progressLabel").textContent = "Generating… " + done.toLocaleString() + " / " + total.toLocaleString() + " employees (" + rows.toLocaleString() + " rows so far)";
+  }
+
+  async function handleGenerate() {
+    if (state.generating) return;
+    if (!state.headers.length) {
+      alert("Load a template first — upload your sheet or pick a built-in layout in Section 1.");
+      return;
+    }
+    const cfg = gatherConfig();
+
+    // Rough volume heads-up (non-blocking).
+    const estPerEmployee = cfg.includeFamily ? 2.3 : 1;
+    const estRows = Math.round(cfg.employeeCount * estPerEmployee);
+    const warnEl = $("volumeWarning");
+    if (estRows > 60000 && $("outputFormat").value === "xlsx") {
+      warnEl.hidden = false;
+      warnEl.textContent = "That's roughly " + estRows.toLocaleString() + " rows — Excel can get slow to build/open at this scale in-browser. CSV (Section 6 output format) handles large volumes more comfortably and every upload endpoint that accepts .xlsx here also accepts .csv.";
+    } else {
+      warnEl.hidden = true;
+    }
+
+    state.generating = true;
+    state.cancelRequested = false;
+    state.previewEditing = false;
+    $("generateBtn").disabled = true;
+    $("generateBtn").textContent = "Generating…";
+    $("progressWrap").hidden = false;
+    $("resultsWrap").hidden = true;
+    setProgress(0, cfg.employeeCount, 0);
+
+    try {
+      const result = await generateDatasetAsync(
+        state.headers, cfg,
+        (done, total, rows) => setProgress(done, total, rows),
+        () => state.cancelRequested
+      );
+      state.lastResult = result;
+      saveCounter(result.nextCounter);
+      $("startCounter").value = result.nextCounter;
+      updateNextCodeBadge();
+
+      renderStats(result);
+      $("previewEditBtn").textContent = "✏️ Edit";
+      $("editingNote").hidden = true;
+      renderPreview(state.headers, result.rows);
+      $("resultsWrap").hidden = false;
+      $("downloadBtn").disabled = false;
+      $("downloadFileName").textContent = result.cancelled ? "Stopped early — " + result.totalRows.toLocaleString() + " rows are ready to download." : "Ready.";
+
+      saveSettings(collectPersistableSettings());
+    } catch (err) {
+      alert("Generation failed: " + err.message);
+      console.error(err);
+    } finally {
+      state.generating = false;
+      $("generateBtn").disabled = false;
+      $("generateBtn").textContent = "Generate dataset";
+      $("progressWrap").hidden = true;
+    }
+  }
+
+  // ---------- Download ----------
+  function timestamp() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+  }
+
+  function handleDownload() {
+    if (!state.lastResult) return;
+    syncPreviewEdits();
+    const format = $("outputFormat").value;
+    const base = "endorsement-add-" + state.lastResult.employeesBuilt + "emp-" + timestamp();
+    if (format === "csv") {
+      const lines = [state.headers.map(csvEscape).join(",")];
+      for (const row of state.lastResult.rows) lines.push(row.map(csvEscape).join(","));
+      const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+      triggerDownload(blob, base + ".csv");
+    } else {
+      const xlsxRows = state.lastResult.rows.map((row) => row.map(toXlsxCell));
+      const aoa = [state.headers].concat(xlsxRows);
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Add");
+      XLSX.writeFile(wb, base + ".xlsx");
+    }
+  }
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  // ---------- Settings persistence (best-effort convenience) ----------
+  const PERSIST_FIELD_IDS = [
+    "numEmployees","genderMode","dobMinAge","dobMaxAge","dojMaxYearsAgo","codeFormat","codeLength","codePrefix",
+    "dobFixedEnabled","dobFixedValue","dojFixedEnabled","dojFixedValue",
+    "emailDomain","emailPattern","employerName","raterType","suminsuredValue","opdEnabled","opdSuminsuredValue",
+    "gradesList","designationsList","salaryMin","salaryMax","salaryMultiplesList","statesList","coverTypeEnabled",
+    "coverTypeValue","premiumEnabled","employeePremiumValue","employerPremiumValue","opdEmployeePremiumValue",
+    "includeFamily","spouseChancePct","childChancePct","childMin","childMax","parentsMode","includeDOM",
+    "defaultPasswordValue","fillOptionalFieldsEnabled","shouldVerifyEmail","isDummyEmail","isVip","memberExistingClaim",
+    "hasDeathCertificate","toHideEmail","isDummyMobile","toHideMobile","batchId","outputFormat",
+    "ctcMin","ctcMax","installmentValue"
+  ];
+  function collectPersistableSettings() {
+    const out = {};
+    PERSIST_FIELD_IDS.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      out[id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    return out;
+  }
+  function applyPersistedSettings(saved) {
+    if (!saved) return;
+    PERSIST_FIELD_IDS.forEach((id) => {
+      const el = $(id);
+      if (!el || !(id in saved)) return;
+      if (el.type === "checkbox") el.checked = !!saved[id];
+      else el.value = saved[id];
+    });
+  }
+
+  // ---------- Wiring ----------
+  function wire() {
+    // Template mode
+    document.querySelectorAll('input[name="tmplMode"]').forEach((r) => {
+      on(r, "change", () => setTemplateMode(r.value));
+    });
+    on($("builtinTemplate"), "change", loadBuiltinTemplate);
+
+    // File upload
+    on($("filedrop"), "click", () => $("tmplFile").click());
+    on($("tmplFile"), "change", (e) => handleUploadedFile(e.target.files[0]));
+    ["dragenter", "dragover"].forEach((ev) => on($("filedrop"), ev, (e) => { e.preventDefault(); $("filedrop").classList.add("drag"); }));
+    ["dragleave", "drop"].forEach((ev) => on($("filedrop"), ev, (e) => { e.preventDefault(); $("filedrop").classList.remove("drag"); }));
+    on($("filedrop"), "drop", (e) => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleUploadedFile(f); });
+
+    // Rater / family / names / toggles
+    on($("raterType"), "change", updateRaterPanels);
+    on($("opdEnabled"), "change", updateOpdVisibility);
+    on($("includeFamily"), "change", updateFamilyVisibility);
+    on($("namesMode"), "change", updateNamesVisibility);
+    on($("premiumEnabled"), "change", updatePremiumVisibility);
+    on($("coverTypeEnabled"), "change", updateCoverTypeVisibility);
+    on($("fillOptionalFieldsEnabled"), "change", updateOptionalFieldsVisibility);
+
+    // Code preview badge
+    ["startCounter", "codeFormat", "codeLength", "codePrefix"].forEach((id) => on($(id), "input", updateNextCodeBadge));
+    on($("resetCounterBtn"), "click", () => {
+      if (!confirm("Reset uniqueness memory back to 1? Codes already generated in past downloads could then repeat.")) return;
+      saveCounter(1);
+      $("startCounter").value = 1;
+      updateNextCodeBadge();
+    });
+
+    // Generate / download
+    on($("generateBtn"), "click", handleGenerate);
+    on($("downloadBtn"), "click", handleDownload);
+    on($("previewEditBtn"), "click", togglePreviewEdit);
+    on($("cancelBtn"), "click", () => { state.cancelRequested = true; });
+
+    // Initial state
+    setTemplateMode("upload");
+    updateRaterPanels();
+    updateOpdVisibility();
+    updateFamilyVisibility();
+    updateNamesVisibility();
+    updatePremiumVisibility();
+    updateCoverTypeVisibility();
+    updateOptionalFieldsVisibility();
+
+    const savedSettings = loadSettings();
+    if (savedSettings) applyPersistedSettings(savedSettings);
+    $("startCounter").value = loadCounter();
+    updateNextCodeBadge();
+    updateRaterPanels();
+    updateOpdVisibility();
+    updateFamilyVisibility();
+    updateNamesVisibility();
+    updatePremiumVisibility();
+    updateCoverTypeVisibility();
+    updateOptionalFieldsVisibility();
+
+
+    if (!$("dojFixedValue").value) {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      const p = (n) => String(n).padStart(2, "0");
+      $("dojFixedValue").value = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", wire);
+  } else {
+    wire();
+  }
+})();
+
+</script>
+<script>
+
+(function () {
+  "use strict";
+  function ready(fn) {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
+    else fn();
+  }
+  ready(function () {
+    if (typeof gsap === "undefined") return;
+
+    try {
+      gsap.set(".lede, .card", { opacity: 0, y: 12 });
+      gsap.to(".lede", { opacity: 1, y: 0, duration: .5, ease: "power2.out" });
+      gsap.to(".card", { opacity: 1, y: 0, duration: .5, ease: "power2.out", stagger: .07, delay: .08 });
+    } catch (e) { /* purely cosmetic - never block the tool */ }
+
+    // Odometer-style "tick" whenever the next-code preview badge changes.
+    var badge = document.getElementById("topNextCode");
+    if (badge && window.MutationObserver) {
+      var lastText = badge.textContent;
+      var obs = new MutationObserver(function () {
+        if (badge.textContent === lastText) return;
+        lastText = badge.textContent;
+        try {
+          gsap.fromTo(badge, { y: -6, opacity: 0 }, { y: 0, opacity: 1, duration: .32, ease: "back.out(2.2)" });
+        } catch (e) { /* ignore */ }
+      });
+      obs.observe(badge, { childList: true, characterData: true, subtree: true });
+    }
+
+    // Gentle shimmer on the progress fill while a generation run is active.
+    var fill = document.getElementById("progressFill");
+    if (fill) {
+      fill.style.backgroundImage = "linear-gradient(90deg, var(--accent) 0%, #e0a552 50%, var(--accent) 100%)";
+      fill.style.backgroundSize = "200% 100%";
+      gsap.to(fill, { backgroundPosition: "-200% 0", duration: 1.4, repeat: -1, ease: "linear" });
+    }
+  });
+})();
+
+</script>
 
 <script id="engine">
 (function (root) {
@@ -307,7 +2454,7 @@
     if (problems.length) throw Unprocessable("The policy's sheet-spec cannot produce a valid sheet yet", problems);
   }
 
-  function generateAdd(spec, o, ids, todayIn) {
+  function createAddStream(spec, o, ids, todayIn) {
     var today = toDate(todayIn);
     if (!(o.families >= 1)) throw new Error("families must be at least 1");
     [o.spousePct, o.childPct, o.twinPct, o.parentPct, o.midTermPct].forEach(function (p) { if (!(p >= 0 && p <= 100)) throw new Error("percentages must be between 0 and 100"); });
@@ -482,20 +2629,30 @@
     }
     function mobile(index) { return "9" + pad(((ids.brokerId % 90) * 10000000 + ids.first + index) % 1000000000, 9); }
 
-    var out = [];
-    for (var i = 0; i < o.families; i++) family(i).forEach(function (r) { out.push(r); });
-    if (!spec.siOneOf && blank(o.sumInsured)) warn("The policy accepts any sum insured; used " + DEFAULT_SI + " (set sumInsured to change)");
-    if (spec.needsFlexPlan && blank(o.flexPlan)) warn("Flex Plan left blank: the sheet-spec does not list the plans (set flexPlan)");
-    var warnings = warnOrder.map(function (m) { return warned[m] > 1 ? m + " (" + warned[m] + " families)" : m; });
-    return { operation: "ADD", columns: cols, rows: out, warnings: warnings };
+    var nextFamily = 0;
+    function warnings() {
+      var w = warnOrder.map(function (m) { return warned[m] > 1 ? m + " (" + warned[m] + " families)" : m; });
+      if (!spec.siOneOf && blank(o.sumInsured)) w.push("The policy accepts any sum insured; used " + DEFAULT_SI + " (set sumInsured to change)");
+      if (spec.needsFlexPlan && blank(o.flexPlan)) w.push("Flex Plan left blank: the sheet-spec does not list the plans (set flexPlan)");
+      return w;
+    }
+    // One family at a time, so a caller can write rows out as they are made and keep memory flat at any volume.
+    return { operation: "ADD", columns: cols, total: o.families, next: function () { return nextFamily < o.families ? family(nextFamily++) : null; }, warnings: warnings };
+  }
+
+  function generateAdd(spec, o, ids, todayIn) {
+    var st = createAddStream(spec, o, ids, todayIn), out = [], f;
+    while ((f = st.next())) for (var i = 0; i < f.length; i++) out.push(f[i]);
+    return { operation: "ADD", columns: st.columns, rows: out, warnings: st.warnings() };
   }
 
   // ── REMOVE / UPDATE from earlier rows ─────────────────────────────────────────────────────────────────────
   function families(source) {
-    var by = {}, order = [];
-    source.forEach(function (raw) {
+    var by = {}, order = [], idRows = !Array.isArray(source) && source.idRows;     // {idRows: [...]} = rows already keyed by column id (no header mapping needed)
+    (idRows || source).forEach(function (raw) {
       var r = {};
-      Object.keys(raw).forEach(function (h) { var id = idForHeader(h); if (id) r[id] = raw[h] == null ? "" : String(raw[h]).trim(); });
+      if (idRows) Object.keys(raw).forEach(function (k) { r[k] = raw[k] == null ? "" : String(raw[k]).trim(); });
+      else Object.keys(raw).forEach(function (h) { var id = idForHeader(h); if (id) r[id] = raw[h] == null ? "" : String(raw[h]).trim(); });
       var code = r.emp_code || "";
       if (!code || !r.relation) return;
       r.relation = r.relation.toUpperCase();
@@ -749,7 +2906,7 @@
       ["_rels/.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
       ["xl/workbook.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' + sheet.operation + '" sheetId="1" r:id="rId1"/></sheets></workbook>'],
       ["xl/_rels/workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
-      ["xl/styles.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+      ["xl/styles.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>'],
       ["xl/worksheets/sheet1.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>' + rowsXml.join("") + "</sheetData></worksheet>"]
     ];
     var parts = [], central = [], offset = 0;
@@ -773,75 +2930,160 @@
     return out;
   }
 
+  var XL_FILES = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="@@OP@@" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
+  ];
+
+  // ── streaming writers (flat memory at volume) ─────────────────────────────────────────────────────────────
+  function csvHeader(columns) { return columns.map(function (c) { return csvQ(c.header); }).join(",") + "\r\n"; }
+  function csvQ(v) { v = String(v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function csvRows(columns, rows) {
+    var out = "";
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i], line = "";
+      for (var j = 0; j < columns.length; j++) { var v = r[columns[j].id]; line += (j ? "," : "") + csvQ(safe(v === undefined ? "" : v)); }
+      out += line + "\r\n";
+    }
+    return out;
+  }
+  function crcUpdate(crc, b) { for (var i = 0; i < b.length; i++) crc = CRC_TABLE[(crc ^ b[i]) & 0xFF] ^ (crc >>> 8); return crc; }
+  var XLSX_MAX_ROWS = 1048575;
+  // Builds the sheet XML in encoded chunks as rows arrive, then zips it (deflate when the browser can, stored otherwise).
+  function XlsxStream(columns, opName) {
+    this.cols = columns; this.op = opName; this.n = 1; this.chunks = []; this.crc = 0xFFFFFFFF; this.size = 0; this.buf = "";
+    this.buf = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>';
+    this._row(columns.map(function (c) { return c.header; }), true);
+  }
+  XlsxStream.prototype._row = function (vals, bold) {
+    var n = this.n++, x = '<row r="' + n + '">';
+    for (var i = 0; i < vals.length; i++) x += '<c r="' + colName(i) + n + '" t="inlineStr"' + (bold ? ' s="1"' : "") + '><is><t xml:space="preserve">' + xmlEsc(safe(vals[i])) + "</t></is></c>";
+    this.buf += x + "</row>";
+    if (this.buf.length > 1 << 20) this._flush();
+  };
+  XlsxStream.prototype._flush = function () {
+    if (!this.buf) return;
+    var b = utf8(this.buf); this.buf = "";
+    this.crc = crcUpdate(this.crc, b); this.size += b.length; this.chunks.push(b);
+  };
+  XlsxStream.prototype.add = function (rows) {
+    if (this.n + rows.length > XLSX_MAX_ROWS) throw new Error("Excel holds at most " + XLSX_MAX_ROWS + " rows; use CSV for this volume");
+    var cols = this.cols;
+    for (var i = 0; i < rows.length; i++) this._row(cols.map(function (c) { var v = rows[i][c.id]; return v === undefined ? "" : v; }), false);
+  };
+  XlsxStream.prototype.finish = function () {
+    var self = this;
+    this.buf += "</sheetData></worksheet>"; this._flush();
+    var crc = (this.crc ^ 0xFFFFFFFF) >>> 0, size = this.size, raw = new Blob(this.chunks);
+    this.chunks = [];
+    var deflate = typeof CompressionStream !== "undefined" && typeof Response !== "undefined"
+      ? new Response(raw.stream().pipeThrough(new CompressionStream("deflate-raw"))).blob().then(function (b) { return { blob: b, method: 8 }; })
+      : Promise.resolve({ blob: raw, method: 0 });
+    return deflate.then(function (sheet) { return zipBlob(self.op, sheet, crc, size); });
+  };
+  function zipBlob(opName, sheet, sheetCrc, sheetSize) {
+    var files = [
+      ["[Content_Types].xml", XL_FILES[0]], ["_rels/.rels", XL_FILES[1]],
+      ["xl/workbook.xml", XL_FILES[2].replace("@@OP@@", opName)], ["xl/_rels/workbook.xml.rels", XL_FILES[3]], ["xl/styles.xml", XL_FILES[4]]
+    ].map(function (f) { var d = utf8(f[1]); return { name: utf8(f[0]), blob: new Blob([d]), method: 0, crc: crc32(d), size: d.length, csize: d.length }; });
+    files.push({ name: utf8("xl/worksheets/sheet1.xml"), blob: sheet.blob, method: sheet.method, crc: sheetCrc, size: sheetSize, csize: sheet.blob.size });
+    var parts = [], central = [], offset = 0;
+    files.forEach(function (f) {
+      var h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, f.method, true); h.setUint16(10, 0, true); h.setUint16(12, 0x21, true);
+      h.setUint32(14, f.crc, true); h.setUint32(18, f.csize, true); h.setUint32(22, f.size, true); h.setUint16(26, f.name.length, true); h.setUint16(28, 0, true);
+      parts.push(new Uint8Array(h.buffer), f.name, f.blob);
+      var c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, f.method, true); c.setUint16(12, 0, true); c.setUint16(14, 0x21, true);
+      c.setUint32(16, f.crc, true); c.setUint32(20, f.csize, true); c.setUint32(24, f.size, true); c.setUint16(28, f.name.length, true); c.setUint32(42, offset, true);
+      central.push(new Uint8Array(c.buffer), f.name);
+      offset += 30 + f.name.length + f.csize;
+    });
+    var cd = central.reduce(function (n, p) { return n + p.length; }, 0), end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cd, true); end.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]), { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  }
+
   root.EnsureSheetGen = {
     COLUMNS: ALL, defaultOptions: defaultOptions, parseSpec: parseSpec, layout: layout, preflight: preflight, generateAdd: generateAdd,
+    createAddStream: createAddStream, csvHeader: csvHeader, csvRows: csvRows, XlsxStream: XlsxStream, XLSX_MAX_ROWS: XLSX_MAX_ROWS,
     deriveRemove: deriveRemove, deriveUpdate: deriveUpdate, validate: validate, byHeader: byHeader, toCsv: toCsv, toXlsx: toXlsx, fmt: fmt, iso: iso, parseDate: parseDate
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
-
 </script>
-<script id="app">
+<script id="policy-app">
 (function () {
   "use strict";
   var G = EnsureSheetGen, $ = function (id) { return document.getElementById(id); };
-  var state = { spec: null, op: "ADD", last: null, source: null, token: null };
+  var PREVIEW_ROWS = 100, SAMPLE_FAMILIES = 300, SOURCE_ROW_CAP = 200000, XLSX_WARN_ROWS = 50000, SLICE_MS = 30;
+  var state = { spec: null, op: "ADD", source: null, token: null, result: null, running: false, cancel: false };
 
   function today() { var n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); }
-  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } return null; }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { /* private mode: fine */ } return null; }
   function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
   function show(id, on) { $(id).hidden = !on; }
   function num(id, d) { var v = parseInt($(id).value, 10); return isNaN(v) ? d : v; }
+  function fmtN(n) { return Number(n).toLocaleString("en-US"); }
+  var tick = (function () { var ch = typeof MessageChannel !== "undefined" ? new MessageChannel() : null, q = []; if (ch) { ch.port1.onmessage = function () { var f = q.shift(); if (f) f(); }; } return function () { return new Promise(function (r) { if (ch) { q.push(r); ch.port2.postMessage(0); } else setTimeout(r, 0); }); }; })();
+  // a repaint opportunity too: MessageChannel alone can starve rendering
+  function paint() { return new Promise(function (r) { setTimeout(r, 0); }); }
 
-  // tab strips
-  function tabs(rootId, attr, fn) {
-    $(rootId).addEventListener("click", function (e) {
-      var b = e.target.closest("button"); if (!b) return;
-      [].forEach.call($(rootId).querySelectorAll("button"), function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
-      fn(b.getAttribute(attr));
+  // ── chip groups ───────────────────────────────────────────────────────────────────────────────────────────
+  function chips(rootId, fn) {
+    $(rootId).addEventListener("change", function (e) {
+      if (e.target.tagName !== "INPUT") return;
+      [].forEach.call($(rootId).querySelectorAll(".chip"), function (c) { c.classList.toggle("active", c.contains(e.target)); });
+      fn(e.target.value);
     });
   }
-  tabs("srcTabs", "data-src", function (s) { ["paste", "service", "sample"].forEach(function (k) { show("src-" + k, k === s); }); });
-  tabs("opTabs", "data-op", function (op) { state.op = op; refreshOp(); });
+  chips("pm-srcChips", function (v) { ["paste", "service", "sample"].forEach(function (k) { show("pm-src-" + k, k === v); }); });
+  chips("pm-opChips", function (op) { state.op = op; refresh(); });
 
-  function refreshOp() {
+  function refresh() {
     var add = state.op === "ADD";
-    show("opts-add", add); show("opts-change", !add);
-    show("modeBox", state.op === "REMOVE");
-    $("countLabel").textContent = state.op === "REMOVE" ? "Families to touch" : "Members to update";
-    $("srcNote").textContent = state.source ? "Source: " + state.source.label + " (" + state.source.rows.length + " rows)." : "Generate an ADD sheet first, or load a CSV as the source.";
-    $("go").disabled = !state.spec || (!add && !state.source);
+    show("pm-opts-add", add); show("pm-opts-change", !add); show("pm-modeBox", state.op === "REMOVE");
+    $("pm-countLabel").textContent = state.op === "REMOVE" ? "Families to touch" : "Members to update";
+    $("pm-srcNote").textContent = state.source ? "Source: " + state.source.label + " (" + fmtN(state.source.rows.length) + " rows)." : "Generate an ADD sheet here first, or load a CSV as the source.";
+    $("pm-go").disabled = state.running || !state.spec || (!add && !state.source);
+    var big = add && num("pm-families", 0) * 2.5 > XLSX_WARN_ROWS && $("pm-format").value === "xlsx";
+    $("pm-volumeWarning").hidden = !big;
+    if (big) $("pm-volumeWarning").textContent = "That is a lot of rows for Excel. CSV is faster, smaller and what the endorsement upload reads anyway (Excel itself stops at 1,048,575 rows).";
   }
+  ["pm-families", "pm-format"].forEach(function (id) { $(id).addEventListener("input", refresh); $(id).addEventListener("change", refresh); });
 
+  // ── policy spec ───────────────────────────────────────────────────────────────────────────────────────────
   function setSpec(raw, msg) {
-    try {
-      state.spec = G.parseSpec(raw);
-    } catch (e) { state.spec = null; $("specMsg").textContent = e.message; $("specMsg").className = "note bad"; show("specFacts", false); show("specGaps", false); refreshOp(); return; }
-    var s = state.spec;
-    $("specMsg").textContent = msg || "Spec loaded."; $("specMsg").className = "note ok";
-    var f = $("specFacts"); f.textContent = "";
-    [["Policy", (s.policyNumber || "#" + s.policyId)], ["Period", G.iso(s.start) + " → " + G.iso(s.end)], ["Premium type", s.premiumType || "—"], ["Rater", s.raterClass || "—"],
+    var s;
+    try { s = G.parseSpec(raw); } catch (e) { state.spec = null; msgSpec(e.message, true); show("pm-facts", false); show("pm-gaps", false); refresh(); return; }
+    state.spec = s;
+    msgSpec(msg || "Spec loaded.", false);
+    var f = $("pm-facts"); f.textContent = "";
+    [["Policy", s.policyNumber || "#" + s.policyId], ["Period", G.iso(s.start) + " → " + G.iso(s.end)], ["Premium type", s.premiumType || "—"], ["Rater", s.raterClass || "—"],
      ["Sum insured", s.siOneOf ? s.siValues.join(", ") : "any value"], ["Grades", s.grades.join(", ") || "—"], ["Designations", s.designations.join(", ") || "—"],
      ["Relations", Object.keys(s.allowed).join(", ") || (s.hasFamily ? "none" : "employee only")], ["Max members", isFinite(s.maxMembers) ? s.maxMembers : "—"],
-     ["Max children / parents", (s.maxChildren == null ? "—" : s.maxChildren) + " / " + (s.maxParents == null ? "—" : s.maxParents)]].forEach(function (kv) {
-      var d = el("div"); d.appendChild(el("b", kv[0])); d.appendChild(document.createTextNode(kv[1])); f.appendChild(d);
+     ["Children / parents cap", (s.maxChildren == null ? "—" : s.maxChildren) + " / " + (s.maxParents == null ? "—" : s.maxParents)]].forEach(function (kv) {
+      var d = el("div", null, "stat"); d.appendChild(el("b", String(kv[1]))); d.lastChild.style.fontSize = "14px"; d.appendChild(el("span", kv[0])); f.appendChild(d);
     });
-    show("specFacts", true);
-    var gl = $("specGaps"); gl.textContent = "";
-    s.gaps.forEach(function (g) { gl.appendChild(el("li", g)); });
-    show("specGaps", s.gaps.length > 0);
-    if (s.gaps.length) { $("specMsg").textContent = "This policy is not ready: generation is blocked until its gaps are filled in."; $("specMsg").className = "note bad"; }
-    refreshOp();
+    show("pm-facts", true);
+    var g = $("pm-gaps");
+    if (s.gaps.length) { g.textContent = "This policy is not ready; generation is blocked until these are fixed: " + s.gaps.join(" | "); show("pm-gaps", true); } else show("pm-gaps", false);
+    refresh();
   }
+  function msgSpec(t, bad) { var n = $("pm-specMsg"); n.textContent = t; n.className = bad ? "note warn" : "note"; n.hidden = false; }
 
-  $("useSpec").addEventListener("click", function () {
-    try { setSpec(JSON.parse($("specText").value)); } catch (e) { setSpec(null); $("specMsg").textContent = "That is not valid JSON: " + e.message; }
+  $("pm-useSpec").addEventListener("click", function () {
+    var raw; try { raw = JSON.parse($("pm-specText").value); } catch (e) { setSpec(null); msgSpec("That is not valid JSON: " + e.message, true); return; }
+    setSpec(raw);
   });
-  $("specFile").addEventListener("change", function () {
+  $("pm-specFile").addEventListener("change", function () {
     var f = this.files[0]; if (!f) return;
-    if (f.size > 2 * 1024 * 1024) { $("specMsg").textContent = "That file is too large for a spec."; $("specMsg").className = "note bad"; return; }
-    var r = new FileReader(); r.onload = function () { $("specText").value = r.result; $("useSpec").click(); }; r.readAsText(f);
+    if (f.size > 2 * 1024 * 1024) { msgSpec("That file is too large to be a spec.", true); return; }
+    var r = new FileReader(); r.onload = function () { $("pm-specText").value = r.result; $("pm-useSpec").click(); }; r.readAsText(f);
   });
-  $("useSample").addEventListener("click", function () {
+  $("pm-useSample").addEventListener("click", function () {
     var t = today(), y = t.getUTCMonth() >= 3 ? t.getUTCFullYear() : t.getUTCFullYear() - 1;
     var rel = function (id, code, grp, max) { return { id: id, code: code, group: grp, maxAge: max }; };
     setSpec({ schema: "sheet-spec/v1", policy: { id: 0, number: "SAMPLE", status: "ACTIVE", startDate: y + "-04-01", endDate: (y + 1) + "-03-31", proRata: "DAILY", maxMembers: 6 },
@@ -851,121 +3093,170 @@
       relationRules: [{ relationCode: "SON", maxTwins: 2 }, { relationCode: "DAUGHTER", maxTwins: 2 }],
       sheet: { needsGrade: false, needsDesignation: false, needsFlexPlan: false }, gaps: [] }, "Sample policy loaded (not a real policy).");
   });
-  $("loadSpec").addEventListener("click", function () {
-    var id = parseInt($("policyId").value, 10), tok = $("token").value.trim();
-    if (!(id > 0) || !tok) { $("specMsg").textContent = "Enter a policy id and your token."; $("specMsg").className = "note bad"; return; }
+  $("pm-loadSpec").addEventListener("click", function () {
+    var id = parseInt($("pm-policyId").value, 10), tok = $("pm-token").value.trim();
+    if (location.protocol === "file:") { msgSpec("The service is not reachable from a file opened on disk. Paste or open the spec JSON instead.", true); return; }
+    if (!(id > 0) || !tok) { msgSpec("Enter a policy id and your token.", true); return; }
     state.token = tok;
     fetch("/api/v1/broker/sheets/spec?policyId=" + id, { headers: { Authorization: "Bearer " + tok } }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 404 ? "Policy not found." : r.status === 401 || r.status === 403 ? "The token was refused." : "The service answered " + r.status + ".");
       return r.json();
-    }).then(function (j) { setSpec(j, "Spec loaded from the service for policy " + id + "."); show("goServer", true); refreshServer(); })
-      .catch(function (e) { $("specMsg").textContent = e.message; $("specMsg").className = "note bad"; });
-  });
-  function refreshServer() { $("goServer").disabled = !(state.token && parseInt($("policyId").value, 10) > 0); }
-  $("token").addEventListener("input", function () { state.token = this.value.trim(); refreshServer(); });
-
-  // defaults
-  var pfx = store("sheetgen.prefix");
-  if (!pfx) { pfx = "T" + Math.random().toString(36).replace(/[^a-z]/g, "").slice(0, 3).toUpperCase().padEnd(3, "X"); store("sheetgen.prefix", pfx); }
-  $("prefix").value = pfx;
-  var startNo = parseInt(store("sheetgen.next") || "1", 10);
-  $("startNo").value = isNaN(startNo) ? 1 : startNo;
-
-  function options() {
-    return { families: num("families", 20), spousePct: num("spousePct", 80), childPct: num("childPct", 60), twinPct: num("twinPct", 10), parentPct: num("parentPct", 20),
-      midTermPct: num("midTermPct", 30), fillOptional: $("fillOptional").checked, includePremiums: $("inclPrem").checked, effectiveDate: $("effDate").value.trim() || null,
-      seed: $("seed").value === "" ? null : parseInt($("seed").value, 10), sumInsured: $("siFree").value.trim() || null, flexPlan: $("flex").value.trim() || null,
-      employeePremium: $("empPrem").value.trim() || null, employerPremium: $("erPrem").value.trim() || null };
-  }
-  function runTag() { return Math.random().toString(16).slice(2, 8); }
-
-  $("go").addEventListener("click", function () {
-    try {
-      var sheet, t = today(), seed = $("seed").value === "" ? Math.floor(Math.random() * 2147483647) : parseInt($("seed").value, 10);
-      if (state.op === "ADD") {
-        var o = options(), prefix = ($("prefix").value || "GEN").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) || "GEN", first = Math.max(1, num("startNo", 1));
-        o.seed = seed;
-        sheet = G.generateAdd(state.spec, o, { prefix: prefix, first: first, brokerId: 0, tag: runTag() }, t);
-        store("sheetgen.next", String(first + o.families)); $("startNo").value = first + o.families; store("sheetgen.prefix", prefix);
-        state.source = { label: "the sheet you just generated", rows: G.byHeader(sheet) };
-      } else if (state.op === "REMOVE") sheet = G.deriveRemove(state.spec, state.source.rows, num("count", 10), $("mode").value, seed, t);
-      else sheet = G.deriveUpdate(state.spec, state.source.rows, num("count", 10), seed, t);
-      show_result(sheet, t, seed);
-    } catch (e) { show_error(e); }
+    }).then(function (j) { setSpec(j, "Spec loaded from the service for policy " + id + "."); }, function (e) { msgSpec(e.message || "Could not reach the service.", true); });
   });
 
-  function show_error(e) {
-    show("s3", true); $("summary").textContent = e.message; $("summary").className = "bad";
-    var w = $("warnings"); w.textContent = ""; (e.details || []).forEach(function (d) { w.appendChild(el("li", d)); }); show("warnings", !!(e.details && e.details.length)); show("issues", false);
-    $("tbl").textContent = ""; state.last = null;
-  }
-
-  function show_result(sheet, t, seed) {
-    state.last = sheet; refreshOp();
-    var issues = G.validate(state.spec, sheet.operation, G.byHeader(sheet), t);
-    show("s3", true);
-    $("summary").className = issues.length ? "bad" : "ok";
-    $("summary").textContent = sheet.operation + ": " + sheet.rows.length + " rows" + (issues.length ? " · " + issues.length + " validation problem(s) — this is a tool defect, please report it" : " · passes the policy checks") + " · seed " + seed;
-    var w = $("warnings"); w.textContent = ""; sheet.warnings.forEach(function (m) { w.appendChild(el("li", m)); }); show("warnings", sheet.warnings.length > 0);
-    var il = $("issues"); il.textContent = ""; issues.slice(0, 20).forEach(function (i) { il.appendChild(el("li", "row " + i.row + " · " + i.code + " · " + i.message)); }); show("issues", issues.length > 0);
-    var tbl = $("tbl"); tbl.textContent = "";
-    var thead = el("thead"), hr = el("tr"); sheet.columns.forEach(function (c) { hr.appendChild(el("th", c.header)); }); thead.appendChild(hr); tbl.appendChild(thead);
-    var tb = el("tbody"); sheet.rows.slice(0, 200).forEach(function (r) { var tr = el("tr"); sheet.columns.forEach(function (c) { tr.appendChild(el("td", r[c.id] === undefined ? "" : r[c.id])); }); tb.appendChild(tr); }); tbl.appendChild(tb);
-  }
-
-  function download(name, type, data) {
-    var url = URL.createObjectURL(new Blob([data], { type: type })), a = document.createElement("a");
-    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
-  }
-  function fname(ext) { return (state.last.operation.toLowerCase()) + "-" + ((state.spec && state.spec.policyNumber) || "policy").replace(/[^A-Za-z0-9_-]/g, "") + "-" + G.iso(today()) + "." + ext; }
-  $("dlXlsx").addEventListener("click", function () { if (state.last) download(fname("xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", G.toXlsx(state.last)); });
-  $("dlCsv").addEventListener("click", function () { if (state.last) download(fname("csv"), "text/csv;charset=utf-8", G.toCsv(state.last)); });
-  $("copyJson").addEventListener("click", function () {
-    if (!state.last) return;
-    var text = JSON.stringify(G.byHeader(state.last), null, 1), b = this;
-    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { b.textContent = "Copied"; }, function () { b.textContent = "Copy failed"; });
-    setTimeout(function () { b.textContent = "Copy JSON"; }, 1500);
-  });
-
-  // minimal RFC 4180 reader for a CSV source
+  // ── source for UPDATE / REMOVE ────────────────────────────────────────────────────────────────────────────
   function parseCsv(text) {
     var rows = [], row = [], f = "", q = false, i = 0;
     text = text.replace(/^﻿/, "");
     for (; i < text.length; i++) {
-      var c = text[i];
-      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
-      else if (c === '"') q = true;
-      else if (c === ",") { row.push(f); f = ""; }
-      else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); f = ""; if (row.length > 1 || row[0] !== "") rows.push(row); row = []; }
-      else f += c;
+      var c = text.charCodeAt(i);
+      if (q) { if (c === 34) { if (text.charCodeAt(i + 1) === 34) { f += '"'; i++; } else q = false; } else f += text[i]; }
+      else if (c === 34) q = true;
+      else if (c === 44) { row.push(f); f = ""; }
+      else if (c === 10 || c === 13) { if (c === 13 && text.charCodeAt(i + 1) === 10) i++; row.push(f); f = ""; if (row.length > 1 || row[0] !== "") rows.push(row); row = []; if (rows.length > SOURCE_ROW_CAP) break; }
+      else f += text[i];
     }
     if (f !== "" || row.length) { row.push(f); rows.push(row); }
     if (rows.length < 2) throw new Error("The CSV needs a header row and at least one data row.");
     var head = rows[0];
-    return rows.slice(1).map(function (r) { var o = {}; head.forEach(function (h, k) { o[h] = r[k] === undefined ? "" : r[k]; }); return o; });
+    return rows.slice(1, SOURCE_ROW_CAP + 1).map(function (r) { var o = {}; head.forEach(function (h, k) { o[h] = r[k] === undefined ? "" : r[k]; }); return o; });
   }
-  $("srcFile").addEventListener("change", function () {
+  $("pm-srcFile").addEventListener("change", function () {
     var f = this.files[0]; if (!f) return;
-    if (f.size > 20 * 1024 * 1024) { $("srcNote").textContent = "That file is too large."; return; }
+    if (f.size > 60 * 1024 * 1024) { $("pm-srcNote").textContent = "That file is too large to use as a source (60 MB max)."; return; }
     var r = new FileReader();
-    r.onload = function () { try { state.source = { label: f.name, rows: parseCsv(r.result) }; } catch (e) { state.source = null; $("srcNote").textContent = e.message; } refreshOp(); };
+    r.onload = function () { try { state.source = { label: f.name, rows: parseCsv(r.result) }; } catch (e) { state.source = null; } refresh(); if (!state.source) $("pm-srcNote").textContent = "Could not read that CSV."; };
     r.readAsText(f);
   });
 
-  $("goServer").addEventListener("click", function () {
-    var id = parseInt($("policyId").value, 10), o = options(), body = { policyId: id, operation: state.op, codePrefix: ($("prefix").value || "").toUpperCase() || null,
-      seed: o.seed, options: { families: o.families, spousePct: o.spousePct, childPct: o.childPct, twinPct: o.twinPct, parentPct: o.parentPct, midTermPct: o.midTermPct,
-      fillOptional: o.fillOptional, includePremiums: o.includePremiums, effectiveDate: o.effectiveDate, sumInsured: o.sumInsured, flexPlan: o.flexPlan, employeePremium: o.employeePremium, employerPremium: o.employerPremium } };
-    if (state.op !== "ADD") { body.source = state.source && state.source.rows; body.count = num("count", 10); body.removeMode = $("mode").value; }
-    fetch("/api/v1/broker/sheets/generate/file?format=xlsx", { method: "POST", headers: { Authorization: "Bearer " + state.token, "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then(function (r) {
-        if (r.ok) return r.blob().then(function (b) { download(state.op.toLowerCase() + "-server.xlsx", b.type, b); $("summary").textContent = "Server sheet downloaded."; $("summary").className = "ok"; show("s3", true); });
-        return r.json().then(function (j) { var e = new Error(j.detail || "The service answered " + r.status); e.details = j.details; throw e; }, function () { throw new Error("The service answered " + r.status); });
-      }).catch(show_error);
+  // ── defaults ──────────────────────────────────────────────────────────────────────────────────────────────
+  var pfx = store("ensuretech.policymode.prefix");
+  if (!pfx) { pfx = "T" + Math.random().toString(36).replace(/[^a-z]/g, "").slice(0, 3).toUpperCase().padEnd(3, "X"); store("ensuretech.policymode.prefix", pfx); }
+  $("pm-prefix").value = pfx;
+  var nextNo = parseInt(store("ensuretech.policymode.next") || "1", 10);
+  $("pm-startNo").value = isNaN(nextNo) || nextNo < 1 ? 1 : nextNo;
+  function runTag() { return Math.random().toString(16).slice(2, 8); }
+
+  function options() {
+    return { families: num("pm-families", 100), spousePct: num("pm-spousePct", 80), childPct: num("pm-childPct", 60), twinPct: num("pm-twinPct", 10), parentPct: num("pm-parentPct", 20),
+      midTermPct: num("pm-midTermPct", 30), fillOptional: $("pm-fillOptional").checked, includePremiums: $("pm-inclPrem").checked, effectiveDate: $("pm-effDate").value.trim() || null,
+      seed: null, sumInsured: $("pm-siFree").value.trim() || null, flexPlan: $("pm-flex").value.trim() || null,
+      employeePremium: $("pm-empPrem").value.trim() || null, employerPremium: $("pm-erPrem").value.trim() || null };
+  }
+
+  // ── sinks: where generated rows go. Nothing keeps the whole sheet unless it must. ─────────────────────────
+  function CsvSink(columns) { this.parts = []; this.buf = G.csvHeader(columns); this.cols = columns; }
+  CsvSink.prototype.add = function (rows) { this.buf += G.csvRows(this.cols, rows); if (this.buf.length > 1 << 20) this._cut(); };
+  CsvSink.prototype._cut = function () { if (this.buf) { this.parts.push(new Blob([this.buf])); this.buf = ""; } };   // a Blob part no longer lives on the JS heap
+  CsvSink.prototype.finish = function () { this._cut(); return Promise.resolve(new Blob(this.parts, { type: "text/csv;charset=utf-8" })); };
+  function XlsxSink(columns, op) { this.x = new G.XlsxStream(columns, op); }
+  XlsxSink.prototype.add = function (rows) { this.x.add(rows); };
+  XlsxSink.prototype.finish = function () { return this.x.finish(); };
+
+  function srcArg() { return state.source.byId ? { idRows: state.source.rows } : state.source.rows; }
+  function setProgress(label, pct) { $("pm-progressLabel").textContent = label; $("pm-progressPct").textContent = Math.round(pct) + "%"; $("pm-progressFill").style.width = pct + "%"; }
+
+  // ── the run ───────────────────────────────────────────────────────────────────────────────────────────────
+  $("pm-go").addEventListener("click", function () { run().catch(fail); });
+  $("pm-cancel").addEventListener("click", function () { state.cancel = true; $("pm-progressLabel").textContent = "Stopping…"; });
+  $("pm-useAsSource").addEventListener("click", function () {
+    if (state.result && state.result.keep) { state.source = { label: "the " + state.result.op + " sheet you generated", rows: state.result.keep, byId: true }; refresh(); $("pm-srcNote").scrollIntoView({ block: "center" }); }
   });
 
-  refreshOp();
+  function fail(e) {
+    state.running = false; show("pm-progressWrap", false); refresh();
+    var d = (e && e.details) ? " " + e.details.join(" | ") : "";
+    msgSpec((e && e.message ? e.message : String(e)) + d, true);
+    $("pm-specMsg").scrollIntoView({ block: "center" });
+  }
+
+  async function run() {
+    var spec = state.spec, op = state.op, fmtChoice = $("pm-format").value, t = today();
+    var seed = $("pm-seed").value === "" ? Math.floor(Math.random() * 2147483647) : parseInt($("pm-seed").value, 10);
+    state.running = true; state.cancel = false; refresh(); show("pm-results", false); show("pm-progressWrap", true); setProgress("Preparing…", 0);
+    await paint();
+
+    var columns, sample = [], keep = [], rowCount = 0, warnings = [], sink = null, total, producedFamilies = 0, prefix = null, first = 0, o = null;
+    if (op === "ADD") {
+      o = options(); o.seed = seed;
+      prefix = ($("pm-prefix").value || "GEN").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) || "GEN";
+      first = Math.max(1, num("pm-startNo", 1));
+      var stream = G.createAddStream(spec, o, { prefix: prefix, first: first, brokerId: 0, tag: runTag() }, t);
+      columns = stream.columns; total = stream.total;
+      sink = fmtChoice === "csv" ? new CsvSink(columns) : new XlsxSink(columns, "ADD");
+      var start = performance.now(), fam, batch = [];
+      while (!state.cancel) {
+        var sliceEnd = performance.now() + SLICE_MS;
+        while (performance.now() < sliceEnd && (fam = stream.next())) {
+          producedFamilies++;
+          for (var i = 0; i < fam.length; i++) batch.push(fam[i]);
+          if (producedFamilies <= SAMPLE_FAMILIES) for (var k = 0; k < fam.length; k++) sample.push(fam[k]);
+          if (keep.length < SOURCE_ROW_CAP) for (var m = 0; m < fam.length; m++) keep.push(fam[m]);
+        }
+        if (batch.length) { sink.add(batch); rowCount += batch.length; batch = []; }
+        if (producedFamilies >= total) break;
+        var el_ = (performance.now() - start) / 1000;
+        setProgress("Generating " + fmtN(producedFamilies) + " of " + fmtN(total) + " families · " + fmtN(rowCount) + " rows" + (el_ > 1 ? " · " + fmtN(Math.round(rowCount / el_)) + " rows/s" : ""), producedFamilies / total * 100);
+        await paint();
+      }
+      warnings = stream.warnings();
+      store("ensuretech.policymode.next", String(first + producedFamilies)); $("pm-startNo").value = first + producedFamilies; store("ensuretech.policymode.prefix", prefix);
+      // a stopped run keeps the families already written: the sheet is still whole families
+    } else {
+      var sh = op === "REMOVE" ? G.deriveRemove(spec, srcArg(), num("pm-count", 10), $("pm-mode").value, seed, t) : G.deriveUpdate(spec, srcArg(), num("pm-count", 10), seed, t);
+      columns = sh.columns; sample = sh.rows; keep = sh.rows; warnings = sh.warnings; rowCount = sh.rows.length; total = rowCount;
+      sink = fmtChoice === "csv" ? new CsvSink(columns) : new XlsxSink(columns, op);
+      sink.add(sh.rows);
+    }
+    setProgress(fmtChoice === "xlsx" ? "Packing the Excel file…" : "Finishing…", 99);
+    await paint();
+    var blob = await sink.finish();
+
+    // check a sample against the policy's rules (whole families only; the full sheet is built from the same rules)
+    var issues = G.validate(spec, op, G.byHeader({ columns: columns, rows: sample }), t);
+    var name = op.toLowerCase() + "-" + ((spec.policyNumber || "policy") + "").replace(/[^A-Za-z0-9_-]/g, "") + "-" + G.iso(t) + "." + (fmtChoice === "csv" ? "csv" : "xlsx");
+    state.result = { op: op, blob: blob, name: name, keep: keep, columns: columns, sample: sample, issues: issues, rows: rowCount, warnings: warnings, stopped: state.cancel && op === "ADD" && producedFamilies < total, sampleFamilies: Math.min(SAMPLE_FAMILIES, producedFamilies) };
+    state.running = false; show("pm-progressWrap", false); refresh();
+    if (op === "ADD") { state.source = { label: "the ADD sheet you just generated" + (keep.length >= SOURCE_ROW_CAP ? " (first " + fmtN(keep.length) + " rows)" : ""), rows: keep, byId: true }; refresh(); }
+    render();
+  }
+
+  function render() {
+    var r = state.result;
+    show("pm-results", true);
+    $("pm-statOp").textContent = r.op + (r.stopped ? " (stopped)" : "");
+    $("pm-statRows").textContent = fmtN(r.rows); $("pm-statCols").textContent = r.columns.length;
+    $("pm-statCheck").textContent = r.issues.length ? r.issues.length + " problem(s)" : "passes";
+    var note = $("pm-checkNote"); note.hidden = false; note.className = r.issues.length ? "note warn" : "note";
+    note.textContent = r.issues.length ? "Checked " + fmtN(r.sample.length) + " rows against the policy: " + r.issues.slice(0, 5).map(function (i) { return "row " + i.row + " " + i.code; }).join(", ") + " — this is a tool defect, please report it."
+      : "Checked " + fmtN(r.sample.length) + " rows (" + (r.op === "ADD" ? "the first " + r.sampleFamilies + " families" : "all of them") + ") against the policy's rules: no problems.";
+    var w = $("pm-warnings"); w.textContent = ""; r.warnings.forEach(function (m) { w.appendChild(el("li", m)); }); w.hidden = !r.warnings.length;
+    $("pm-fileName").textContent = r.name + " · " + (r.blob.size / 1048576 >= 1 ? (r.blob.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(r.blob.size / 1024)) + " KB");
+    $("pm-useAsSource").hidden = r.op === "ADD" || !r.keep.length;
+    var tbl = $("pm-table"); tbl.textContent = "";
+    var thead = el("thead"), hr = el("tr"); r.columns.forEach(function (c) { hr.appendChild(el("th", c.header)); }); thead.appendChild(hr); tbl.appendChild(thead);
+    var tb = el("tbody"); r.sample.slice(0, PREVIEW_ROWS).forEach(function (row) { var tr = el("tr"); r.columns.forEach(function (c) { tr.appendChild(el("td", row[c.id] === undefined ? "" : row[c.id])); }); tb.appendChild(tr); }); tbl.appendChild(tb);
+    $("pm-previewHint").textContent = "first " + Math.min(PREVIEW_ROWS, r.sample.length) + " of " + fmtN(r.rows) + " rows";
+  }
+
+  $("pm-download").addEventListener("click", function () {
+    var r = state.result; if (!r) return;
+    var url = URL.createObjectURL(r.blob), a = document.createElement("a");
+    a.href = url; a.download = r.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  });
+
+  refresh();
 })();
+
+// If the Excel library could not be loaded (offline / blocked CDN) say so where it matters; CSV and Policy mode do not need it.
+window.addEventListener("load", function () {
+  if (typeof XLSX !== "undefined") return;
+  var host = document.getElementById("s-generate"), p = host && host.querySelector(".sub");
+  if (!p) return;
+  var n = document.createElement("div"); n.className = "note warn";
+  n.textContent = "The Excel library (SheetJS) could not be loaded \u2014 you are probably offline. Choose CSV here, or use Policy mode below, which has its own Excel writer.";
+  p.insertAdjacentElement("afterend", n);
+});
 </script>
 </body>
 </html>

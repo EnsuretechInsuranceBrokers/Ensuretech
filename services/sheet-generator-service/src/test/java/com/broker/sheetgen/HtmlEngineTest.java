@@ -38,7 +38,11 @@ class HtmlEngineTest {
             if (req.mode === 'validate') out = { issues: G.validate(spec, req.op, req.rows, req.today) };
             else {
               let sheet;
-              if (req.op === 'ADD') sheet = G.generateAdd(spec, req.options, req.ids, req.today);
+              if (req.op === 'ADD' && req.stream) {
+                const st = G.createAddStream(spec, req.options, req.ids, req.today); const rows = []; let f;
+                while ((f = st.next())) for (const r of f) rows.push(r);
+                sheet = { columns: st.columns, rows, warnings: st.warnings() };
+              } else if (req.op === 'ADD') sheet = G.generateAdd(spec, req.options, req.ids, req.today);
               else if (req.op === 'REMOVE') sheet = G.deriveRemove(spec, req.source, req.count, req.removeMode, req.seed, req.today);
               else sheet = G.deriveUpdate(spec, req.source, req.count, req.seed, req.today);
               out = { rows: G.byHeader(sheet), warnings: sheet.warnings, issues: G.validate(spec, req.op, G.byHeader(sheet), req.today),
@@ -128,6 +132,14 @@ class HtmlEngineTest {
                 assertThat(out.path("xlsxBytes").asInt()).isGreaterThan(500);
             }
         }
+    }
+
+    @Test
+    void streamingAndOneShotGenerationProduceTheSameSheet() throws Exception {
+        JsonNode spec = specJson("grade");
+        Map<String, Object> a = addRequest(spec, 150, 9), b = addRequest(spec, 150, 9);
+        b.put("stream", true);
+        assertThat(run(b).path("rows")).isEqualTo(run(a).path("rows"));
     }
 
     @Test

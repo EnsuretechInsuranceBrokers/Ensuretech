@@ -55,14 +55,24 @@ or when the age rules leave no valid employee age. Nothing is guessed.
   A date of birth is never "updated" blindly.
 
 ## The standalone HTML
-`src/main/resources/static/index.html` is one file, no CDN, no build. Open it directly from disk or let this service serve it at `/`.
-Load a spec (paste/open the JSON from policy-service, "Sample policy" for a demo, or — when served by this service — policy id + your token), pick ADD / UPDATE / REMOVE, generate,
-preview, download `.xlsx` (a small built-in writer) or `.csv`, or press **Generate on server** to use the shared code counter.
-Standalone codes are `prefix + number` that the tool remembers per browser (random prefix per browser), and e-mails carry a random run tag — but only the server counter *guarantees* uniqueness across testers.
+`src/main/resources/static/index.html` is **a superset of the original Add-Sheet Generator**: the original page is included unchanged (sections 1-6: template upload, rater types,
+dependents, optional fields, localStorage counter, xlsx/csv) and **section 7, "Policy mode"**, is added beside it. They share nothing at runtime (separate `pm-*` element ids, separate
+script blocks, separate counter key), so either keeps working if the other is removed.
+It needs no service and no network: open it from disk. (The original's SheetJS/GSAP/fonts still come from a CDN when online; offline it says so and Policy mode, which has its own writers, is unaffected.)
 
-**Drift guard.** The engine is the `<script id="engine">` block. `HtmlEngineTest` runs it under Node: its sheets must pass the **Java** validator, and the JS validator must flag exactly the
-same (row, code) pairs as the Java one on 400 deliberately broken rows per spec. If either implementation changes a rule without the other, the test fails.
-(The tests need `node` on the PATH; without it they are skipped, with a message.)
+Policy mode: load a spec (paste/open the JSON from policy-service, "Sample policy" to try it, or - when served by this service - policy id + token), pick ADD / UPDATE / REMOVE, generate, download.
+Built to be run under load by QAs:
+* rows are produced one family at a time in ~30 ms slices and written straight to the output (CSV in 1 MB Blob parts, XLSX as deflate-compressed chunks), so the tab stays responsive and memory stays flat;
+  measured headless: 200,000 families (612k rows, 60 MB CSV) in ~7 s with frames never blocked longer than ~100 ms; 30,000 families as .xlsx in ~4.5 s;
+* **Stop** keeps the families already written (a stopped sheet is still whole families);
+* only the first 300 families are policy-checked in the browser and only the first 100 rows are previewed; the full sheet comes from the same generator;
+* the source for UPDATE / REMOVE is the last ADD kept in memory (first 200,000 rows) or a CSV you load (also capped at 200,000 rows);
+* Excel stops at 1,048,575 rows and is slow to open far sooner: use CSV above ~50,000 rows (the endorsement upload reads CSV).
+Standalone codes are `prefix + number` that the browser remembers (random prefix per browser) and e-mails carry a random run tag; only the server counter *guarantees* uniqueness across testers.
+
+**Drift guard.** The engine is the `<script id="engine">` block. `HtmlEngineTest` runs it under Node: its sheets must pass the **Java** validator, the streaming and one-shot paths must agree, and the JS validator must flag
+exactly the same (row, code) pairs as the Java one on 400 deliberately broken rows per spec. (Needs `node`; skipped with a message otherwise.)
+The original sections keep the original's known defects (see `docs/legacy/addsheet-generator-review.md`); Policy mode is the fixed path.
 
 ## Run / test
 ```
