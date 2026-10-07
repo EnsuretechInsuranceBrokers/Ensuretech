@@ -31,7 +31,7 @@ event log. Nothing here is on a write path, and nothing here makes an authoritat
 Any failure (no key, API error, refusal, empty output) falls back to extractive, so `/ask` never 500s because of an LLM. 30 asks/min/user.
 
 ## Tests
-`TEST_MONGO_URI=mongodb://host:27017 pytest` (68 tests, a throwaway database per test). The sandbox has no MongoDB, so they ran against
+`TEST_MONGO_URI=mongodb://host:27017 pytest` (52 tests, a throwaway database per test). The sandbox has no MongoDB, so they ran against
 **FerretDB 1.24 on PostgreSQL**, which speaks the MongoDB wire protocol (reports 7.0.42) but is not MongoDB. Run them once against a real
 MongoDB before relying on this. Also smoke-tested over HTTP with a real identity-service token.
 
