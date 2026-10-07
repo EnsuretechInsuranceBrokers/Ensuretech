@@ -1,7 +1,7 @@
 """End-to-end check of the endorsement engine against the REAL policy-service over gRPC, with real identity tokens.
 
 Prerequisites (see the service READMEs): a running policy-service (REST :8082, gRPC :9090) with a LIVE GMC policy
-id 1 for employer 10 / broker 1 (rate card flat 1000, EXACT_DAYS pro-rata 2030-04-01..2031-03-31, family construct
+id 1 for employer 10 / broker 1 (rate card flat 1000, DAILY pro-rata 2030-04-01..2031-03-31, family construct
 allowing SPOUSE/SON/DAUGHTER, max 5 members, max 2 children), a migrated UTF-8 database, `manage.py genproto`, and
 tokens from identity-service in the environment:
 

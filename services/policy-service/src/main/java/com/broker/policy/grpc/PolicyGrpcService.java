@@ -5,6 +5,8 @@ import com.broker.policy.api.ValidationFailedException;
 import com.broker.policy.domain.Policy;
 import com.broker.policy.domain.PremiumType;
 import com.broker.policy.domain.PremiumTypeRepository;
+import com.broker.policy.domain.RelationRule;
+import com.broker.policy.domain.RelationRuleRepository;
 import com.broker.policy.engine.InvalidRateTableException;
 import com.broker.policy.engine.Member;
 import com.broker.policy.engine.RatingException;
@@ -33,11 +35,13 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
     private final PremiumService premiums;
     private final PremiumTypeRepository premiumTypes;
     private final FamilyConstructService families;
+    private final RelationRuleRepository relationRules;
     private final ObjectMapper mapper;
 
     PolicyGrpcService(PolicyService policies, PolicyReadinessService readiness, RateCardService rateCards,
                       PremiumService premiums, PremiumTypeRepository premiumTypes, FamilyConstructService families,
-                      ObjectMapper mapper) {
+                      RelationRuleRepository relationRules, ObjectMapper mapper) {
+        this.relationRules = relationRules;
         this.policies = policies;
         this.readiness = readiness;
         this.rateCards = rateCards;
@@ -161,13 +165,21 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
         call(out, () -> {
             Policy p = policies.get(brokerFor(req.getBrokerId()), req.getPolicyId());
             PremiumType pt = premiumTypes.findById(p.getPremiumTypeId()).orElseThrow();
-            return PolicyInfo.newBuilder().setPolicyId(p.getId()).setEmployerId(p.getEmployerId())
+            PolicyInfo.Builder info = PolicyInfo.newBuilder().setPolicyId(p.getId()).setEmployerId(p.getEmployerId())
                     .setPolicyNumber(p.getPolicyNumber()).setPolicyType(p.getPolicyType())
                     .setStatus(p.getStatus().name()).setStartDate(p.getStartDate().toString())
                     .setEndDate(p.getEndDate().toString()).setProRataType(p.getProRataType().name())
                     .setIsInception(p.isInception()).setPremiumTypeId(pt.getId()).setPremiumTypeCode(pt.getCode())
-                    .setRequiresFamilyConstruct(java.util.Set.of("GMC", "OPD", "WELLNESS").contains(p.getPolicyType()))
-                    .build();
+                    .setRequiresFamilyConstruct(java.util.Set.of("GMC", "OPD", "WELLNESS").contains(p.getPolicyType()));
+            for (RelationRule r : relationRules.findByPolicyIdOrderByRelationCode(p.getId())) {
+                RelationRuleInfo.Builder b = RelationRuleInfo.newBuilder().setRelationCode(r.getRelationCode()).setMaxTwins(r.getMaxTwins())
+                        .setProRataType(com.broker.policy.service.RelationRuleService.effectiveProRata(p.getProRataType(), r).name());
+                if (r.getMinAge() != null) b.setMinAge(r.getMinAge());
+                if (r.getMaxAge() != null) b.setMaxAge(r.getMaxAge());
+                if (r.getAgeDifference() != null) b.setAgeDifference(r.getAgeDifference()).setDifferenceFromRelation(r.getDifferenceFromRelation());
+                info.addRelationRules(b);
+            }
+            return info.build();
         });
     }
 

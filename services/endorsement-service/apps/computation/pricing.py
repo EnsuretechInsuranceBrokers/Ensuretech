@@ -9,7 +9,11 @@ from apps.jobs.models import EndorsementJob, EndorsementMember
 from apps.validation.models import ValidationLog
 
 from .policy_client import PolicyClient, PremiumMember, PremiumResult
-from .pro_rata import money, pro_rata_factor
+from datetime import timedelta
+
+from django.conf import settings
+
+from .pro_rata import joiner_factor, money, removal_factor
 
 UPDATABLE = ("first_name", "last_name", "dob", "gender", "pan", "mobile", "email", "grade", "designation",
              "annual_salary", "sum_insured")
@@ -66,6 +70,7 @@ def price_chunk(job: EndorsementJob, chunk_index: int, client: PolicyClient) -> 
     before_req: dict[str, list[PremiumMember]] = {}
     after_req: dict[str, list[PremiumMember]] = {}
     meta: dict[str, tuple[date, list[dict]]] = {}                    # code -> (effective, after-member descriptors)
+    cover_start: dict[str, date] = {}                                # member ref -> the day this person's cover began
     for code, new_rows in by_emp.items():
         eff_text = new_rows[0].normalised_payload.get("effective_date")
         eff = date.fromisoformat(eff_text) if eff_text else (job.effective_date or date.today())
@@ -80,6 +85,8 @@ def price_chunk(job: EndorsementJob, chunk_index: int, client: PolicyClient) -> 
             return PremiumMember(ref, rel, age_on(dob, eff), grade, desig, si)
 
         before = [pm(f"m:{m.id}", m.relation_code, m.date_of_birth, m.grade, m.designation, m.sum_insured) for m in existing]
+        for m in existing:
+            cover_start[f"m:{m.id}"] = m.effective_date
         desc = [{"relation_code": m.relation_code, "row_index": None, "member_id": m.id} for m in existing]
         after = list(before)
         if job.op_type == "ADD":
@@ -88,6 +95,7 @@ def price_chunk(job: EndorsementJob, chunk_index: int, client: PolicyClient) -> 
                 after.append(pm(f"r:{r.row_index}", p["relation_code"], date.fromisoformat(p["dob"]), p.get("grade"),
                                 p.get("designation"), _dec(p.get("sum_insured"))))
                 desc.append({"relation_code": p["relation_code"], "row_index": r.row_index, "member_id": None})
+                cover_start[f"r:{r.row_index}"] = eff
         elif job.op_type == "REMOVE":
             gone = {r.normalised_payload["relation_code"] for r in new_rows}
             keep = [i for i, m in enumerate(existing) if m.relation_code not in gone]
@@ -112,13 +120,38 @@ def price_chunk(job: EndorsementJob, chunk_index: int, client: PolicyClient) -> 
     before_res: dict[str, PremiumResult] = client.calculate_premiums(job.broker_id, job.policy_id, before_req) if before_req else {}
     after_res: dict[str, PremiumResult] = client.calculate_premiums(job.broker_id, job.policy_id, after_req) if after_req else {}
 
+    kinds = facts.get("relation_prorata") or {}
+    default_kind, inception = facts["pro_rata_type"], facts.get("is_inception", False)
+    leaving_day = settings.REMOVAL_INCLUDES_LEAVING_DAY
+
+    def kind_of(relation_code: str) -> str:
+        return kinds.get(relation_code) or default_kind
+
     lines = []
     for code, (eff, desc) in meta.items():
         b, a = before_res.get(code), after_res.get(code)
         before_amt = b.subtotal if b else Decimal(0)
         after_amt = a.subtotal if a else Decimal(0)
-        factor = pro_rata_factor(facts["pro_rata_type"], start, end, eff, facts.get("is_inception", False))
-        charged = money((after_amt - before_amt) * factor)
+        b_by, a_by = (b.by_ref if b else {}), (a.by_ref if a else {})
+        rel_of = {m.ref: m.relation_code for m in before_req.get(code, []) + after_req.get(code, [])}
+        raw = Decimal(0)
+        # Each person's change in premium is pro-rated by that person's relation (pro-rata is configured per relation).
+        # A removed person is refunded for the part of the year after their cover ended; everyone else's change starts the next day.
+        for ref in set(b_by) | set(a_by):
+            delta = a_by.get(ref, Decimal(0)) - b_by.get(ref, Decimal(0))
+            if delta == 0:
+                continue
+            kind = kind_of(rel_of[ref])
+            if job.op_type == "REMOVE" and ref not in a_by:
+                f = removal_factor(kind, start, end, eff, cover_start.get(ref), includes_leaving_day=leaving_day,
+                                   when_disabled=settings.REMOVAL_REFUND_WHEN_PRORATA_DISABLED)
+            else:
+                from_day = eff + timedelta(days=1) if (job.op_type == "REMOVE" and leaving_day) else eff
+                f = joiner_factor(kind, start, end, from_day, inception)
+            raw += delta * f
+        charged = money(raw)
+        total_delta = after_amt - before_amt
+        factor = (charged / total_delta).quantize(Decimal("0.000001")) if total_delta else Decimal(1)
         rate = (a or b).tax_rate
         tax = money(charged * rate / 100)
         member_premiums = []

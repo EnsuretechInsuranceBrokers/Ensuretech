@@ -98,11 +98,24 @@ message PolicyInfo {
   string status = 5;             // APPROVED_AND_LIVE, ...
   string start_date = 6;         // ISO-8601
   string end_date = 7;
-  string pro_rata_type = 8;      // FULL_MONTH, EXACT_DAYS, NONE
+  string pro_rata_type = 8;      // DAILY, MONTHLY, NONE (NONE = pro-rata not allowed); each relation's own kind is in relation_rules
   bool is_inception = 9;
   int32 premium_type_id = 10;
   string premium_type_code = 11;
   bool requires_family_construct = 12;   // false for GPA/GTL: skip family validation
+  repeated RelationRuleInfo relation_rules = 13;
+}
+
+// Per-relation rules (legacy policy_age_details). pro_rata_type is already resolved: NONE if the policy forbids pro-rata, else the
+// relation's own kind, else the policy's. Unset ages mean "no rule".
+message RelationRuleInfo {
+  string relation_code = 1;
+  optional int32 min_age = 2;
+  optional int32 max_age = 3;
+  optional int32 age_difference = 4;
+  string difference_from_relation = 5;   // SELF or SPOUSE, empty when no age_difference
+  string pro_rata_type = 6;
+  int32 max_twins = 7;
 }
 
 message Person {

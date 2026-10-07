@@ -1,3 +1,4 @@
 package com.broker.policy.domain;
 
-public enum ProRataType { FULL_MONTH, EXACT_DAYS, NONE }
+/** DAILY and MONTHLY as in the legacy system. NONE at policy level means pro-rata premium is not allowed at all. */
+public enum ProRataType { DAILY, MONTHLY, NONE }

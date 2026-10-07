@@ -199,4 +199,27 @@ class GrpcTest extends IntegrationTestBase {
         assertThat(code(() -> stub(admin(BROKER_A)).calculatePremiumBatch(big.build()))).isEqualTo(Status.Code.INVALID_ARGUMENT);
         assertThat(code(() -> stub(admin(BROKER_A)).calculatePremiumBatch(PremiumBatchRequest.newBuilder().setPolicyId(id).build()))).isEqualTo(Status.Code.OK);
     }
+
+    @Test
+    void getPolicyCarriesTheResolvedPerRelationRules() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-RR");
+        jdbc.sql("UPDATE policy_svc.policies SET pro_rata_type='DAILY' WHERE id=:i").param("i", id).update();
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/relation-rules")
+                .header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{\"rules\":[{\"relationCode\":\"SON\",\"maxAge\":25,\"ageDifference\":18,\"differenceFromRelation\":\"SELF\",\"proRataType\":\"MONTHLY\",\"maxTwins\":1},{\"relationCode\":\"SPOUSE\",\"minAge\":21}]}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        PolicyInfo info = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
+        assertThat(info.getProRataType()).isEqualTo("DAILY");
+        var son = info.getRelationRulesList().stream().filter(r -> r.getRelationCode().equals("SON")).findFirst().orElseThrow();
+        assertThat(son.getProRataType()).isEqualTo("MONTHLY");
+        assertThat(son.hasMaxAge() && son.getMaxAge() == 25 && !son.hasMinAge()).isTrue();
+        assertThat(son.getAgeDifference()).isEqualTo(18);
+        assertThat(son.getDifferenceFromRelation()).isEqualTo("SELF");
+        var spouse = info.getRelationRulesList().stream().filter(r -> r.getRelationCode().equals("SPOUSE")).findFirst().orElseThrow();
+        assertThat(spouse.getProRataType()).isEqualTo("DAILY");                       // no own kind: inherits the policy's
+        assertThat(spouse.hasAgeDifference()).isFalse();
+        jdbc.sql("UPDATE policy_svc.policies SET pro_rata_type='NONE' WHERE id=:i").param("i", id).update();
+        info = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
+        assertThat(info.getRelationRulesList()).extracting(RelationRuleInfo::getProRataType).containsOnly("NONE");
+    }
 }

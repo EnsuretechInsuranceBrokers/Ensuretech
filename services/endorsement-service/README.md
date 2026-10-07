@@ -59,7 +59,12 @@ across workers is the next lever. Nothing here has been benchmarked at 1M rows, 
 - **File store:** uploads spool to local disk (`LocalFileStore`); API and workers must share it. A MinIO/S3 store fits the same interface.
 - **Messaging not exercised for real:** RabbitMQ queue topology/DLX is configured but tests run Celery eagerly; the Kafka relay is tested
   with a fake sender. Redis is only used for the shared rate-limit cache when `REDIS_URL` is set.
-- **Assumptions to confirm against the legacy system (source not in the repo):** pro-rata rules, the cell-normalisation rules
+- **Pro-rata (ported from the legacy helpers):** kinds DAILY / MONTHLY (NONE = not allowed), set per policy and overridable **per relation** (policy-service `relation-rules`).
+  Joiners/changes pay `covered/total` (DAILY: inclusive days; MONTHLY: ceil of fractional months, both numerator and denominator), full premium from the policy start.
+  Removals refund the part of the year after the leaving date (the leaving day stays covered; `REMOVAL_INCLUDES_LEAVING_DAY=false` is the TATA AIG same-day variant).
+  **Decision needing confirmation:** the legacy refund function has no "pro-rata allowed" check, so on a NONE policy it refunds daily; `REMOVAL_REFUND_WHEN_PRORATA_DISABLED` = DAILY (legacy) | FULL | NONE.
+  Not ported: the enrollment-window grace (`isProRataCalculation`: no pro-rata inside the window or within `enrollment_days` of joining/upload), QUARTERLY/HALF_YEARLY (never implemented in legacy), contribution split, rounding unit.
+- **Assumptions to confirm against the legacy system:** the cell-normalisation rules
   (`apps/intake/rules/normalization_rules.json` is authored, with per-TPA relation labels taken from the DB design), the family-issue
   attribution, and which validation findings are warnings (mobile, email, dependents-remain) vs errors.
 - **Pricing a partial family** prices the whole resulting family before/after, so floaters and composition-sensitive plans charge the

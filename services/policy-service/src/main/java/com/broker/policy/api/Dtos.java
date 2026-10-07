@@ -76,6 +76,29 @@ public final class Dtos {
         }
     }
 
+    public record RelationRuleDto(
+            @NotBlank @Size(max = 40) String relationCode,
+            @Min(0) @Max(120) Short minAge,
+            @Min(0) @Max(120) Short maxAge,
+            @Min(0) @Max(120) Short ageDifference,
+            @Pattern(regexp = "SELF|SPOUSE") String differenceFromRelation,
+            ProRataType proRataType,
+            @Min(0) @Max(5) Short maxTwins) {
+        public static RelationRuleDto of(RelationRule r) {
+            return new RelationRuleDto(r.getRelationCode(), r.getMinAge(), r.getMaxAge(), r.getAgeDifference(),
+                    r.getDifferenceFromRelation(), r.getProRataType(), r.getMaxTwins());
+        }
+
+        public RelationRule toEntity() {
+            RelationRule r = new RelationRule(null, null, relationCode);
+            r.setMinAge(minAge); r.setMaxAge(maxAge); r.setAgeDifference(ageDifference);
+            r.setDifferenceFromRelation(differenceFromRelation); r.setProRataType(proRataType); r.setMaxTwins(maxTwins);
+            return r;
+        }
+    }
+
+    public record PutRelationRulesRequest(@NotNull List<@Valid RelationRuleDto> rules) {}
+
     public record PersonDto(@NotBlank String relationCode, @NotNull @PositiveOrZero Integer age) {}
 
     public record FamilyValidateRequest(@NotEmpty List<@Valid PersonDto> members) {}

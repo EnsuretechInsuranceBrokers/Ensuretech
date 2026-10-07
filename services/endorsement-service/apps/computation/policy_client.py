@@ -1,5 +1,5 @@
 """Client for policy-service. The engine never re-implements family rules or pricing; it asks."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Protocol
@@ -39,6 +39,7 @@ class PolicyInfo:
     is_inception: bool
     premium_type_code: str
     requires_family_construct: bool
+    relation_prorata: dict = field(default_factory=dict)      # relation code -> DAILY | MONTHLY | NONE (already resolved by policy-service)
 
 
 @dataclass(frozen=True)
@@ -129,7 +130,8 @@ class GrpcPolicyClient:
         r = self._call(self._stub.GetPolicy, self._pb.PolicyRequest(policy_id=policy_id, broker_id=broker_id))
         return PolicyInfo(r.policy_id, r.employer_id, r.policy_number, r.policy_type, r.status,
                           date.fromisoformat(r.start_date), date.fromisoformat(r.end_date), r.pro_rata_type,
-                          r.is_inception, r.premium_type_code, r.requires_family_construct)
+                          r.is_inception, r.premium_type_code, r.requires_family_construct,
+                          {x.relation_code: x.pro_rata_type for x in r.relation_rules})
 
     def validate_families(self, broker_id, policy_id, families):
         pb = self._pb

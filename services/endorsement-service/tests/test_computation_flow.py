@@ -59,7 +59,7 @@ def test_add_prices_checks_the_deposit_and_writes_the_roster(flow):
 
 
 def test_pro_rata_scales_the_charge_by_the_remaining_period(flow):
-    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="EXACT_DAYS", flat=1000,
+    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="DAILY", flat=1000,
                     construct={"allowed": {"SPOUSE", "SON"}, "max_children": 2, "max_members": 5})
     job = job_from(upload(client_for(), csv_text("1,Self,A,1990-01-01,M,500000,,"), effective_date="2030-10-01"))
     factor = (D(182) / D(365)).quantize(D("0.000001"))
@@ -71,7 +71,7 @@ def test_pro_rata_scales_the_charge_by_the_remaining_period(flow):
 
 
 def test_inception_policy_ignores_pro_rata(flow):
-    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="EXACT_DAYS", inception=True, flat=1000,
+    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="DAILY", inception=True, flat=1000,
                     construct={"allowed": {"SPOUSE"}, "max_members": 5})
     job = job_from(upload(client_for(), csv_text("1,Self,A,1990-01-01,M,500000,,"), effective_date="2030-10-01"))
     assert job.premium_delta == D("1000.00")
@@ -87,12 +87,14 @@ def test_adding_a_dependent_to_an_existing_family_charges_only_the_difference(fl
 
 
 def test_remove_refunds_and_needs_no_deposit(flow):
+    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="DAILY", flat=1000, construct={"allowed": {"SPOUSE", "SON"}, "max_children": 2, "max_members": 5})
     add_member(code="1001", rel="SELF")
     add_member(code="1001", rel="SPOUSE")
     InMemoryCd.balance = D("0")                                # an empty deposit must not block a refund
     job = job_from(upload(client_for(), csv_text("1001,Spouse,,,,,,", header=NOHEAD), op="REMOVE", effective_date="2030-06-01"))
     assert job.status == "ENDORSED"
-    assert (job.premium_delta, job.tax_amount, job.total_premium) == (D("-1000.00"), D("-180.00"), D("-1180.00"))
+    refund = -(D("1000") * D(303) / D(365)).quantize(D("0.01"))               # cover ran through Jun 1 inclusive; Jun 2 .. Mar 31 = 303 days come back
+    assert (job.premium_delta, job.tax_amount, job.total_premium) == (refund, (refund * D("0.18")).quantize(D("0.01")), refund + (refund * D("0.18")).quantize(D("0.01")))
     assert InMemoryCd.calls == []                              # never asked
     assert "skipped" in AuditTransition.objects.get(job=job, to_state="CD_SUFFICIENT").metadata
     gone = EndorsementMember.objects.get(employee_code="1001", relation_code="SPOUSE")
@@ -311,3 +313,38 @@ def test_job_totals_and_roster_are_tenant_scoped(flow):
     body = client_for().get(f"{BASE}{job.id}/").json()
     assert body["status"] == "ENDORSED" and body["total_premium"] == "4720.00" and body["cd_status"] == "SUFFICIENT"
     assert client_for("BROKER_ADMIN", BROKER_B).get(f"{BASE}{job.id}/").status_code == 404
+
+
+def test_each_relation_is_pro_rated_by_its_own_kind(flow):
+    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="DAILY", flat=1000, relation_prorata={"SON": "MONTHLY"},
+                    construct={"allowed": {"SPOUSE", "SON"}, "max_children": 2, "max_members": 5})
+    rows = csv_text("1,Self,Asha,1985-01-01,F,500000,,", "1,Son,Kid,2015-01-01,M,500000,,")
+    job = job_from(upload(client_for(), rows, effective_date="2030-10-01"))
+    self_part = D("1000") * D(182) / D(365)                                   # daily: Oct 1 .. Mar 31
+    son_part = D("1000") * D(6) / D(12)                                       # monthly: ceil(5.97 months) = 6 of 12
+    assert job.premium_delta == (self_part + son_part).quantize(D("0.01"))
+    line = PremiumLine.objects.get(job_id=job.id)
+    assert line.charged == job.premium_delta and D("0.49") < line.pro_rata_factor < D("0.5")      # the blended factor, for the audit trail
+
+
+def test_a_policy_that_forbids_prorata_charges_joiners_in_full_and_refunds_by_the_configured_fallback(flow, settings):
+    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="NONE", flat=1000, construct={"allowed": {"SPOUSE"}, "max_members": 5})
+    assert job_from(upload(client_for(), csv_text("1,Self,A,1990-01-01,M,500000,,"), effective_date="2030-10-01")).premium_delta == D("1000.00")
+    add_member(code="2001", rel="SELF", premium="1000.00")
+    refund = lambda code: job_from(upload(client_for(), csv_text(f"{code},Self,,,,,,", header=NOHEAD), op="REMOVE", effective_date="2030-10-01")).premium_delta  # noqa: E731
+    assert refund("2001") == -(D("1000") * D(181) / D(365)).quantize(D("0.01"))                 # legacy: daily
+    settings.REMOVAL_REFUND_WHEN_PRORATA_DISABLED = "FULL"
+    add_member(code="2002", rel="SELF", premium="1000.00")
+    assert refund("2002") == D("-1000.00")
+    settings.REMOVAL_REFUND_WHEN_PRORATA_DISABLED = "NONE"
+    add_member(code="2003", rel="SELF", premium="1000.00")
+    assert refund("2003") == D("0.00")
+
+
+def test_same_day_removal_variant_is_a_setting(flow, settings):
+    flow.add_policy(BROKER_A, 100, EMP_A, pro_rata="DAILY", flat=1000, construct={"allowed": {"SPOUSE"}, "max_members": 5})
+    m = add_member(code="3001", rel="SELF", premium="1000.00")
+    EndorsementMember.objects.filter(pk=m.pk).update(effective_date=date(2030, 10, 1))                # cover began Oct 1
+    settings.REMOVAL_INCLUDES_LEAVING_DAY = False
+    job = job_from(upload(client_for(), csv_text("3001,Self,,,,,,", header=NOHEAD), op="REMOVE", effective_date="2030-10-01"))
+    assert job.premium_delta == -(D("1000") * D(182) / D(365)).quantize(D("0.01"))                    # the leaving day was never covered: refunded too

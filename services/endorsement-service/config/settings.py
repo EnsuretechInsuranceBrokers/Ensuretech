@@ -114,3 +114,7 @@ SSE_HEARTBEAT_SECONDS = env.int("SSE_HEARTBEAT_SECONDS", default=15)
 CACHES = {"default": ({"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": env("REDIS_URL")}
                       if env("REDIS_URL", default="") else {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"})}
 CELERY_BEAT_SCHEDULE["expire-gui-sessions"] = {"task": "apps.intake.tasks.expire_gui_sessions", "schedule": 300.0}
+
+# ── pro-rata (legacy parity; both are per-portal switches there) ─────────────────────────────────────────────────
+REMOVAL_INCLUDES_LEAVING_DAY = env.bool("REMOVAL_INCLUDES_LEAVING_DAY", default=True)        # False reproduces the TATA AIG same-day-removal variant
+REMOVAL_REFUND_WHEN_PRORATA_DISABLED = env("REMOVAL_REFUND_WHEN_PRORATA_DISABLED", default="DAILY")   # DAILY (legacy) | FULL | NONE

@@ -16,9 +16,11 @@ public class FamilyConstructService {
     private final PolicyRepository policies;
     private final FamilyConstructRepository constructs;
     private final RelationTypeRepository relations;
+    private final RelationRuleRepository relationRules;
 
     FamilyConstructService(PolicyRepository policies, FamilyConstructRepository constructs,
-                           RelationTypeRepository relations) {
+                           RelationTypeRepository relations, RelationRuleRepository relationRules) {
+        this.relationRules = relationRules;
         this.policies = policies;
         this.constructs = constructs;
         this.relations = relations;
@@ -64,6 +66,35 @@ public class FamilyConstructService {
         return constructs.saveAndFlush(c);
     }
 
+    private static final Set<String> ADULT_GROUPS = Set.of("SELF", "SPOUSE", "PARENT", "PARENT_IN_LAW");
+
+    /** Legacy rules: the relation's age window, the minimum gap to the employee/spouse, and "adults are at least 18" when no window is set. */
+    private static void checkRelationRules(List<Violation> out, int i, Person p, RelationType r, RelationRule rule, List<Person> people,
+                                           Map<String, RelationType> byCode) {
+        Short min = rule == null ? null : rule.getMinAge(), max = rule == null ? null : rule.getMaxAge();
+        if (min == null && ADULT_GROUPS.contains(r.getRelationGroup()) && p.age() < 18) {
+            out.add(new Violation("ADULT_UNDER_18", "member " + i + ": " + r.getCode() + " must be at least 18, is " + p.age(), i));
+        }
+        if (min != null && p.age() < min) {
+            out.add(new Violation("RELATION_AGE_BELOW_MIN", "member " + i + ": " + r.getCode() + " age " + p.age() + " is below " + min, i));
+        }
+        if (max != null && p.age() > max) {
+            out.add(new Violation("RELATION_AGE_ABOVE_MAX", "member " + i + ": " + r.getCode() + " age " + p.age() + " is above " + max, i));
+        }
+        if (rule != null && rule.getAgeDifference() != null) {
+            String from = rule.getDifferenceFromRelation();
+            for (int j = 0; j < people.size(); j++) {
+                RelationType other = byCode.get(people.get(j).relationCode());
+                if (j == i || other == null || !(from.equals("SELF") ? "SELF" : "SPOUSE").equals(other.getRelationGroup())) continue;
+                if (Math.abs(people.get(j).age() - p.age()) < rule.getAgeDifference()) {
+                    out.add(new Violation("AGE_GAP_TOO_SMALL", "member " + i + ": " + r.getCode() + " must be at least " + rule.getAgeDifference()
+                            + " years " + (people.get(j).age() >= p.age() ? "younger than" : "older than") + " " + from + " (ages are whole years)", i));
+                    break;
+                }
+            }
+        }
+    }
+
     /** A rule violation; memberIndex is the offending person's position in the family, -1 when family-wide. */
     public record Violation(String code, String message, int memberIndex) {
         public Issue toIssue() { return new Issue(code, message); }
@@ -82,13 +113,15 @@ public class FamilyConstructService {
         Map<String, RelationType> byCode = relations.findAll().stream()
                 .collect(Collectors.toMap(RelationType::getCode, r -> r));
         Set<Integer> allowed = new HashSet<>(c.getAllowedRelations());
+        Map<String, RelationRule> rules = relationRules.findByPolicyIdOrderByRelationCode(policyId).stream()
+                .collect(Collectors.toMap(RelationRule::getRelationCode, r -> r));
         List<List<Violation>> all = new ArrayList<>(families.size());
-        for (List<Person> people : families) all.add(check(c, byCode, allowed, people));
+        for (List<Person> people : families) all.add(check(c, byCode, allowed, rules, people));
         return all;
     }
 
     private static List<Violation> check(FamilyConstruct c, Map<String, RelationType> byCode, Set<Integer> allowed,
-                                         List<Person> people) {
+                                         Map<String, RelationRule> rules, List<Person> people) {
         List<Violation> out = new ArrayList<>();
         int children = 0, parents = 0, selves = 0;
         for (int i = 0; i < people.size(); i++) {
@@ -108,6 +141,7 @@ public class FamilyConstructService {
                 out.add(new Violation("DEPENDENT_OVER_MAX_AGE",
                         "member " + i + ": " + r.getCode() + " age " + p.age() + " exceeds " + r.getMaxAge(), i));
             }
+            checkRelationRules(out, i, p, r, rules.get(r.getCode()), people, byCode);
             if ((c.getAgeMin() != null && p.age() < c.getAgeMin()) || (c.getAgeMax() != null && p.age() > c.getAgeMax())) {
                 out.add(new Violation("AGE_OUT_OF_RANGE", "member " + i + ": age " + p.age() + " outside "
                         + c.getAgeMin() + "-" + c.getAgeMax(), i));

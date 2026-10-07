@@ -37,7 +37,7 @@ abstract class IntegrationTestBase {
 
     @BeforeEach
     void reset() {
-        jdbc.sql("TRUNCATE policy_svc.rate_cards, policy_svc.family_constructs, policy_svc.policies, "
+        jdbc.sql("TRUNCATE policy_svc.rate_cards, policy_svc.family_constructs, policy_svc.relation_rules, policy_svc.policies, "
                 + "policy_svc.employer_refs RESTART IDENTITY CASCADE").update();
         jdbc.sql("DELETE FROM outbox.outbox_events").update();
         redis.execute((org.springframework.data.redis.core.RedisCallback<Object>) c -> {

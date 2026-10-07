@@ -27,16 +27,21 @@ public class PolicyController {
     private final FamilyConstructService families;
     private final PremiumService premiums;
     private final PolicyReadinessService readiness;
+    private final RelationRuleService relationRules;
+    private final SheetSpecService sheetSpecs;
     private final BigDecimal defaultTaxRate;
 
     PolicyController(PolicyService policies, RateCardService rateCards, FamilyConstructService families,
                      PremiumService premiums, PolicyReadinessService readiness,
+                     RelationRuleService relationRules, SheetSpecService sheetSpecs,
                      @Value("${app.default-tax-rate:18.00}") BigDecimal defaultTaxRate) {
         this.policies = policies;
         this.rateCards = rateCards;
         this.families = families;
         this.premiums = premiums;
         this.readiness = readiness;
+        this.relationRules = relationRules;
+        this.sheetSpecs = sheetSpecs;
         this.defaultTaxRate = defaultTaxRate;
     }
 
@@ -119,6 +124,23 @@ public class PolicyController {
     FamilyConstructResponse getConstruct(@PathVariable long id) {
         policies.get(broker(), id);
         return FamilyConstructResponse.of(families.get(broker(), id));
+    }
+
+    @PutMapping("/{id}/relation-rules")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    List<RelationRuleDto> putRelationRules(@PathVariable long id, @Valid @RequestBody PutRelationRulesRequest r) {
+        return relationRules.put(broker(), id, r.rules().stream().map(RelationRuleDto::toEntity).toList())
+                .stream().map(RelationRuleDto::of).toList();
+    }
+
+    @GetMapping("/{id}/relation-rules")
+    List<RelationRuleDto> getRelationRules(@PathVariable long id) {
+        return relationRules.get(broker(), id).stream().map(RelationRuleDto::of).toList();
+    }
+
+    @GetMapping("/{id}/sheet-spec")
+    Map<String, Object> sheetSpec(@PathVariable long id) {
+        return sheetSpecs.build(policies.get(broker(), id));
     }
 
     @PostMapping("/{id}/family/validate")
