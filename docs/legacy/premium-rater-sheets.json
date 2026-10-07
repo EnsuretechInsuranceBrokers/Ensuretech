@@ -1,0 +1,5235 @@
+{
+  "_meta": {
+    "generatedFrom": "/home/user/udogg/wrapper/eb-backend_copy (legacy Laravel)",
+    "citeLegend": {
+      "PCPI": "app/Imports/Policy/PolicyConfiguratorPremiumImport.php",
+      "NPRS": "app/Imports/Policy/NewPolicyRaterSheetImportViaCollection.php",
+      "controller": "app/Http/Controllers/Broker/v1/PolicyConfigurationController.php",
+      "constant.php": "app/Helpers/constant.php",
+      "helper.php": "app/Helpers/helper.php",
+      "samples": "public/SampleFormat/*.xlsx"
+    },
+    "routing": {
+      "PCPI (heading-row, ToModel)": [
+        13,
+        15,
+        16,
+        19,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        32
+      ],
+      "NPRS (ToCollection matrix)": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        17,
+        18,
+        20,
+        28,
+        29,
+        30,
+        31
+      ],
+      "noSheet": [
+        1
+      ],
+      "removedIds": {
+        "11": "GRADE_WITH_EXCLUSION_ON_NUMBER_OF_PARENTS",
+        "12": "DESIGNATION_WITH_EXCLUSION_ON_NUMBER_OF_PARENTS",
+        "14": "GRADE_WITH_CONSTRUCT"
+      },
+      "cite": "constant.php:83-147; controller:3064-3071 (IPD), 3091-3115 (individual), 3148-3158 (OPD), 5482-5640 (API/quote variant), 939-962 & 3389-3411 (exceptional rates)"
+    },
+    "headerSlugRule": "PCPI types use WithHeadingRow: heading text -> Str::slug(text,'_') (config/excel.php:60). NPRS types do not use headings; they compare raw cell text exactly.",
+    "contributionType": {
+      "1": "BY_PERCENTAGE",
+      "0": "BY_VALUE",
+      "cite": "constant.php:236-240"
+    },
+    "raterType": {
+      "1": "IPD",
+      "2": "OPD",
+      "3": "IPD_PLUS_OPD",
+      "4": "BASE_PLUS_TOP_UP",
+      "5": "BASE_ENHANCE_FLEX",
+      "cite": "constant.php:176-182"
+    },
+    "ipdVsOpd": "Same sheet layouts for IPD and OPD. OPD upload (opd_premium_file, opd_premium_type, premium_tax_opd, premium_contribution_type_opd) passes raterType=OPD => is_opd_rate=1 on every row; delete-before-insert scoped to is_opd_rate=1 [controller:3131-3158; PCPI:67-106; NPRS:49-53].",
+    "exceptionalRates": "eRate premium_file uses same importers with exceptionalRateId => is_exceptional_rate=1, exceptional_rate_id set; contribution_type defaults BY_PERCENTAGE(1) when not given [controller:939-962,3389-3411].",
+    "enhanceFlex": "Enhance/Flex (RaterType 5, is_enchance_flex_rate=1) rates are created only from flat form entries (in_sum_insured.*/in_premium.* with is_enchance_flex_rate) - no premium sheet for it in either importer [controller:2124-2130,2503-2590; grep app/Imports finds no 'enchance']. master_policies.enhance_premium_type exists [MasterPolicy.php:172]. Sheet format for enhance premium type UNKNOWN.",
+    "topup": "Top-up (RaterType 4) premium sheet 'topup_premium_file' goes to NPRS with $data['premium_file'] (probable bug: not topup file) [controller:5582-5592]; BASED_ON_BASE_SI_AND_TOPUP_PREMIUM / flat-age topup 'custom rate' sheets use PolicyCustomRateImport (below).",
+    "controllerErrors": {
+      "fileRule": "premium_file: sometimes|required|file|mimes:xlsx,xlx,xls,csv; in_premium_file: required_if si_type,3; required_unless premium_type,1; mimes xlx,xlsx [controller:2084,2119]",
+      "ErrorException": "{status:false,message:'Please upload proper excel file',log} [controller:3082-3083,3166-3167]",
+      "Exception": "{status:false,errors:<message>} [controller:3084-3085]"
+    },
+    "keyLines": {
+      "PCPI": {
+        "class/ToModel/WithHeadingRow": 26,
+        "sheets()": 55,
+        "model()": 67,
+        "contributionTypeSelection": "92-94",
+        "isPercentageValue(LOL)": "99-106",
+        "can_add_parent parse": "112-126 (Y/YES=>1 else 0, default 1)",
+        "type13 branch": "129-294",
+        "claim_rate accepted Yes/Y/yes/y/1": "140-145",
+        "type15": "295-482",
+        "type16": "483-646",
+        "type19/21": "647-807",
+        "GDAC 22/27/32": "808-1075",
+        "family_group parse 32": "877-945",
+        "family_group parse 22/27": "946-1066",
+        "LOL23": "1076-1129",
+        "LOL24": "1130-1349",
+        "LOL26": "1350-1543",
+        "createSpecialGroupRater": "1548-1670",
+        "chunkSize": 1672,
+        "calculatePercentage": "1677-1690",
+        "getPremium": "1692-1715",
+        "getAgeBand": "1717-1748",
+        "getFamilyRelationIds": "1750-1791",
+        "getCopaymentRate": "1793-1815"
+      },
+      "NPRS": {
+        "gate+row filter": "65-72",
+        "can-add header search": "74-75",
+        "type2/8": "77-126",
+        "type4": "127-171",
+        "type3": "172-219",
+        "type5": "220-263",
+        "type6": "264-308",
+        "type7": "309-353",
+        "type9": "354-409",
+        "type20": "410-490",
+        "type10": "491-541",
+        "type17": "542-583",
+        "type28": "584-629",
+        "type29": "630-681",
+        "type30": "682-926",
+        "type31": "927-1050",
+        "bulk insert": "1052-1054",
+        "getRelationId": "1058-1076",
+        "isMonthWiseAge": "1091-1119"
+      },
+      "PremiumType constants": "app/Helpers/constant.php:83-147",
+      "helpers": "app/Helpers/helper.php addTax 4534, getConstructCount 6784, addGrade 7189, addDesignation 7210"
+    },
+    "taxAndContributionDefaults": "tax = request.premium_tax only when premium_tax_type==1 else 0 [controller:3054-3058,3137-3142]",
+    "legacySamplesNotReadByCurrentImporters": {
+      "note": "These single-header-row samples (Premium/Tax/Premium with Tax/Is Opd Premium) do not match any current branch: NPRS would treat their row 1 as the SI row and row 2 as the header row. No importer in app/Imports reads 'Is Opd Premium' (grep empty). UNKNOWN whether another code path uses them.",
+      "files": {
+        "ipd_opd_age_premium_sample_39.xlsx": [
+          "Age",
+          "Premium",
+          "Tax",
+          "Premium with Tax",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_grade_wise_premium_sample_42.xlsx": [
+          "Grade",
+          "Premium",
+          "Tax",
+          "Premium with Tax",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_designation_wise_premium_sample.43.xlsx": [
+          "Designation",
+          "Premium",
+          "Tax",
+          "Premium with Tax",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_age_permilli_wise_premium_sample_44.xlsx": [
+          "Age",
+          "Permilli",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_grade_ermilli_wise_remium_sample_45.xlsx": [
+          "Grade",
+          "Permilli",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_desg_permilli_wise_premium_sample_46.xlsx": [
+          "Designation",
+          "Permilli",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_member_wise_premium_sample_47.xlsx": [
+          "relation",
+          "suminsured ",
+          "premium",
+          "Is Opd Premium"
+        ],
+        "ipd_opd_state_wise_premium_54.xlsx": [
+          "state",
+          "Premium",
+          "Tax",
+          "Premium with Tax",
+          "Is Opd Premium"
+        ]
+      }
+    },
+    "customRateImport": {
+      "file": "app/Imports/PolicyCustomRateImport.php",
+      "use": "SI/premium 'custom rate' sheets for top-up policies (si_file / in_suminsured_file / topup_si_file / opd_si_file) [controller:2776,2885,5179-5406]",
+      "baseOnBaseSiAndTopupPremium": {
+        "sample": "base-on-base-si-and-premium-sample.xlsx",
+        "layout": "row1: col B='Top-up Factor' (then label), row2: col A='Base SI / Deductible', col B=<factor name>, col C..=numeric top-up SI; data rows: col A base SI, col B factor value, then premiums. Factor value in row2 col B selects: 'Age','Grade','Designation','Family Construct','Family Group' [PolicyCustomRateImport.php:54-110]",
+        "derived": "total_premium=addTax(premium,tax); zero/blank premium skipped; columns base_suminsured, top_up_suminsured, age|grade_id|designation_id|no_of_adult/no_of_children|family_group_id [PolicyCustomRateImport.php:56-107]"
+      },
+      "otherTopup": "for FLAT/AGE/GRADE... base SI sub types: rows labelled 'suminsured' hold top-up SI; premium rows hold age/grade in col A, base SI in col B [PolicyCustomRateImport.php:200-320]; full detail of GRADE/DESIGNATION/STATE branches UNKNOWN (not read)"
+    }
+  },
+  "1": {
+    "name": "FLAT",
+    "sampleFile": null,
+    "layout": "no-sheet",
+    "headerRows": 0,
+    "columns": [
+      {
+        "header": "premiums[].amount / tax / total_premium",
+        "aliases": [],
+        "column": "flat_premium / tax / total_premium",
+        "type": "number",
+        "required": true,
+        "note": "JSON form fields in_premium.* / premiums.*",
+        "cite": "controller:2119-2127,2517-2535"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "flat_premium=amount, tax, total_premium written one MasterPolicyRates row per premium entry; enhance/flex flag is_enchance_flex_rate=1 set when entry has is_enchance_flex_rate [controller:2518-2590]"
+    ],
+    "notes": [
+      "Premium type 1 has NO excel sheet; premium_file is not read for it (in_premium_file is required_unless premium_type,1 [controller:2119]); neither importer has a branch for 1 [PCPI:67-124 NPRS:65-76]"
+    ],
+    "premiumTypeId": 1
+  },
+  "2": {
+    "name": "EMPLOYEE_AGE",
+    "sampleFile": "employee_age_wise_premium_8.xlsx",
+    "importer": "NPRS (ToCollection) via branch NPRS:77-126",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Age (col A)",
+        "aliases": [
+          "Age"
+        ],
+        "column": "age",
+        "type": "string a-b",
+        "required": true,
+        "note": "e.g. '0-18','19-25'; month suffix allowed '6m-12m' => stored '6-12' and is_month_wise_age=1 [NPRS:1091-1119]",
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Premium (per SI column)",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "age_premium",
+        "type": "number",
+        "required": true,
+        "note": "header must be exactly 'Premium' or 'premium'",
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Suminsured (row 1 above each Premium column)",
+        "aliases": [],
+        "column": "age_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Can Add Parents",
+        "aliases": [],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Can Add Parents In Law",
+        "aliases": [],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "cite": "NPRS:77-126"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Age",
+        "Premium",
+        "Premium",
+        "Premium"
+      ],
+      "row3+": [
+        "0-18",
+        1000,
+        3000,
+        5000
+      ],
+      "sampleCite": "public/SampleFormat/employee_age_wise_premium_8.xlsx"
+    },
+    "derived": [
+      "is_month_wise_age 0/1 from 'm' in age text",
+      "tax / total_premium as common matrix tax rule",
+      "is_premium_rate=1,is_opd_rate,is_exceptional_rate,exceptional_rate_id,ip_address,created_by",
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:77-126]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:77-126]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:77-126]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]",
+      "Empty premium cell under a 'Premium' header still inserts a row with total_premium 0 (no isset check) [NPRS:77-126]"
+    ],
+    "premiumTypeId": 2
+  },
+  "3": {
+    "name": "DESIGNATION",
+    "sampleFile": "designation_wise_si_premium_rater_9.xlsx",
+    "importer": "NPRS:172-219",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Designation (col A)",
+        "aliases": [
+          "Designation"
+        ],
+        "column": "designation_id",
+        "type": "string",
+        "required": true,
+        "note": "addDesignation(): DesignationMaster firstOrCreate by name, auto-created [helper.php:7210-7230]",
+        "cite": "NPRS:172-219"
+      },
+      {
+        "header": "Premium",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "des_premium (raw) + total_premium (taxed)",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:172-219"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "des_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:172-219"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Designation",
+        "Premium",
+        "Premium",
+        "Premium"
+      ],
+      "row3+": [
+        "VP",
+        1000,
+        3000,
+        5000
+      ]
+    },
+    "derived": [
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:172-219]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:172-219]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:172-219]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 3
+  },
+  "4": {
+    "name": "GRADE",
+    "sampleFile": "grade_wise_si_premium_rater_10.xlsx",
+    "importer": "NPRS:127-171",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Grade (col A)",
+        "aliases": [
+          "Grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": true,
+        "note": "addGrade(): MasterGrades firstOrCreate by grade text [helper.php:7189-7208]",
+        "cite": "NPRS:127-171"
+      },
+      {
+        "header": "Premium",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "grade_premium (raw) + total_premium (taxed)",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:127-171"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "grade_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:127-171"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Grade",
+        "Premium",
+        "Premium",
+        "Premium"
+      ],
+      "row3+": [
+        "A",
+        1000,
+        3000,
+        5000
+      ]
+    },
+    "derived": [
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:127-171]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:127-171]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:127-171]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 4
+  },
+  "5": {
+    "name": "PERMILY_AGE_WISE",
+    "sampleFile": "permilli_age_wise_si_rater_11.xlsx",
+    "importer": "NPRS:220-263",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Age (col A)",
+        "aliases": [
+          "Age"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": true,
+        "note": "age text stored verbatim (month suffix NOT parsed for type 5)"
+      },
+      {
+        "header": "Employee Gender (optional col, must precede Permilli cols)",
+        "aliases": [
+          "Employee Gender"
+        ],
+        "column": "employee_gender",
+        "type": "string",
+        "required": false,
+        "note": "header must be exactly 'Employee Gender' (row 2); value stored verbatim; applies to Permilli columns to its RIGHT in the same row"
+      },
+      {
+        "header": "Permilli",
+        "aliases": [
+          "Permilli",
+          "permilli"
+        ],
+        "column": "age_permilly",
+        "type": "number (per-mille)",
+        "required": true,
+        "note": "stored as given; total_premium stored 0; premium computed later from permilli*SI (engine UNKNOWN here)"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "age_suminsured",
+        "type": "number",
+        "required": true
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        null,
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Age",
+        "Employee Gender",
+        "Permilli",
+        "Permilli",
+        "Permilli"
+      ],
+      "row3+": [
+        "0-25",
+        "Male",
+        0.56,
+        0.66,
+        0.76
+      ]
+    },
+    "derived": [
+      "total_premium = 0 (always)",
+      "tax = request tax stored as-is on the row (not applied to anything here)",
+      "is_premium_rate=1"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:220-263]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:220-263]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 5
+  },
+  "6": {
+    "name": "PERMILY_GRADE_WISE",
+    "sampleFile": "permilli_grade_wise_si_premium_rater_12.xlsx",
+    "importer": "NPRS:264-308",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Grade (col A)",
+        "aliases": [
+          "Grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": true,
+        "note": "addGrade() firstOrCreate"
+      },
+      {
+        "header": "Employee Gender (optional col, must precede Permilli cols)",
+        "aliases": [
+          "Employee Gender"
+        ],
+        "column": "employee_gender",
+        "type": "string",
+        "required": false,
+        "note": "header must be exactly 'Employee Gender' (row 2); value stored verbatim; applies to Permilli columns to its RIGHT in the same row"
+      },
+      {
+        "header": "Permilli",
+        "aliases": [
+          "Permilli",
+          "permilli"
+        ],
+        "column": "grade_permilly",
+        "type": "number (per-mille)",
+        "required": true,
+        "note": "stored as given; total_premium stored 0; premium computed later from permilli*SI (engine UNKNOWN here)"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "grade_suminsured",
+        "type": "number",
+        "required": true
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Grade",
+        "Permilli",
+        "Permilli",
+        "Permilli"
+      ],
+      "row3+": [
+        "A",
+        0.56,
+        0.66,
+        0.76
+      ]
+    },
+    "derived": [
+      "total_premium = 0 (always)",
+      "tax = request tax stored as-is on the row (not applied to anything here)",
+      "is_premium_rate=1"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:264-308]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:264-308]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 6
+  },
+  "7": {
+    "name": "PERMILY_DESIGNATION_WISE",
+    "sampleFile": "permilli_designation_wise_si_premium_rater_13.xlsx",
+    "importer": "NPRS:309-353",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Designation (col A)",
+        "aliases": [
+          "Designation"
+        ],
+        "column": "designation_id",
+        "type": "string",
+        "required": true,
+        "note": "addDesignation() firstOrCreate"
+      },
+      {
+        "header": "Employee Gender (optional col, must precede Permilli cols)",
+        "aliases": [
+          "Employee Gender"
+        ],
+        "column": "employee_gender",
+        "type": "string",
+        "required": false,
+        "note": "header must be exactly 'Employee Gender' (row 2); value stored verbatim; applies to Permilli columns to its RIGHT in the same row"
+      },
+      {
+        "header": "Permilli",
+        "aliases": [
+          "Permilli",
+          "permilli"
+        ],
+        "column": "des_permilly",
+        "type": "number (per-mille)",
+        "required": true,
+        "note": "stored as given; total_premium stored 0; premium computed later from permilli*SI (engine UNKNOWN here)"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "des_suminsured",
+        "type": "number",
+        "required": true
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Designation",
+        "Permilli",
+        "Permilli",
+        "Permilli"
+      ],
+      "row3+": [
+        "VP",
+        0.56,
+        0.66,
+        0.76
+      ]
+    },
+    "derived": [
+      "total_premium = 0 (always)",
+      "tax = request tax stored as-is on the row (not applied to anything here)",
+      "is_premium_rate=1"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:309-353]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:309-353]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 7
+  },
+  "8": {
+    "name": "MEMBER_AGE",
+    "sampleFile": null,
+    "importer": "NPRS (ToCollection) via branch NPRS:77-126",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Age (col A)",
+        "aliases": [
+          "Age"
+        ],
+        "column": "age",
+        "type": "string a-b",
+        "required": true,
+        "note": "e.g. '0-18','19-25'; month suffix allowed '6m-12m' => stored '6-12' and is_month_wise_age=1 [NPRS:1091-1119]",
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Premium (per SI column)",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "age_premium",
+        "type": "number",
+        "required": true,
+        "note": "header must be exactly 'Premium' or 'premium'",
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Suminsured (row 1 above each Premium column)",
+        "aliases": [],
+        "column": "age_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Can Add Parents",
+        "aliases": [],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "cite": "NPRS:77-126"
+      },
+      {
+        "header": "Can Add Parents In Law",
+        "aliases": [],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "cite": "NPRS:77-126"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "Age",
+        "Premium",
+        "Premium",
+        "Premium"
+      ],
+      "row3+": [
+        "0-18",
+        1000,
+        3000,
+        5000
+      ],
+      "sampleCite": "public/SampleFormat/employee_age_wise_premium_8.xlsx"
+    },
+    "derived": [
+      "is_month_wise_age 0/1 from 'm' in age text",
+      "tax / total_premium as common matrix tax rule",
+      "is_premium_rate=1,is_opd_rate,is_exceptional_rate,exceptional_rate_id,ip_address,created_by",
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:77-126]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:77-126]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:77-126]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]",
+      "Empty premium cell under a 'Premium' header still inserts a row with total_premium 0 (no isset check) [NPRS:77-126]",
+      "UNKNOWN: no dedicated sample for type 8; same branch/layout as type 2 (member_age shares branch with EMPLOYEE_AGE) [NPRS:77-126]"
+    ],
+    "premiumTypeId": 8
+  },
+  "9": {
+    "name": "MEMBER_WISE",
+    "sampleFile": "member_wise_si_premium_rater_35.xlsx",
+    "importer": "NPRS:354-409",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Relation (col A)",
+        "aliases": [
+          "Self",
+          "Spouse",
+          "Son",
+          "Daughter",
+          "Father",
+          "Mother",
+          "Father-in-law",
+          "Mother-in-law"
+        ],
+        "column": "relation_id",
+        "type": "string",
+        "required": true,
+        "note": "RelationMaster::where('name', ucfirst(text)); fallback 'Spouse' => 'Spouse/Partner'; unmatched => relation_id NULL, no error",
+        "cite": "NPRS:354-409"
+      },
+      {
+        "header": "premium",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "relation_premium (raw) + total_premium (taxed)",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:354-409"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "relation_sum_insured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:354-409"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        100000,
+        200000,
+        300000,
+        400000
+      ],
+      "row2": [
+        "Relation",
+        "premium",
+        "premium",
+        "premium",
+        "premium"
+      ],
+      "row3+": [
+        "Self",
+        1000,
+        2000,
+        3000,
+        4000
+      ]
+    },
+    "derived": [
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:354-409]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value",
+      "created_at/updated_at now()"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:354-409]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:354-409]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 9
+  },
+  "10": {
+    "name": "STATE_WISE",
+    "sampleFile": "state_wise_si_premium_rater_52.xlsx",
+    "importer": "NPRS:491-541",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "State (col A)",
+        "aliases": [
+          "State"
+        ],
+        "column": "state_id",
+        "type": "string",
+        "required": true,
+        "note": "MasterState::firstOrCreate(state_name,status=1): unknown states are auto-created",
+        "cite": "NPRS:491-541"
+      },
+      {
+        "header": "Premium",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "state_premium (raw) + total_premium (taxed)",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:491-541"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "state_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:491-541"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        300000,
+        500000,
+        700000
+      ],
+      "row2": [
+        "State",
+        "Premium",
+        "Premium",
+        "Premium"
+      ],
+      "row3+": [
+        "Telangana",
+        1000,
+        3000,
+        4000
+      ]
+    },
+    "derived": [
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:491-541]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:491-541]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:491-541]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 10
+  },
+  "13": {
+    "name": "FAMILY_CONSTRUCT_WISE",
+    "sampleFile": "family_construct_premium_sample_60.xlsx",
+    "importer": "PCPI:129-294",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Family Construct",
+        "aliases": [
+          "family_construct"
+        ],
+        "column": "no_of_adult,no_of_children",
+        "type": "string",
+        "required": true,
+        "note": "'1A', '2A + 2C', '1A+1C' ; spaces removed, split on '+', digit+A / digit+C (single digit); 'A'='1A'; => getConstructCount [helper.php:6784-6860]",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Total Premium",
+        "aliases": [
+          "total_premium"
+        ],
+        "column": "total_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Cross Parent",
+        "aliases": [
+          "cross_parent"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "header must slug to all_parent_premium",
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:129-294"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:129-294"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium = total_premium = addTax(Total Premium, tax) when tax>0 else raw (when 'Total Premium' present; if absent => 0) [PCPI:129-294]",
+      "IPD/OPD contribution rule: x_employee_contribution = getPremium(cell, tax) (cell + tax pct) [PCPI:1692-1715] ; x_employee_contribution = intval(round(premiumCellRaw * cell/100, 2) [+tax pct]) via calculatePercentage [PCPI:1677-1690]",
+      "Each premium cell: x_premium = getPremium(cell,tax) = cell + cell*tax/100 (int if whole else 2dp) [PCPI:1692-1715]",
+      "is_premium_rate=1; cover_type=1 for in_premium_file / 2 for family cover [PCPI:129-294]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:129-294; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:129-294]; formulas are pre-calculated [PCPI:129-294]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:129-294; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:129-294]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:129-294]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample header row: Family Construct, Total Cover, Total Premium, Self, Self Employee Contribution, Spouse, ..., Partner, Partner Employee Contribution (sample has NO Can Add Parent/Claim Rate columns => defaults 1/0)",
+      "Data rows e.g. ['1A',400000,12050,12050]  [sample row2]"
+    ],
+    "premiumTypeId": 13
+  },
+  "15": {
+    "name": "NEW_GRADE_WITH_CONSTRUCT",
+    "sampleFile": "new_grade_with_family_construct_premium_69.xlsx",
+    "importer": "PCPI:295-482",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": true,
+        "note": "addGrade() firstOrCreate; $row['grade'] accessed unguarded (header required) [PCPI:295-482]",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Family Construct",
+        "aliases": [
+          "family_construct"
+        ],
+        "column": "no_of_adult,no_of_children",
+        "type": "string",
+        "required": true,
+        "note": "'1A', '2A + 2C', '1A+1C' ; spaces removed, split on '+', digit+A / digit+C (single digit); 'A'='1A'; => getConstructCount [helper.php:6784-6860]",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Is Family Relation Max Capping",
+        "aliases": [
+          "is_family_relation_max_capping"
+        ],
+        "column": "is_family_relation_max_capping",
+        "type": "0/1 (raw)",
+        "required": false,
+        "note": "stored verbatim (sample uses 0/1; LOL sample uses 'N')",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Family Relation",
+        "aliases": [
+          "family_relation"
+        ],
+        "column": "family_relation_id (CSV of relation ids)",
+        "type": "CSV of E,S,C,P,PIL,PR,SB",
+        "required": false,
+        "note": "E=Self(1) S=Spouse(2) C=Daughter,Son(3,4) P=Father,Mother(5,6) PIL=FIL,MIL(7,8) PR=Partner(10) SB=Brother,Sister(12,15); sorted ascending [PCPI:1750-1790]; NOTE guard strlen($row['family_relation'] >= 1) is a typo (always truthy)",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Total Premium",
+        "aliases": [
+          "total_premium"
+        ],
+        "column": "total_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Cross Parent",
+        "aliases": [
+          "cross_parent"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "header must slug to all_parent_premium",
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:295-482"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:295-482"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium = total_premium = addTax(Total Premium, tax) when tax>0 else raw [PCPI:295-482]",
+      "IPD/OPD contribution rule: x_employee_contribution = getPremium(cell, tax) (cell + tax pct) [PCPI:1692-1715] ; x_employee_contribution = intval(round(premiumCellRaw * cell/100, 2) [+tax pct]) via calculatePercentage [PCPI:1677-1690]",
+      "Each premium cell: x_premium = getPremium(cell,tax) = cell + cell*tax/100 (int if whole else 2dp) [PCPI:1692-1715]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:295-482; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:295-482]; formulas are pre-calculated [PCPI:295-482]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:295-482; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:295-482]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:295-482]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sheet 'T&C' in sample is a help note; only sheet 1 data is meaningful (WithMultipleSheets::sheets() returns one importer instance used for all sheets [PCPI:295-482])",
+      "Per T&C note: leave Family Construct blank and set Is Family Relation Max Capping 0 (single premium in Self) or 1 (relation-wise premiums); Family Relation lists allowed relations for the grade [sample sheet 'T&C' A1]",
+      "UNKNOWN: whether engine reads is_family_relation_max_capping beyond storing it",
+      "grade_plus_family_construct_premium_sample_65.xlsx (older 'Grade'+'Family Construct') uses header 'Per Parent In Law' which slugs to per_parent_in_law and is NOT read (importer reads per_parents_in_law) => that premium column would be dropped [sample row1; PCPI:295-482]"
+    ],
+    "premiumTypeId": 15
+  },
+  "16": {
+    "name": "DESIGNATION_WITH_CONSTRUCT",
+    "sampleFile": "designation_with_family_construct_premium_71.xlsx",
+    "importer": "PCPI:483-646",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Designation",
+        "aliases": [
+          "designation"
+        ],
+        "column": "designation_id",
+        "type": "string",
+        "required": true,
+        "note": "addDesignation(); $row['designation'] accessed unguarded",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Family Construct",
+        "aliases": [
+          "family_construct"
+        ],
+        "column": "no_of_adult,no_of_children",
+        "type": "string",
+        "required": true,
+        "note": "'1A', '2A + 2C', '1A+1C' ; spaces removed, split on '+', digit+A / digit+C (single digit); 'A'='1A'; => getConstructCount [helper.php:6784-6860]",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Total Premium",
+        "aliases": [
+          "total_premium"
+        ],
+        "column": "total_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Cross Parent",
+        "aliases": [
+          "cross_parent"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "header must slug to all_parent_premium",
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:483-646"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:483-646"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium = RAW 'Total Premium' (tax NOT applied for type 16 unlike 13/15) or 0 [PCPI:483-646]",
+      "IPD/OPD contribution rule: x_employee_contribution = getPremium(cell, tax) (cell + tax pct) [PCPI:1692-1715] ; x_employee_contribution = intval(round(premiumCellRaw * cell/100, 2) [+tax pct]) via calculatePercentage [PCPI:1677-1690]",
+      "Each premium cell: x_premium = getPremium(cell,tax) = cell + cell*tax/100 (int if whole else 2dp) [PCPI:1692-1715]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:483-646; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:483-646]; formulas are pre-calculated [PCPI:483-646]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:483-646; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:483-646]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:483-646]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample header order: Designation, Family Construct, Can Add Parent, Can Add Parent In Laws, Total Cover, Total Premium, Self, ... Partner Employee Contribution"
+    ],
+    "premiumTypeId": 16
+  },
+  "17": {
+    "name": "RELATION_WISE_NUMBER_OF_TIME_SALARY_PERMILY_RATE",
+    "sampleFile": "relation_wise_number_of_time_permily_rate_73.xlsx",
+    "importer": "NPRS:542-583",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Relation (col A)",
+        "aliases": [
+          "Self",
+          "Spouse",
+          "Son"
+        ],
+        "column": "relation_id",
+        "type": "string",
+        "required": true,
+        "note": "RelationMaster::where('name', text) (exact, no ucfirst); 'Spouse' falls back to 'Spouse/Partner'",
+        "cite": "NPRS:542-583"
+      },
+      {
+        "header": "Permilli",
+        "aliases": [
+          "Permilli",
+          "permilli"
+        ],
+        "column": "relation_permilly",
+        "type": "number (per-mille)",
+        "required": true,
+        "note": "null cells skipped",
+        "cite": "NPRS:542-583"
+      },
+      {
+        "header": "No of Time Salary (row 1)",
+        "aliases": [],
+        "column": "no_of_times_of_salary",
+        "type": "number",
+        "required": true,
+        "note": "row 1 col A label 'No of Time Salary'; value above each Permilli col",
+        "cite": "NPRS:542-583"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "No of Time Salary",
+        1,
+        2,
+        3
+      ],
+      "row2": [
+        "Relation",
+        "Permilli",
+        "Permilli",
+        "Permilli"
+      ],
+      "row3+": [
+        "Self",
+        0.2,
+        0.3,
+        0.4
+      ]
+    },
+    "derived": [
+      "No total_premium written (only relation_permilly); controller deletes by relation_permilly NOT NULL [controller:3048-3049]",
+      "tax stored as-is"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:542-583]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:542-583]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 17
+  },
+  "18": {
+    "name": "NO_RULE",
+    "sampleFile": null,
+    "layout": "no-sheet",
+    "headerRows": 0,
+    "columns": [],
+    "matrix": null,
+    "derived": [],
+    "notes": [
+      "NO_RULE=18 constant exists [constant.php:99]; neither importer has a branch for 18 and it is not in CONSTRUCT/AGE_RELATION/LOL lists => NewPolicyRaterSheetImportViaCollection would run and insert nothing (finalDataToInsert empty) [NPRS:65-76]; UNKNOWN intended use"
+    ],
+    "premiumTypeId": 18
+  },
+  "19": {
+    "name": "AGE_BAND_WITH_CONSTRUCT",
+    "sampleFile": "age_band_with_family_construct.xlsx",
+    "importer": "PCPI:647-807",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Age Band",
+        "aliases": [
+          "age_band"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": true,
+        "note": "getAgeBand(): '>80'=>'80-120', '<18'=>'0-18', single digits '25'=>'25-25', otherwise verbatim 'a-b' [PCPI:1717-1747]",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "note": "optional; addGrade() if present",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Cross Parent",
+        "aliases": [
+          "cross_parent"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "header must slug to all_parent_premium",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium ALWAYS 0: code references undefined $totalPremiumWithTax => 0 [PCPI:647-807]",
+      "IPD/OPD contribution rule: x_employee_contribution = getPremium(cell, tax) (cell + tax pct) [PCPI:1692-1715] ; x_employee_contribution = intval(round(premiumCellRaw * cell/100, 2) [+tax pct]) via calculatePercentage [PCPI:1677-1690]",
+      "Each premium cell: x_premium = getPremium(cell,tax) = cell + cell*tax/100 (int if whole else 2dp) [PCPI:1692-1715]",
+      "no no_of_adult/no_of_children, no can_add_parent written for 19/21 [PCPI:647-807]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:647-807; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:647-807]; formulas are pre-calculated [PCPI:647-807]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:647-807; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:647-807]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:647-807]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample: Age Band, Total Cover, Self, Self Employee Contribution, Spouse, ... Partner, Partner Employee Contribution. Row '0-16' has no Self/Spouse (kids/parents only) so those stay NULL",
+      "Relation-by-age rater: one row per age band, premium per relation in columns"
+    ],
+    "premiumTypeId": 19
+  },
+  "20": {
+    "name": "MEMBER_COUNT_WISE",
+    "sampleFile": "member_count_wise_premium_sample_77.xlsx",
+    "importer": "NPRS:410-490",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Relation + count (col A)",
+        "aliases": [
+          "Self",
+          "Spouse",
+          "Partner",
+          "Child 1",
+          "Child 2",
+          "Son 1",
+          "Daughter 1",
+          "Parent",
+          "Father",
+          "Mother",
+          "Parent-in-law",
+          "Father-in-law",
+          "Mother-in-law"
+        ],
+        "column": "relation_id (+count)",
+        "type": "'<Relation> <n>'",
+        "required": true,
+        "note": "split on space; token1 ucfirst matched: Self=>[1] count forced 1; Spouse=>[2]; Partner=>[10]; Child=>[3,4] (two rows); Son=>[4]; Daughter=>[3]; Parent=>[5,6]; Father=>[5]; Mother=>[6]; Parent-in-law=>[7,8]; Father-in-law=>[7]; Mother-in-law=>[8]; token2 => count (NULL if absent). Unrecognised token reuses previous row's ids (stale var) or fatals on first row",
+        "cite": "NPRS:410-490"
+      },
+      {
+        "header": "premium",
+        "aliases": [
+          "Premium",
+          "premium"
+        ],
+        "column": "relation_premium (raw) + total_premium (taxed)",
+        "type": "number",
+        "required": true,
+        "note": "formulas like '=0' evaluated (WithCalculatedFormulas) [sample]",
+        "cite": "NPRS:410-490"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "relation_sum_insured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:410-490"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        100000,
+        200000,
+        300000,
+        400000,
+        500000
+      ],
+      "row2": [
+        "Relation",
+        "premium",
+        "premium",
+        "premium",
+        "premium",
+        "premium"
+      ],
+      "row3+": [
+        "Self",
+        100,
+        0,
+        0,
+        0,
+        0
+      ],
+      "more": [
+        "Child 1",
+        0,
+        0,
+        300,
+        0,
+        0
+      ]
+    },
+    "derived": [
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:410-490]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value",
+      "column count = member ordinal/number",
+      "zero cells still inserted (no isset check)"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:410-490]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:410-490]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 20
+  },
+  "21": {
+    "name": "EMPLOYEE_AGE_BAND_WITH_CONSTRUCT",
+    "sampleFile": "employee_age_band_with_construct_79.xlsx",
+    "importer": "PCPI:647-807",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Age Band",
+        "aliases": [
+          "age_band"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": true,
+        "note": "getAgeBand(): '>80'=>'80-120', '<18'=>'0-18', single digits '25'=>'25-25', otherwise verbatim 'a-b' [PCPI:1717-1747]",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "note": "optional; addGrade() if present",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Cross Parent",
+        "aliases": [
+          "cross_parent"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "header must slug to all_parent_premium",
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:647-807"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium ALWAYS 0: code references undefined $totalPremiumWithTax => 0 [PCPI:647-807]",
+      "IPD/OPD contribution rule: x_employee_contribution = getPremium(cell, tax) (cell + tax pct) [PCPI:1692-1715] ; x_employee_contribution = intval(round(premiumCellRaw * cell/100, 2) [+tax pct]) via calculatePercentage [PCPI:1677-1690]",
+      "Each premium cell: x_premium = getPremium(cell,tax) = cell + cell*tax/100 (int if whole else 2dp) [PCPI:1692-1715]",
+      "no no_of_adult/no_of_children, no can_add_parent written for 19/21 [PCPI:647-807]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:647-807; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:647-807]; formulas are pre-calculated [PCPI:647-807]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:647-807; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:647-807]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:647-807]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample: Age Band, Total Cover, Self, Self Employee Contribution, Spouse, ... Partner, Partner Employee Contribution. Row '0-16' has no Self/Spouse (kids/parents only) so those stay NULL",
+      "Relation-by-age rater: one row per age band, premium per relation in columns",
+      "Same branch as 19 (age = employee age band semantic); sample headers identical to 19 sample [PCPI:647-807]"
+    ],
+    "premiumTypeId": 21
+  },
+  "22": {
+    "name": "GDAC",
+    "sampleFile": "gdac_premium_81.xlsx",
+    "importer": "PCPI:808-1075",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Construct",
+        "aliases": [
+          "construct"
+        ],
+        "column": "no_of_adult,no_of_children",
+        "type": "string '2A+1C'",
+        "required": false,
+        "note": "types 22,27 only (skipped for 32)",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Designation",
+        "aliases": [
+          "designation"
+        ],
+        "column": "designation_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Age Band",
+        "aliases": [
+          "age_band"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": false,
+        "note": "getAgeBand() ('>80','<18','25' conventions)",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Employee Age Band",
+        "aliases": [
+          "employee_age_band"
+        ],
+        "column": "employee_age",
+        "type": "string",
+        "required": false,
+        "note": "stored verbatim, NOT passed through getAgeBand",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Base Suminsured",
+        "aliases": [
+          "base_suminsured"
+        ],
+        "column": "base_suminsured",
+        "type": "number",
+        "required": false,
+        "note": "optional",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Family Group",
+        "aliases": [
+          "family_group"
+        ],
+        "column": "family_group_id (MasterFamilyGroup)",
+        "type": "string",
+        "required": false,
+        "note": "22/27: comma list of [n]CODE with CODE in E,S,C,P,PIL,PR,SB (single leading digit = count; e.g. 'E,S,2C','E,S,2P,2PIL,SB'); special 'P/PIL(2|3|4)' expands to multiple rates. 32: ordered list of F,M,FIL,MIL e.g. 'F, MIL'",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Self Premium",
+        "aliases": [
+          "self_premium"
+        ],
+        "column": "self_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Spouse Premium",
+        "aliases": [
+          "spouse_premium"
+        ],
+        "column": "spouse_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Kid Premium",
+        "aliases": [
+          "per_kid_premium"
+        ],
+        "column": "kids_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent Premium",
+        "aliases": [
+          "per_parent_premium"
+        ],
+        "column": "single_parent_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent In Law Premium",
+        "aliases": [
+          "per_parent_in_law_premium"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parents Premium",
+        "aliases": [
+          "set_of_parents_premium"
+        ],
+        "column": "double_parent_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parent In Laws Premium",
+        "aliases": [
+          "set_of_parent_in_laws_premium"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parent In Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Partner Premium",
+        "aliases": [
+          "partner_premium"
+        ],
+        "column": "partner_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Cross Parent Premium",
+        "aliases": [
+          "cross_parent_premium"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "tax column stored NULL, total_premium stored 0 (always); comment: 'Tax logic added in Rater Helper & Facade for this Rater' [PCPI:808-1075]",
+      "premium/contribution cells copied RAW (no tax, no pct conversion) - contribution type ignored [PCPI:808-1075]",
+      "family group: MasterFamilyGroup::firstOrCreate on member counts [22/27 keyed WITHOUT the string; 32 keyed WITH family_group string] [PCPI:808-1075]",
+      "'P/PIL(4)' => rates for P,PIL,[P,PIL],2P,2PIL,[P,2PIL],[2P,PIL],[2P,2PIL]; 'P/PIL(3)' => first 7; 'P/PIL(2)' => first 5; one MasterPolicyRates row per expansion [PCPI:1548-1670]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:808-1075; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:808-1075]; formulas are pre-calculated [PCPI:808-1075]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:808-1075; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:808-1075]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:808-1075]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Family group token parse only reads first char as count (so '10C' unsupported); empty token => PHP offset error [PCPI:808-1075]",
+      "If both 'family_group' cell empty: no family_group_id stored",
+      "PremiumType::GDAC_RATERS=[22,27,32] [constant.php:141]",
+      "Sample header: Construct, Grade, Designation, Family Group, Employee Age Band, Total Cover, Self Premium, Self Employee Contribution, ... Partner Premium, Partner Employee Contribution, Cross Parent Premium, Cross Parent Employee Contribution, All Parent Premium, All Parent Employee Contribution",
+      "Sample family groups: A:'E', B:'E,S,C', C:'E,S,2C', D:'E,S,P,PIL', E:'E,S,2P,2PIL', F:'E,S,2P,2PIL,SB'"
+    ],
+    "premiumTypeId": 22
+  },
+  "23": {
+    "name": "LOL_PERCENTAGE_OF_SI",
+    "sampleFile": "perSiprem.xlsx",
+    "importer": "PCPI:1076-1129",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "note": "optional",
+        "cite": "PCPI:1076-1129"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:1076-1129"
+      },
+      {
+        "header": "Total Premium",
+        "aliases": [
+          "total_premium"
+        ],
+        "column": "total_premium (derived)",
+        "type": "number = percentage of cover",
+        "required": true,
+        "note": "cell is a PERCENT of Total Cover, not an amount",
+        "cite": "PCPI:1076-1129"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium = calculatePercentage(total_cover, cell, tax) = intval(round(cover*cell/100,2)+tax pct) [PCPI:1076-1129]",
+      "employee_contribution = total_premium * PolicyAgeDetails.employee_contribution/100; employer_contribution = total_premium * PolicyAgeDetails.employer_contribution/100 ; if no policy_age_details row the vars are undefined (PHP error) [PCPI:1076-1129]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:1076-1129; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:1076-1129]; formulas are pre-calculated [PCPI:1076-1129]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:1076-1129; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:1076-1129]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:1076-1129]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample: header 'Total Cover','Total Premium'; rows [500000,10],[600000,11],[700000,12]",
+      "Contribution type selection (is_opd) is parsed but unused in this branch [PCPI:1076-1129]"
+    ],
+    "premiumTypeId": 23
+  },
+  "24": {
+    "name": "LOL_GRADE_WITH_CONSTRUCT",
+    "sampleFile": "grade_with_family_construct_premium_lol_1337.xlsx",
+    "importer": "PCPI:1130-1349",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": true,
+        "note": "addGrade() firstOrCreate; $row['grade'] accessed unguarded (header required) [PCPI:1130-1349]",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Family Construct",
+        "aliases": [
+          "family_construct"
+        ],
+        "column": "no_of_adult,no_of_children",
+        "type": "string",
+        "required": true,
+        "note": "'1A', '2A + 2C', '1A+1C' ; spaces removed, split on '+', digit+A / digit+C (single digit); 'A'='1A'; => getConstructCount [helper.php:6784-6860]",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Is Family Relation Max Capping",
+        "aliases": [
+          "is_family_relation_max_capping"
+        ],
+        "column": "is_family_relation_max_capping",
+        "type": "0/1 (raw)",
+        "required": false,
+        "note": "stored verbatim (sample uses 0/1; LOL sample uses 'N')",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Family Relation",
+        "aliases": [
+          "family_relation"
+        ],
+        "column": "family_relation_id (CSV of relation ids)",
+        "type": "CSV of E,S,C,P,PIL,PR,SB",
+        "required": false,
+        "note": "E=Self(1) S=Spouse(2) C=Daughter,Son(3,4) P=Father,Mother(5,6) PIL=FIL,MIL(7,8) PR=Partner(10) SB=Brother,Sister(12,15); sorted ascending [PCPI:1750-1790]; NOTE guard strlen($row['family_relation'] >= 1) is a typo (always truthy)",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Total Premium",
+        "aliases": [
+          "total_premium"
+        ],
+        "column": "total_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:1130-1349"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:1130-1349"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium = 0 always (deliberately ignored) [PCPI:1130-1349]",
+      "contribution type BY_VALUE(0): premium = getPremium(cell,tax); contribution = getPremium(ec,tax) [PCPI:1130-1349]",
+      "contribution type BY_PERCENTAGE(1): x_premium = intval(round(total_cover*cell/100,2)+tax pct) (cell is pct OF COVER); x_employee_contribution = intval(round(x_premium*ec/100,2)) (% of that premium, no extra tax) [PCPI:1130-1349]",
+      "uses isset() so 0 is stored (unlike types 13/15/16); is_claim_rate fixed 0 [PCPI:1130-1349]",
+      "BUG: set_of_parents_in_laws contribution writes double_parent_in_law_premium instead of ..._employee_contribution [PCPI:1130-1349]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:1130-1349; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:1130-1349]; formulas are pre-calculated [PCPI:1130-1349]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:1130-1349; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:1130-1349]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:1130-1349]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample ('Is Family Relation Max Capping' 'N', 'Family Relation' 'E,S,P,PIL', Total Premium blank, Self 10 (%), EC 50 (%))"
+    ],
+    "premiumTypeId": 24
+  },
+  "25": {
+    "name": "LOL_FLAT",
+    "sampleFile": null,
+    "layout": "no-sheet / UNKNOWN",
+    "headerRows": 0,
+    "columns": [],
+    "matrix": null,
+    "derived": [],
+    "notes": [
+      "25 is in PremiumType::LOL_RATERS so the controller routes any premium file to PolicyConfiguratorPremiumImport, but that importer has no `elseif` branch for 25 => model() returns null and nothing is stored [constant.php:87,143; PCPI:67-124]",
+      "UNKNOWN: flat LOL premium is probably entered via the form (like type 1); no sample exists"
+    ],
+    "premiumTypeId": 25
+  },
+  "26": {
+    "name": "LOL_AGE_OF_EMPLOYEE",
+    "sampleFile": "lol_age_premium.xlsx",
+    "importer": "PCPI:1350-1543",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Age Band",
+        "aliases": [
+          "age_band"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": true,
+        "note": "getAgeBand()",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Self",
+        "aliases": [
+          "self"
+        ],
+        "column": "self_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['self']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['self_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Spouse",
+        "aliases": [
+          "spouse"
+        ],
+        "column": "spouse_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['spouse']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['spouse_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Partner",
+        "aliases": [
+          "partner"
+        ],
+        "column": "partner_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['partner']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['partner_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Per Kid",
+        "aliases": [
+          "per_kid"
+        ],
+        "column": "kids_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_kid']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_kid_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Per Parent",
+        "aliases": [
+          "per_parent"
+        ],
+        "column": "single_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parent']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Per Parents In Law",
+        "aliases": [
+          "per_parents_in_law"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['per_parents_in_law']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['per_parent_in_law_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Set of Parents",
+        "aliases": [
+          "set_of_parents"
+        ],
+        "column": "double_parent_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parents']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parents_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Set of Parent in Laws",
+        "aliases": [
+          "set_of_parent_in_laws"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number",
+        "required": false,
+        "note": "slug read by importer: row['set_of_parent_in_laws']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Set of Parent in Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "slug: row['set_of_parent_in_laws_employee_contribution']",
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:1350-1543"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:1350-1543"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "total_premium ALWAYS 0 (undefined $totalPremiumWithTax) [PCPI:1350-1543]",
+      "BY_VALUE: getPremium(cell,tax); BY_PERCENTAGE: intval(round(total_cover*cell/100,2)+tax pct) and contribution = pct of that premium [PCPI:1350-1543]",
+      "isset() semantics (0 stored)",
+      "BUG same as 24: set_of_parent_in_laws contribution overwrites double_parent_in_law_premium [PCPI:1350-1543]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:1350-1543; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:1350-1543]; formulas are pre-calculated [PCPI:1350-1543]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:1350-1543; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:1350-1543]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:1350-1543]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Sample lol_age_premium.xlsx: only 'Age Band','Total Cover','Self','Self Employee Contribution' headers (rows ['0-50',200000,12000,12000],['51-99',400000,20000,20000])"
+    ],
+    "premiumTypeId": 26
+  },
+  "27": {
+    "name": "GDAC_WITH_MAX_AGE",
+    "sampleFile": "gdac_with_max_age_premium_89.xlsx",
+    "importer": "PCPI:808-1075",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Construct",
+        "aliases": [
+          "construct"
+        ],
+        "column": "no_of_adult,no_of_children",
+        "type": "string '2A+1C'",
+        "required": false,
+        "note": "types 22,27 only (skipped for 32)",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Designation",
+        "aliases": [
+          "designation"
+        ],
+        "column": "designation_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Age Band",
+        "aliases": [
+          "age_band"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": false,
+        "note": "getAgeBand() ('>80','<18','25' conventions)",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Employee Age Band",
+        "aliases": [
+          "employee_age_band"
+        ],
+        "column": "employee_age",
+        "type": "string",
+        "required": false,
+        "note": "stored verbatim, NOT passed through getAgeBand",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Base Suminsured",
+        "aliases": [
+          "base_suminsured"
+        ],
+        "column": "base_suminsured",
+        "type": "number",
+        "required": false,
+        "note": "optional",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Family Group",
+        "aliases": [
+          "family_group"
+        ],
+        "column": "family_group_id (MasterFamilyGroup)",
+        "type": "string",
+        "required": false,
+        "note": "22/27: comma list of [n]CODE with CODE in E,S,C,P,PIL,PR,SB (single leading digit = count; e.g. 'E,S,2C','E,S,2P,2PIL,SB'); special 'P/PIL(2|3|4)' expands to multiple rates. 32: ordered list of F,M,FIL,MIL e.g. 'F, MIL'",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Self Premium",
+        "aliases": [
+          "self_premium"
+        ],
+        "column": "self_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Spouse Premium",
+        "aliases": [
+          "spouse_premium"
+        ],
+        "column": "spouse_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Kid Premium",
+        "aliases": [
+          "per_kid_premium"
+        ],
+        "column": "kids_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent Premium",
+        "aliases": [
+          "per_parent_premium"
+        ],
+        "column": "single_parent_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent In Law Premium",
+        "aliases": [
+          "per_parent_in_law_premium"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parents Premium",
+        "aliases": [
+          "set_of_parents_premium"
+        ],
+        "column": "double_parent_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parent In Laws Premium",
+        "aliases": [
+          "set_of_parent_in_laws_premium"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parent In Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Partner Premium",
+        "aliases": [
+          "partner_premium"
+        ],
+        "column": "partner_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Cross Parent Premium",
+        "aliases": [
+          "cross_parent_premium"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "tax column stored NULL, total_premium stored 0 (always); comment: 'Tax logic added in Rater Helper & Facade for this Rater' [PCPI:808-1075]",
+      "premium/contribution cells copied RAW (no tax, no pct conversion) - contribution type ignored [PCPI:808-1075]",
+      "family group: MasterFamilyGroup::firstOrCreate on member counts [22/27 keyed WITHOUT the string; 32 keyed WITH family_group string] [PCPI:808-1075]",
+      "'P/PIL(4)' => rates for P,PIL,[P,PIL],2P,2PIL,[P,2PIL],[2P,PIL],[2P,2PIL]; 'P/PIL(3)' => first 7; 'P/PIL(2)' => first 5; one MasterPolicyRates row per expansion [PCPI:1548-1670]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:808-1075; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:808-1075]; formulas are pre-calculated [PCPI:808-1075]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:808-1075; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:808-1075]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:808-1075]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Family group token parse only reads first char as count (so '10C' unsupported); empty token => PHP offset error [PCPI:808-1075]",
+      "If both 'family_group' cell empty: no family_group_id stored",
+      "PremiumType::GDAC_RATERS=[22,27,32] [constant.php:141]",
+      "Same branch as 22 (P:808). Sample header: Construct, Grade, Designation, Age Band, Family Group, Total Cover, Self Premium... ; age bands '35-55','56-70','71-120' [sample]",
+      "'max age' semantic UNKNOWN beyond Age Band column"
+    ],
+    "premiumTypeId": 27
+  },
+  "28": {
+    "name": "FAMILY_PERCENTAGE_WISE",
+    "sampleFile": "family_percentage_premium_sample.xlsx",
+    "importer": "NPRS:584-629",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Relation (col A)",
+        "aliases": [
+          "Self",
+          "Spouse",
+          "Son",
+          "Daughter",
+          "Brother",
+          "Sister",
+          "Mother",
+          "Father",
+          "Mother-in-law",
+          "Father-in-law"
+        ],
+        "column": "relation_id",
+        "type": "string",
+        "required": true,
+        "note": "getRelationId(): exact RelationMaster.name; 'Spouse' fallback 'Spouse/Partner'; else NULL",
+        "cite": "NPRS:584-629"
+      },
+      {
+        "header": "Age (col B)",
+        "aliases": [
+          "Age"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": true,
+        "note": "stored verbatim e.g. '0-100', '0<29', '30-100'",
+        "cite": "NPRS:584-629"
+      },
+      {
+        "header": "Family Premium(%)",
+        "aliases": [],
+        "column": "total_premium + is_family_premium=1",
+        "type": "number %",
+        "required": false,
+        "note": "header EXACT 'Family Premium(%)'; cell stored as percent in total_premium (no tax applied)",
+        "cite": "NPRS:584-629"
+      },
+      {
+        "header": "Member Premium(%)",
+        "aliases": [],
+        "column": "total_premium + is_member_premium=1",
+        "type": "number %",
+        "required": false,
+        "note": "header EXACT 'Member Premium(%)'",
+        "cite": "NPRS:584-629"
+      },
+      {
+        "header": "Suminsured (row 1 over the % column)",
+        "aliases": [],
+        "column": "flat_suminsured",
+        "type": "number",
+        "required": true,
+        "note": "cell skipped if row-1 SI cell is empty",
+        "cite": "NPRS:584-629"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        null,
+        500000,
+        500000
+      ],
+      "row2": [
+        "Relation",
+        "Age",
+        "Family Premium(%)",
+        "Member Premium(%)"
+      ],
+      "row3+": [
+        "Self",
+        "0-100",
+        10,
+        null
+      ],
+      "more": [
+        "Son",
+        "30-100",
+        null,
+        100
+      ]
+    },
+    "derived": [
+      "tax stored; NO tax applied to the percentage",
+      "is_family_premium / is_member_premium booleans"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:584-629]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:584-629]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]",
+      "First two columns skipped as labels; cell must be isset (empty skipped)",
+      "Can Add Parents columns not used"
+    ],
+    "premiumTypeId": 28
+  },
+  "29": {
+    "name": "GRADE_WITH_BASE_SI",
+    "sampleFile": "grade_with_base_si_premium_rater_sample_94.xlsx",
+    "importer": "NPRS:630-681",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Base SI (col A)",
+        "aliases": [
+          "Base SI"
+        ],
+        "column": "base_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:630-681"
+      },
+      {
+        "header": "Grade (col B)",
+        "aliases": [
+          "Grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": true,
+        "note": "addGrade()",
+        "cite": "NPRS:630-681"
+      },
+      {
+        "header": "Premium",
+        "aliases": [
+          "Premium"
+        ],
+        "column": "grade_premium (raw) + total_premium (taxed)",
+        "type": "number",
+        "required": true,
+        "note": "header EXACT 'Premium' (capital P; lowercase not accepted)",
+        "cite": "NPRS:630-681"
+      },
+      {
+        "header": "Top-up Suminsured (row 1)",
+        "aliases": [],
+        "column": "top_up_suminsured",
+        "type": "number",
+        "required": true,
+        "note": "SI over each Premium column",
+        "cite": "NPRS:630-681"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        null,
+        100000,
+        200000,
+        300000
+      ],
+      "row2": [
+        "Base SI",
+        "Grade",
+        "Premium",
+        "Premium",
+        "Premium"
+      ],
+      "row3+": [
+        300000,
+        "AVP and Below",
+        5473,
+        7115,
+        9249
+      ]
+    },
+    "derived": [
+      "tax>0 : total_premium = premium + premium*tax/100 ; else tax stored NULL and total_premium = (float)premium [NPRS:630-681]",
+      "premium column stores RAW (pre-tax) cell; total_premium stores taxed value"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:630-681]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Optional header cells in row 2 exactly 'Can Add Parents' and 'Can Add Parents In Law' (case/space exact, note plural; samples do not include them); value 'NO' or 'N' (any case) => 0, anything else => 1; if header absent => 1 [NPRS:630-681]",
+      "Rows are bulk inserted with MasterPolicyRates::insert after SET FOREIGN_KEY_CHECKS=0 (no model events) [NPRS:1052-1054]",
+      "No validation errors are raised by the importer; malformed sheets fail with PHP ErrorException (undefined offset) => controller returns {status:false,message:'Please upload proper excel file',log} [controller:3082-3083]",
+      "Existing non-flat rates are deleted first: MasterPolicyRates where policy_id AND total_premium NOT NULL AND is_opd_rate=0 AND is_enchance_flex_rate=0 AND is_exceptional_rate=0 (for type 17: relation_permilly NOT NULL instead) [controller:3048-3051; OPD 3131-3135]"
+    ],
+    "premiumTypeId": 29
+  },
+  "30": {
+    "name": "AGE_PLUS_RELATION_WISE",
+    "sampleFile": "age_plus_relation_wise_premium_rater_sample.xlsx",
+    "importer": "NPRS:682-926",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Relation (col A)",
+        "aliases": [
+          "Self",
+          "Spouse",
+          "Son",
+          "Daughter",
+          "Father",
+          "Mother",
+          "Father-in-law",
+          "Mother-in-law"
+        ],
+        "column": "relation_id",
+        "type": "string",
+        "required": true,
+        "note": "getRelationId() exact name",
+        "cite": "NPRS:682-926"
+      },
+      {
+        "header": "Age (col B)",
+        "aliases": [
+          "Age"
+        ],
+        "column": "age",
+        "type": "string 'a-b'",
+        "required": true,
+        "note": "verbatim",
+        "cite": "NPRS:682-926"
+      },
+      {
+        "header": "Premium",
+        "aliases": [
+          "Premium"
+        ],
+        "column": "<rel>_premium",
+        "type": "number",
+        "required": true,
+        "note": "header EXACT 'Premium'",
+        "cite": "NPRS:682-926"
+      },
+      {
+        "header": "Employee Contribution (col after Premium)",
+        "aliases": [
+          "Employee Contribution"
+        ],
+        "column": "<rel>_employee_contribution",
+        "type": "number",
+        "required": false,
+        "note": "header text not checked; whichever cell follows Premium",
+        "cite": "NPRS:682-926"
+      },
+      {
+        "header": "Suminsured (row 1 above Premium col)",
+        "aliases": [],
+        "column": "<rel>_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:682-926"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        null,
+        300000,
+        null,
+        500000,
+        null,
+        700000
+      ],
+      "row2": [
+        "Relation",
+        "Age",
+        "Premium",
+        "Employee Contribution",
+        "Premium",
+        "Employee Contribution",
+        "Premium",
+        "Employee Contribution"
+      ],
+      "row3+": [
+        "Self",
+        "0-25",
+        4355,
+        4355,
+        5000,
+        5000,
+        7000,
+        7000
+      ]
+    },
+    "derived": [
+      "x_premium = addTax(premium, tax) (taxed); total_premium = taxed premium; relation-specific *_suminsured = SI above the Premium column [NPRS:682-926]",
+      "employee contribution = cell IMMEDIATELY RIGHT of the Premium cell; blank => 0 [NPRS:682-926]",
+      "BY_VALUE policy: contribution = addTax(ec, tax); BY_PERCENTAGE: ec stored raw (percentage) [NPRS:682-926]",
+      "contribution type read from the saved policy via PolicyDTO (ipd/opd), NOT from the upload request; if policy is neither IPD nor OPD $byValue undefined [NPRS:682-926]",
+      "relation->column map: Self->self_*; Spouse->spouse_*; Son/Daughter->kids_* (+per_kid_employee_contribution); Brother/Sister->others_*; Partner->partner_*; Father/Mother->single_parent_*; Father-in-law/Mother-in-law->single_parent_in_law_*; each with *_suminsured, *_premium, *_employee_contribution",
+      "unmatched relation => $data stale from previous cell or undefined [NPRS:682-926]"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:682-926]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Can Add Parents columns not used by this branch",
+      "Rows inserted bulk [NPRS:1052]"
+    ],
+    "premiumTypeId": 30
+  },
+  "31": {
+    "name": "GRAL",
+    "sampleFile": "gral_premium_rater_sample.xlsx",
+    "importer": "NPRS:927-1050",
+    "layout": "matrix",
+    "headerRows": 2,
+    "columns": [
+      {
+        "header": "Relation (col A)",
+        "aliases": [
+          "Self",
+          "Spouse",
+          "Son",
+          "Daughter",
+          "Brother",
+          "Sister",
+          "Partner",
+          "Father",
+          "Mother",
+          "Father-in-law",
+          "Mother-in-law"
+        ],
+        "column": "relation_id",
+        "type": "string",
+        "required": true,
+        "cite": "NPRS:927-1050"
+      },
+      {
+        "header": "Age (col B)",
+        "aliases": [
+          "Age"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": false,
+        "cite": "NPRS:927-1050"
+      },
+      {
+        "header": "Gender (col C)",
+        "aliases": [
+          "Gender"
+        ],
+        "column": "employee_gender",
+        "type": "string 'Male'/'Female'",
+        "required": false,
+        "note": "stored verbatim",
+        "cite": "NPRS:927-1050"
+      },
+      {
+        "header": "Location (col D)",
+        "aliases": [
+          "Location"
+        ],
+        "column": "location",
+        "type": "string",
+        "required": false,
+        "note": "stored verbatim (e.g. 'Behrin','India','UAE'); may be blank",
+        "cite": "NPRS:927-1050"
+      },
+      {
+        "header": "Premium",
+        "aliases": [
+          "Premium"
+        ],
+        "column": "<rel>_premium",
+        "type": "number",
+        "required": true,
+        "note": "header EXACT 'Premium'; first 4 columns skipped",
+        "cite": "NPRS:927-1050"
+      },
+      {
+        "header": "Employee Contribution (next col)",
+        "aliases": [
+          "Employee Contribution"
+        ],
+        "column": "<rel>_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "NPRS:927-1050"
+      },
+      {
+        "header": "Suminsured (row 1)",
+        "aliases": [],
+        "column": "<rel>_suminsured",
+        "type": "number",
+        "required": true,
+        "cite": "NPRS:927-1050"
+      }
+    ],
+    "matrix": {
+      "row1": [
+        "Suminsured",
+        null,
+        null,
+        null,
+        100000,
+        null,
+        300000
+      ],
+      "row2": [
+        "Relation",
+        "Age",
+        "Gender",
+        "Location",
+        "Premium",
+        "Employee Contribution",
+        "Premium",
+        "Employee Contribution"
+      ],
+      "row3+": [
+        "Self",
+        "18-25",
+        "Male",
+        "Behrin",
+        5000,
+        5000,
+        10000,
+        10000
+      ]
+    },
+    "derived": [
+      "x_premium = addTax(premium, tax) (taxed); total_premium = taxed premium; relation-specific *_suminsured = SI above the Premium column [NPRS:927-1050]",
+      "employee contribution = cell IMMEDIATELY RIGHT of the Premium cell; blank => 0 [NPRS:927-1050]",
+      "BY_VALUE policy: contribution = addTax(ec, tax); BY_PERCENTAGE: ec stored raw (percentage) [NPRS:927-1050]",
+      "contribution type read from the saved policy via PolicyDTO (ipd/opd), NOT from the upload request; if policy is neither IPD nor OPD $byValue undefined [NPRS:927-1050]",
+      "relation->column map: Self->self_*; Spouse->spouse_*; Son/Daughter->kids_* (+per_kid_employee_contribution); Brother/Sister->others_*; Partner->partner_*; Father/Mother->single_parent_*; Father-in-law/Mother-in-law->single_parent_in_law_*; each with *_suminsured, *_premium, *_employee_contribution",
+      "unmatched relation => $data stale from previous cell or undefined [NPRS:927-1050]"
+    ],
+    "notes": [
+      "Importer is ToCollection (no WithHeadingRow): row index 0 = SI row, index 1 = header row, data from index 2; header slugs are NOT used [NPRS:927-1050]",
+      "Rows whose first cell (col A) is empty are dropped before processing; if first row has <=1 cell nothing is imported and NO error is raised [NPRS:65-72]",
+      "Rows inserted bulk [NPRS:1052]"
+    ],
+    "premiumTypeId": 31
+  },
+  "32": {
+    "name": "GDAC_WITH_SEQUENCE",
+    "sampleFile": "gdac_with_sequence_premium_rater_sample.xlsx",
+    "importer": "PCPI:808-1075",
+    "layout": "heading-row table",
+    "headerRows": 1,
+    "columns": [
+      {
+        "header": "Grade",
+        "aliases": [
+          "grade"
+        ],
+        "column": "grade_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Designation",
+        "aliases": [
+          "designation"
+        ],
+        "column": "designation_id",
+        "type": "string",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Age Band",
+        "aliases": [
+          "age_band"
+        ],
+        "column": "age",
+        "type": "string",
+        "required": false,
+        "note": "getAgeBand() ('>80','<18','25' conventions)",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Employee Age Band",
+        "aliases": [
+          "employee_age_band"
+        ],
+        "column": "employee_age",
+        "type": "string",
+        "required": false,
+        "note": "stored verbatim, NOT passed through getAgeBand",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Base Suminsured",
+        "aliases": [
+          "base_suminsured"
+        ],
+        "column": "base_suminsured",
+        "type": "number",
+        "required": false,
+        "note": "optional",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Family Group",
+        "aliases": [
+          "family_group"
+        ],
+        "column": "family_group_id (MasterFamilyGroup)",
+        "type": "string",
+        "required": false,
+        "note": "22/27: comma list of [n]CODE with CODE in E,S,C,P,PIL,PR,SB (single leading digit = count; e.g. 'E,S,2C','E,S,2P,2PIL,SB'); special 'P/PIL(2|3|4)' expands to multiple rates. 32: ordered list of F,M,FIL,MIL e.g. 'F, MIL'",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Total Cover",
+        "aliases": [
+          "total_cover"
+        ],
+        "column": "total_cover",
+        "type": "number",
+        "required": true,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Claim Rate",
+        "aliases": [
+          "claim_rate"
+        ],
+        "column": "is_claim_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "Yes,Y,yes,y,1,'1' => 1 else 0",
+        "cite": "PCPI:140-145"
+      },
+      {
+        "header": "Copayment Rate",
+        "aliases": [
+          "copayment_rate"
+        ],
+        "column": "is_copayment_rate",
+        "type": "Yes/No",
+        "required": false,
+        "note": "same accepted values; ONLY read if truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Copayment Percentage",
+        "aliases": [
+          "copayment_percentage"
+        ],
+        "column": "copayment_percentage",
+        "type": "int",
+        "required": false,
+        "note": "(int) cast; only read when copayment_rate is truthy",
+        "cite": "PCPI:1793-1815"
+      },
+      {
+        "header": "Can Add Parent",
+        "aliases": [
+          "can_add_parent"
+        ],
+        "column": "can_add_parent",
+        "type": "Y/N",
+        "required": false,
+        "note": "Y or YES (any case) => 1; ANY other non-null text => 0; column absent => 1",
+        "cite": "PCPI:112-118"
+      },
+      {
+        "header": "Can Add Parent In Laws",
+        "aliases": [
+          "can_add_parent_in_laws"
+        ],
+        "column": "can_add_parent_in_laws",
+        "type": "Y/N",
+        "required": false,
+        "note": "same rule; slug must be can_add_parent_in_laws",
+        "cite": "PCPI:120-126"
+      },
+      {
+        "header": "Self Premium",
+        "aliases": [
+          "self_premium"
+        ],
+        "column": "self_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Self Employee Contribution",
+        "aliases": [
+          "self_employee_contribution"
+        ],
+        "column": "self_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Spouse Premium",
+        "aliases": [
+          "spouse_premium"
+        ],
+        "column": "spouse_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Spouse Employee Contribution",
+        "aliases": [
+          "spouse_employee_contribution"
+        ],
+        "column": "spouse_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Kid Premium",
+        "aliases": [
+          "per_kid_premium"
+        ],
+        "column": "kids_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Kid Employee Contribution",
+        "aliases": [
+          "per_kid_employee_contribution"
+        ],
+        "column": "per_kid_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent Premium",
+        "aliases": [
+          "per_parent_premium"
+        ],
+        "column": "single_parent_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent Employee Contribution",
+        "aliases": [
+          "per_parent_employee_contribution"
+        ],
+        "column": "single_parent_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent In Law Premium",
+        "aliases": [
+          "per_parent_in_law_premium"
+        ],
+        "column": "single_parent_in_law_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Per Parent In Law Employee Contribution",
+        "aliases": [
+          "per_parent_in_law_employee_contribution"
+        ],
+        "column": "single_parent_in_law_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parents Premium",
+        "aliases": [
+          "set_of_parents_premium"
+        ],
+        "column": "double_parent_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parents Employee Contribution",
+        "aliases": [
+          "set_of_parents_employee_contribution"
+        ],
+        "column": "double_parent_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parent In Laws Premium",
+        "aliases": [
+          "set_of_parent_in_laws_premium"
+        ],
+        "column": "double_parent_in_law_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Set of Parent In Laws Employee Contribution",
+        "aliases": [
+          "set_of_parent_in_laws_employee_contribution"
+        ],
+        "column": "double_parent_in_law_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Others Premium",
+        "aliases": [
+          "others_premium"
+        ],
+        "column": "others_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Others Employee Contribution",
+        "aliases": [
+          "others_employee_contribution"
+        ],
+        "column": "others_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Partner Premium",
+        "aliases": [
+          "partner_premium"
+        ],
+        "column": "partner_premium",
+        "type": "number (raw)",
+        "required": false,
+        "note": "stored without tax or contribution conversion",
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Partner Employee Contribution",
+        "aliases": [
+          "partner_employee_contribution"
+        ],
+        "column": "partner_employee_contribution",
+        "type": "number (raw)",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Cross Parent Premium",
+        "aliases": [
+          "cross_parent_premium"
+        ],
+        "column": "cross_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "Cross Parent Employee Contribution",
+        "aliases": [
+          "cross_parent_employee_contribution"
+        ],
+        "column": "cross_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "All Parent Premium",
+        "aliases": [
+          "all_parent_premium"
+        ],
+        "column": "all_parent_premium",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      },
+      {
+        "header": "All Parent Employee Contribution",
+        "aliases": [
+          "all_parent_employee_contribution"
+        ],
+        "column": "all_parent_employee_contribution",
+        "type": "number",
+        "required": false,
+        "cite": "PCPI:808-1075"
+      }
+    ],
+    "matrix": null,
+    "derived": [
+      "tax column stored NULL, total_premium stored 0 (always); comment: 'Tax logic added in Rater Helper & Facade for this Rater' [PCPI:808-1075]",
+      "premium/contribution cells copied RAW (no tax, no pct conversion) - contribution type ignored [PCPI:808-1075]",
+      "family group: MasterFamilyGroup::firstOrCreate on member counts [22/27 keyed WITHOUT the string; 32 keyed WITH family_group string] [PCPI:808-1075]",
+      "'P/PIL(4)' => rates for P,PIL,[P,PIL],2P,2PIL,[P,2PIL],[2P,PIL],[2P,2PIL]; 'P/PIL(3)' => first 7; 'P/PIL(2)' => first 5; one MasterPolicyRates row per expansion [PCPI:1548-1670]"
+    ],
+    "notes": [
+      "Importer is ToModel+WithHeadingRow: row 1 = headings, data from row 2; heading cells are slugged (config/excel.php:60 formatter='slug' => Str::slug($h,'_') by maatwebsite/excel 3.1, vendor not present locally so exact slug fn is library behaviour [UNKNOWN-in-repo]); only the slug is matched, so 'Self', 'self', ' SELF ' all work [PCPI:808-1075; config/excel.php:56-60]",
+      "SkipsEmptyRows + chunk size 10 [PCPI:808-1075]; formulas are pre-calculated [PCPI:808-1075]",
+      "No explicit validation error is thrown anywhere in this importer; wrong/missing headers silently produce NULL/0 values; PHP exceptions (e.g. $row['grade'] undefined index for type 15/16 if the header is absent) return controller {status:false,message:'Please upload proper excel file'} [PCPI:808-1075; controller:3082-3083]",
+      "Premium cells: truthy-test @$row['x'] means 0/blank/'0' skip the column entirely (stays NULL) for types 13/15/16/19/21 [PCPI:808-1075]",
+      "Rate rows are created one at a time via MasterPolicyRates::create (model events fire) [PCPI:808-1075]",
+      "Delete-before-insert: policy rates with total_premium NOT NULL, is_opd_rate=0, is_enchance_flex_rate=0, is_exceptional_rate=0 (OPD: is_opd_rate=1) [controller:3048-3051,3131-3135]",
+      "Second 'individual' upload (in_premium_file, only when si_type=3 INDIVIDUAL_AND_FAMILY_COVER): same importer with cover_type=1; the main premium_file then gets cover_type=2 (FAMILY_COVER) [controller:3064-3069,3091-3111; constant.php:30-31]",
+      "Routed here when premium type in PremiumType::CONSTRUCT_RATERS [13,15,16,22,24,27,32] or AGE_RELATION_RATERS [19,21] or LOL_RATERS [23,24,25,26] [constant.php:130-143; controller:3064-3071,3148-3155]",
+      "Family group token parse only reads first char as count (so '10C' unsupported); empty token => PHP offset error [PCPI:808-1075]",
+      "If both 'family_group' cell empty: no family_group_id stored",
+      "PremiumType::GDAC_RATERS=[22,27,32] [constant.php:141]",
+      "Construct column ignored for 32 [PCPI:808-1075]",
+      "Family Group is an ORDERED sequence of F,M,FIL,MIL (whitespace removed, upper-cased, e.g. 'F, MIL' => 'F,MIL'): parents/parents-in-law only; relation ids kept in sequence order (not sorted) [PCPI:808-1075]",
+      "Sample header: Grade, Designation, Family Group, Employee Age Band, Total Cover, Self Premium, ... ; 64 rows enumerate all permutations of F/M/FIL/MIL"
+    ],
+    "premiumTypeId": 32
+  }
+}
