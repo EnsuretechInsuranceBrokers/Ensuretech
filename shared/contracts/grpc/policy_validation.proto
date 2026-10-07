@@ -16,6 +16,9 @@ service PolicyValidation {
   rpc GetRateCard(RateCardRequest) returns (RateCardResponse);
   // Annual premium for a set of members under the policy's rater. Pro-rata is applied by the caller.
   rpc CalculatePremium(PremiumRequest) returns (PremiumResponse);
+  // Price many families in one call: policy, premium type, rate card and relations are loaded once, not per family.
+  // A family that cannot be priced (e.g. no band for an age) reports its own error and does not fail the batch.
+  rpc CalculatePremiumBatch(PremiumBatchRequest) returns (PremiumBatchResponse);
   // Policy facts the endorsement engine needs (employer for scope checks, dates and pro-rata for pricing).
   rpc GetPolicy(PolicyRequest) returns (PolicyInfo);
   // Validate many families against the policy's family construct in one call (a chunk = one call).
@@ -125,4 +128,25 @@ message FamilyResult {
 
 message FamilyValidationResponse {
   repeated FamilyResult results = 1;
+}
+
+message FamilyPremiumRequest {
+  string family_ref = 1;          // caller's key, usually the employee code; must be unique within the request
+  repeated MemberInput members = 2;
+}
+
+message PremiumBatchRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;            // only honoured for SYSTEM tokens
+  repeated FamilyPremiumRequest families = 3;   // at most 5000 per call
+}
+
+message FamilyPremiumResult {
+  string family_ref = 1;
+  PremiumResponse result = 2;     // unset when error is non-empty
+  string error = 3;               // why this family could not be priced
+}
+
+message PremiumBatchResponse {
+  repeated FamilyPremiumResult results = 1;     // same order as the request
 }

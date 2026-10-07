@@ -118,6 +118,44 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
         });
     }
 
+    private static final int MAX_BATCH_FAMILIES = 5000;
+
+    @Override
+    public void calculatePremiumBatch(PremiumBatchRequest req, StreamObserver<PremiumBatchResponse> out) {
+        call(out, () -> {
+            long broker = brokerFor(req.getBrokerId());
+            if (req.getFamiliesCount() > MAX_BATCH_FAMILIES) {
+                throw Status.INVALID_ARGUMENT.withDescription("at most " + MAX_BATCH_FAMILIES + " families per call").asRuntimeException();
+            }
+            java.util.Map<String, List<Member>> input = new java.util.LinkedHashMap<>();
+            for (FamilyPremiumRequest f : req.getFamiliesList()) {
+                List<Member> members = f.getMembersList().stream().map(m -> new Member(m.getMemberRef(),
+                        m.getRelationCode(), m.getAge(), emptyToNull(m.getGrade()), emptyToNull(m.getDesignation()),
+                        decimal(m.getSumInsured()), m.getLayersList())).toList();
+                if (input.put(f.getFamilyRef(), members) != null) {
+                    throw Status.INVALID_ARGUMENT.withDescription("duplicate family_ref '" + f.getFamilyRef() + "'").asRuntimeException();
+                }
+            }
+            PremiumBatchResponse.Builder b = PremiumBatchResponse.newBuilder();
+            for (PremiumService.FamilyQuote fq : premiums.quoteMany(broker, req.getPolicyId(), input)) {
+                FamilyPremiumResult.Builder r = FamilyPremiumResult.newBuilder().setFamilyRef(fq.ref());
+                if (fq.error() != null) {
+                    r.setError(fq.error());
+                } else {
+                    var q = fq.quote();
+                    PremiumResponse.Builder pr = PremiumResponse.newBuilder().setSubtotal(q.subtotal().toPlainString())
+                            .setTaxRate(q.taxRate().toPlainString()).setTax(q.tax().toPlainString())
+                            .setTotal(q.total().toPlainString());
+                    q.members().forEach(m -> pr.addMembers(MemberPremium.newBuilder().setMemberRef(m.memberRef())
+                            .setPremium(m.premium().toPlainString())));
+                    r.setResult(pr);
+                }
+                b.addResults(r);
+            }
+            return b.build();
+        });
+    }
+
     @Override
     public void getPolicy(PolicyRequest req, StreamObserver<PolicyInfo> out) {
         call(out, () -> {

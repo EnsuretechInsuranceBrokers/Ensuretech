@@ -144,8 +144,26 @@ class GrpcPolicyClient:
         return PremiumResult({m.member_ref: Decimal(m.premium) for m in r.members}, Decimal(r.subtotal),
                              Decimal(r.tax_rate), Decimal(r.tax), Decimal(r.total))
 
+    MAX_FAMILIES_PER_CALL = 5000                       # the server rejects larger batches
+
     def calculate_premiums(self, broker_id, policy_id, families):
-        return calculate_premiums_one_by_one(self, broker_id, policy_id, families)
+        """One RPC per batch: the server loads policy, rate card and relations once instead of once per family."""
+        pb, out, refs = self._pb, {}, list(families)
+        for start in range(0, len(refs), self.MAX_FAMILIES_PER_CALL):
+            part = refs[start:start + self.MAX_FAMILIES_PER_CALL]
+            req = pb.PremiumBatchRequest(policy_id=policy_id, broker_id=broker_id, families=[
+                pb.FamilyPremiumRequest(family_ref=ref, members=[
+                    pb.MemberInput(member_ref=m.ref, relation_code=m.relation_code, age=m.age, grade=m.grade or "",
+                                   designation=m.designation or "",
+                                   sum_insured="" if m.sum_insured is None else str(m.sum_insured),
+                                   layers=list(m.layers)) for m in families[ref]]) for ref in part])
+            for res in self._call(self._stub.CalculatePremiumBatch, req).results:
+                if res.error:
+                    raise PolicyRejected(f"employee {res.family_ref}: {res.error}")
+                r = res.result
+                out[res.family_ref] = PremiumResult({m.member_ref: Decimal(m.premium) for m in r.members},
+                                                    Decimal(r.subtotal), Decimal(r.tax_rate), Decimal(r.tax), Decimal(r.total))
+        return out
 
 
 def calculate_premiums_one_by_one(client, broker_id: int, policy_id: int,

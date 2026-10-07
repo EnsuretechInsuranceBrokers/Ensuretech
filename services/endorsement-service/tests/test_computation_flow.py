@@ -140,7 +140,8 @@ def test_an_inadequate_deposit_blocks_the_endorsement_until_topped_up(flow, bala
 
 
 def test_default_billing_client_parks_the_job_honestly(world, settings):
-    settings.PIPELINE_AUTO_CONTINUE = True                    # CD_CLIENT left at the real default: billing not integrated
+    settings.PIPELINE_AUTO_CONTINUE = True
+    settings.CD_CLIENT = "apps.computation.cd.UnavailableCdClient"   # the real default: billing not integrated (pinned, not ambient)
     job = job_from(upload(client_for(), csv_text("1,Self,A,1990-01-01,M,500000,,"), effective_date="2030-04-01"))
     assert job.status == "CD_CHECK_FAILED" and EndorsementMember.objects.count() == 0
     reason = AuditTransition.objects.get(job=job, to_state="CD_CHECK_FAILED").metadata["reason"]

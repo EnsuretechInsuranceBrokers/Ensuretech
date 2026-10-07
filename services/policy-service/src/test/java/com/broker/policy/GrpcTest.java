@@ -160,4 +160,43 @@ class GrpcTest extends IntegrationTestBase {
         assertThat(code(() -> stub(admin(BROKER_B)).validateFamilies(FamilyValidationRequest.newBuilder()
                 .setPolicyId(id).addFamilies(good).build()))).isEqualTo(Status.Code.NOT_FOUND);
     }
+
+    @Test
+    void batchPricingMatchesSinglePricingAndReportsUnpriceableFamiliesWithoutFailingTheBatch() throws Exception {
+        long id = createPolicy(BROKER_A, EMP_A, "P-AGE", "AGE_BAND", "GPA");
+        mvc.perform(json(put("/api/v1/broker/policies/" + id + "/rate-card"), admin(BROKER_A),
+                "{\"effectiveFrom\":\"2030-04-01\",\"rateTable\":{\"age_bands\":[{\"from\":0,\"to\":60,\"premium\":1000}]}}")).andExpect(status().isOk());
+        var young = FamilyPremiumRequest.newBuilder().setFamilyRef("young")
+                .addMembers(MemberInput.newBuilder().setMemberRef("a").setRelationCode("SELF").setAge(30))
+                .addMembers(MemberInput.newBuilder().setMemberRef("b").setRelationCode("SPOUSE").setAge(28)).build();
+        var tooOld = FamilyPremiumRequest.newBuilder().setFamilyRef("old")
+                .addMembers(MemberInput.newBuilder().setMemberRef("c").setRelationCode("SELF").setAge(70)).build();
+        var weird = FamilyPremiumRequest.newBuilder().setFamilyRef("weird")
+                .addMembers(MemberInput.newBuilder().setMemberRef("d").setRelationCode("COUSIN").setAge(30)).build();
+        var s = stub(admin(BROKER_A));
+        var r = s.calculatePremiumBatch(PremiumBatchRequest.newBuilder().setPolicyId(id)
+                .addFamilies(young).addFamilies(tooOld).addFamilies(weird).build());
+        assertThat(r.getResultsList()).extracting(FamilyPremiumResult::getFamilyRef).containsExactly("young", "old", "weird");
+        var single = s.calculatePremium(PremiumRequest.newBuilder().setPolicyId(id).addAllMembers(young.getMembersList()).build());
+        assertThat(r.getResults(0).getError()).isEmpty();
+        assertThat(r.getResults(0).getResult()).isEqualTo(single);                       // identical to the one-family RPC
+        assertThat(r.getResults(1).getError()).contains("no age band for age 70");
+        assertThat(r.getResults(1).hasResult()).isFalse();
+        assertThat(r.getResults(2).getError()).contains("unknown relation 'COUSIN'");
+    }
+
+    @Test
+    void batchPricingGuardsTenantDuplicatesAndSize() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-1");
+        var fam = FamilyPremiumRequest.newBuilder().setFamilyRef("e1")
+                .addMembers(MemberInput.newBuilder().setMemberRef("a").setRelationCode("SELF").setAge(30)).build();
+        assertThat(code(() -> stub(admin(BROKER_B)).calculatePremiumBatch(PremiumBatchRequest.newBuilder().setPolicyId(id).addFamilies(fam).build())))
+                .isEqualTo(Status.Code.NOT_FOUND);
+        assertThat(code(() -> stub(admin(BROKER_A)).calculatePremiumBatch(PremiumBatchRequest.newBuilder().setPolicyId(id).addFamilies(fam).addFamilies(fam).build())))
+                .isEqualTo(Status.Code.INVALID_ARGUMENT);
+        var big = PremiumBatchRequest.newBuilder().setPolicyId(id);
+        for (int i = 0; i < 5001; i++) big.addFamilies(FamilyPremiumRequest.newBuilder().setFamilyRef("f" + i).addMembers(fam.getMembers(0)));
+        assertThat(code(() -> stub(admin(BROKER_A)).calculatePremiumBatch(big.build()))).isEqualTo(Status.Code.INVALID_ARGUMENT);
+        assertThat(code(() -> stub(admin(BROKER_A)).calculatePremiumBatch(PremiumBatchRequest.newBuilder().setPolicyId(id).build()))).isEqualTo(Status.Code.OK);
+    }
 }
