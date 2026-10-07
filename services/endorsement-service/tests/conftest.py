@@ -60,3 +60,44 @@ def make_job(db):
         kw.setdefault("source_type", "CSV_UPLOAD")
         return EndorsementJob.objects.create(broker_id=broker_id, employer_id=employer_id, policy_id=policy_id, **kw)
     return _make
+
+
+# ── pipeline fixtures ────────────────────────────────────────────────────────────────────────────────────────
+@pytest.fixture
+def world(settings, tmp_path):
+    """Fake policy-service, spool dir in tmp, pipeline stops after validation unless a test opts in."""
+    from tests.fakes import FakePolicyClient
+    FakePolicyClient.reset()
+    settings.POLICY_CLIENT = "tests.fakes.FakePolicyClient"
+    settings.UPLOAD_SPOOL_DIR = str(tmp_path / "spool")
+    settings.PIPELINE_AUTO_CONTINUE = False
+    FakePolicyClient.add_policy(BROKER_A, 100, EMP_A, construct={"allowed": {"SPOUSE", "SON", "DAUGHTER", "SON_II"}, "max_children": 2, "max_members": 5})
+    FakePolicyClient.add_policy(BROKER_A, 101, EMP_A, policy_type="GPA")
+    FakePolicyClient.add_policy(BROKER_A, 102, EMP_A, status="NOT_APPROVED")
+    FakePolicyClient.add_policy(BROKER_A, 103, EMP_A + 1)            # same broker, a different employer
+    FakePolicyClient.add_policy(BROKER_B, 200, EMP_B)
+    yield FakePolicyClient
+    FakePolicyClient.reset()
+    from django.db import connection
+    with connection.cursor() as cur:                      # committed outbox rows must not leak into other tests
+        cur.execute("DELETE FROM outbox.outbox_events")
+
+
+HEADER = "Emp Code,Relationship,Member Name,DOB,Gender,Sum Insured,Effective Date,PAN"
+
+
+def csv_text(*rows, header=HEADER):
+    return "\n".join([header, *rows]) + "\n"
+
+
+def upload(client, text, *, op="ADD", policy_id=100, idem=None, mapping_id=None, effective_date=None,
+           filename="endorse.csv", prefix="/api/v1/broker/endorsements/", **extra):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    data = {"file": SimpleUploadedFile(filename, text.encode(), content_type="text/csv"), "op_type": op,
+            "policy_id": policy_id, **extra}
+    if mapping_id:
+        data["mapping_id"] = mapping_id
+    if effective_date:
+        data["effective_date"] = effective_date
+    kw = {"HTTP_IDEMPOTENCY_KEY": idem} if idem else {}
+    return client.post(prefix + "csv/upload/", data, format="multipart", **kw)

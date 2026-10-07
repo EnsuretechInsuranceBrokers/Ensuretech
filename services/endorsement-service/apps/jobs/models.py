@@ -115,3 +115,57 @@ class AuditTransition(models.Model):
 
     def delete(self, *args, **kwargs):
         raise RuntimeError("audit rows are immutable")
+
+
+class EndorsementMember(models.Model):
+    """The live roster: one row per covered person per policy (final, fully indexed OLTP table)."""
+
+    job = models.ForeignKey(EndorsementJob, on_delete=models.PROTECT, related_name="members")   # last job to change it
+    policy_id = models.BigIntegerField()
+    broker_id = models.BigIntegerField()
+    employer_id = models.BigIntegerField()
+    employee_code = models.CharField(max_length=60)
+    relation_code = models.CharField(max_length=40)
+    first_name = models.CharField(max_length=80)
+    last_name = models.CharField(max_length=80, blank=True, default="")
+    date_of_birth = models.DateField()
+    gender = models.CharField(max_length=1, null=True, blank=True)
+    pan = models.CharField(max_length=10, null=True, blank=True)
+    mobile = models.CharField(max_length=20, null=True, blank=True)
+    email = models.CharField(max_length=255, null=True, blank=True)
+    grade = models.CharField(max_length=40, null=True, blank=True)
+    designation = models.CharField(max_length=80, null=True, blank=True)
+    annual_salary = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    sum_insured = models.DecimalField(max_digits=14, decimal_places=2)
+    premium_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    effective_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    source_type = models.CharField(max_length=20)
+    tpa_member_id = models.CharField(max_length=60, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "endorsement_members"
+        constraints = [
+            models.UniqueConstraint(fields=["policy_id", "employee_code", "relation_code"],
+                                    condition=models.Q(is_active=True), name="uniq_active_member_per_policy"),
+        ]
+        indexes = [
+            models.Index(fields=["policy_id", "employee_code"], name="idx_members_policy_emp"),
+            models.Index(fields=["broker_id", "is_active"], name="idx_members_broker_active"),
+            models.Index(fields=["pan"], name="idx_members_pan", condition=models.Q(pan__isnull=False)),
+        ]
+
+
+class AppliedRow(models.Model):
+    """Marks a staged row as applied, so a redelivered endorse task never double-applies it."""
+
+    job_id = models.UUIDField()
+    chunk_index = models.IntegerField()
+    row_index = models.IntegerField()
+
+    class Meta:
+        db_table = "applied_rows"
+        constraints = [models.UniqueConstraint(fields=["job_id", "chunk_index", "row_index"], name="uniq_applied_row")]

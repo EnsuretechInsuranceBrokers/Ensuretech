@@ -17,6 +17,9 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.core",
     "apps.jobs",
+    "apps.intake",
+    "apps.validation",
+    "apps.computation",
 ]
 
 MIDDLEWARE = [
@@ -33,6 +36,8 @@ ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {"default": env.db("DATABASE_URL", default="postgres://ensuretech:ensuretech@localhost:5432/ensuretech")}
 DATABASES["default"]["OPTIONS"] = {"options": "-c search_path=endorsement,public"}
 DATABASES["default"]["CONN_MAX_AGE"] = 60
+# Indian HR files contain non-ASCII (₹, names): the database must be UTF8, and tests must not depend on the cluster default.
+DATABASES["default"]["TEST"] = {"CHARSET": "UTF8", "TEMPLATE": "template0"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
 TIME_ZONE = "UTC"
@@ -83,3 +88,9 @@ CD_CLIENT = env("CD_CLIENT", default="apps.computation.cd.UnavailableCdClient")
 
 MAX_UPLOAD_ROWS = env.int("MAX_UPLOAD_ROWS", default=1_000_000)
 CHUNK_TARGET_ROWS = env.int("CHUNK_TARGET_ROWS", default=500)
+POLICY_CLIENT = env("POLICY_CLIENT", default="apps.computation.policy_client.GrpcPolicyClient")
+FILE_STORE = env("FILE_STORE", default="apps.intake.store.LocalFileStore")
+UPLOAD_SPOOL_DIR = env("UPLOAD_SPOOL_DIR", default=str(Path(os.environ.get("TMPDIR", "/tmp")) / "endorsement-uploads"))
+MAX_UPLOAD_BYTES = env.int("MAX_UPLOAD_BYTES", default=200 * 1024 * 1024)
+# When validation passes cleanly, continue straight into premium calculation. Turn off to hold jobs for review.
+PIPELINE_AUTO_CONTINUE = env.bool("PIPELINE_AUTO_CONTINUE", default=True)

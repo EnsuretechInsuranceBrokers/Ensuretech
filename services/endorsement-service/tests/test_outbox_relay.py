@@ -4,6 +4,16 @@ from django.db import connection
 from apps.core import outbox, relay
 
 
+@pytest.fixture(autouse=True)
+def _clean_outbox(transactional_db):
+    """The outbox is a raw shared table Django's flush does not manage; start and end every test empty."""
+    with connection.cursor() as cur:
+        cur.execute("DELETE FROM outbox.outbox_events")
+    yield
+    with connection.cursor() as cur:
+        cur.execute("DELETE FROM outbox.outbox_events")
+
+
 class Sender:
     def __init__(self):
         self.sent, self.fail = [], False
