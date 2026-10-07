@@ -31,6 +31,6 @@ public class BranchController {
     BranchResponse create(@Valid @RequestBody CreateBranchRequest r) {
         long brokerId = TenantContextHolder.requireBrokerId();
         return BranchResponse.of(branches.saveAndFlush(
-                new BrokerBranch(brokerId, r.branchCode(), r.city(), r.state(), r.headOffice())));
+                new BrokerBranch(brokerId, r.branchCode(), r.city(), r.state(), Boolean.TRUE.equals(r.headOffice()))));
     }
 }

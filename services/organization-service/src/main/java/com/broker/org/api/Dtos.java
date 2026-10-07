@@ -66,7 +66,7 @@ public final class Dtos {
 
     public record CreateBranchRequest(@NotBlank @Size(max = 20) String branchCode,
                                       @Size(max = 80) String city, @Size(max = 80) String state,
-                                      boolean headOffice) {}
+                                      Boolean headOffice) {}
 
     public record BranchResponse(Long id, String branchCode, String city, String state, boolean headOffice) {
         public static BranchResponse of(BrokerBranch b) {
