@@ -69,6 +69,9 @@ def endorsement_state_changed(db, e):
                       "is_terminal": bool(e.get("is_terminal")), "state_ts": ts}}, upsert=True)
     except DuplicateKeyError:
         log.debug("stale state event for job %s ignored", e["job_id"])
+    if e["to_state"] == "ENDORSED":     # order-independent: the earliest ENDORSED transition is when the roster changed (reporting by month)
+        db[mongo.JOBS].update_one({"_id": e["job_id"], "$or": [{"endorsed_at": {"$gt": ts}}, {"endorsed_at": {"$exists": False}}]},
+                                  {"$set": {"endorsed_at": ts}})
     _chunk(db, e, e["job_id"], f"Endorsement job {e['job_id'][:8]}",
            f"Endorsement job {e['job_id']} for policy {e.get('policy_id')} ({e.get('op_type')} via {e.get('source_type')}) moved from "
            f"{e.get('from_state') or 'creation'} to {e['to_state']} (phase {e.get('phase')}, category {e.get('category')}) at {ts.isoformat()}.",

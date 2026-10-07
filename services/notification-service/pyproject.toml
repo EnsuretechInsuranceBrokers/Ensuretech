@@ -1,0 +1,14 @@
+[project]
+name = "notification-service"
+version = "0.1.0"
+description = "Ensuretech mailer: event-driven, policy-configurable, templated email with a delivery log"
+requires-python = ">=3.13"
+dependencies = ["django>=6.1,<6.2", "djangorestframework>=3.17", "pyjwt[crypto]>=2.10", "psycopg[binary]>=3.2", "django-environ>=0.12", "confluent-kafka>=2.8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=9", "pytest-django>=4.11", "aiosmtpd>=1.4"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["."]
+testpaths = ["tests"]

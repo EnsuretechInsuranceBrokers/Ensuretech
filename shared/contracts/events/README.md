@@ -14,3 +14,4 @@ Changing a field means changing the sample, which fails whichever side forgot to
 | `tpa-sync-failed` | integration-service (`tpa.events`) | none yet (alerting); a dead-lettered sync waits for an operator retry |
 | all event samples above | various | read-service (projects them into MongoDB read models and RAG history chunks) |
 | `cd-balance-updated` | billing-service (`cd-balance.updates`) | read-service |
+| state-changed / applied / policy-approved / cd-balance (`CdBalanceLow` carries the same fields as `cd-balance-updated`) / tpa-sync-failed | producers above | notification-service (mail triggers) |

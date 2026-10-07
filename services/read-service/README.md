@@ -31,7 +31,7 @@ event log. Nothing here is on a write path, and nothing here makes an authoritat
 Any failure (no key, API error, refusal, empty output) falls back to extractive, so `/ask` never 500s because of an LLM. 30 asks/min/user.
 
 ## Tests
-`TEST_MONGO_URI=mongodb://host:27017 pytest` (52 tests, a throwaway database per test). The sandbox has no MongoDB, so they ran against
+`TEST_MONGO_URI=mongodb://host:27017 pytest` (58 tests, a throwaway database per test). The sandbox has no MongoDB, so they ran against
 **FerretDB 1.24 on PostgreSQL**, which speaks the MongoDB wire protocol (reports 7.0.42) but is not MongoDB. Run them once against a real
 MongoDB before relying on this. Also smoke-tested over HTTP with a real identity-service token.
 
@@ -43,6 +43,7 @@ MongoDB before relying on this. Also smoke-tested over HTTP with a real identity
 - **The Claude path was only tested against a stub**, never the live API (no key here). The Kafka loop was tested with a fake consumer;
   `run_projector` / `rebuild_projections` have never run against a real broker.
 - **No prediction.** "Prediction" needs historical outcomes and a trained model; none exists. Not built, not faked.
-- Not projected: member lookup (PII), roster, billing statements. Employer/HR notification feeds, a change-stream push, and PDF/Excel ingestion for
+- Not projected: member lookup (PII), roster, billing statements, employers (so no employer/policy/employee headline counts like the legacy dashboard). Roster-level
+  reports (enrollment, e-card, member-id) belong in the endorsement engine and are not built. Employer/HR notification feeds, a change-stream push, and PDF/Excel ingestion for
   knowledge documents (text only) are not built. Throttle counters are per-process (LocMem).
 - Event ordering across topics is not assumed; same-topic order relies on the broker_id partition key.
