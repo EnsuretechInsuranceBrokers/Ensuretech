@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: organization-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ensuretech}
+    username: ${DATABASE_USER:ensuretech}
+    password: ${DATABASE_PASSWORD:ensuretech}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.default_schema: organization
+  flyway:
+    schemas: organization
+    default-schema: organization
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+
+server:
+  port: ${PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+app:
+  jwt:
+    # RS256 public key published by identity-service (PEM, X.509 SubjectPublicKeyInfo)
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:../identity-service/keys/jwt-public.pem}
+    issuer: ${JWT_ISSUER:ensuretech-identity}
+  outbox:
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:true}
+      interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
+      batch-size: 100
+      max-retries: 5
