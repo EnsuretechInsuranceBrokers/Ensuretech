@@ -1,0 +1,15 @@
+{
+  "event_id": "3f6c1c0e-7d57-4b4e-9d8a-0a8f2d0c1a11",
+  "event_type": "EndorsementApplied",
+  "job_id": "9a1f4a52-5d0e-4c67-a2f1-6f1d3d1b7e01",
+  "broker_id": 1,
+  "employer_id": 10,
+  "policy_id": 1,
+  "op_type": "ADD",
+  "source_type": "CSV_UPLOAD",
+  "members_changed": 3,
+  "premium_delta": "1495.89",
+  "tax_amount": "269.26",
+  "total": "1765.15",
+  "correlation_id": "c1d2e3f4-0000-4000-8000-000000000001"
+}

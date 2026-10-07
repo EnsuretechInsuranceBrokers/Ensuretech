@@ -84,7 +84,10 @@ OUTBOX_MAX_RETRIES = 5
 POLICY_GRPC_TARGET = env("POLICY_GRPC_TARGET", default="localhost:9090")
 POLICY_GRPC_TOKEN = env("POLICY_GRPC_TOKEN", default="")
 POLICY_GRPC_DEADLINE_SECONDS = env.float("POLICY_GRPC_DEADLINE_SECONDS", default=2.0)
-CD_CLIENT = env("CD_CLIENT", default="apps.computation.cd.UnavailableCdClient")
+CD_CLIENT = env("CD_CLIENT", default="apps.computation.cd.GrpcCdClient")
+BILLING_GRPC_TARGET = env("BILLING_GRPC_TARGET", default="localhost:9091")
+BILLING_GRPC_TOKEN = env("BILLING_GRPC_TOKEN", default="")           # SYSTEM service-account JWT
+CD_GRPC_DEADLINE_SECONDS = env.float("CD_GRPC_DEADLINE_SECONDS", default=0.5)
 
 MAX_UPLOAD_ROWS = env.int("MAX_UPLOAD_ROWS", default=1_000_000)
 CHUNK_TARGET_ROWS = env.int("CHUNK_TARGET_ROWS", default=500)

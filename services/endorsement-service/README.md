@@ -49,8 +49,10 @@ across workers is the next lever. Nothing here has been benchmarked at 1M rows, 
 ## What is NOT done (read before relying on it)
 - **Test-data / Faker intake path** (third path) and the `broker_id=0` isolation machinery: not built. `source_type` has the values.
 - **WebSocket live-validation** channel: not built (the REST validate endpoint serves the same checks).
-- **Billing / CD:** the default client reports "billing-service not integrated", so a real run parks at `CD_CHECK_FAILED`. The check is
-  also advisory (no reservation): billing must reserve or debit atomically from `EndorsementApplied`, or concurrent jobs can overdraw.
+- **Billing / CD:** the default client is now `GrpcCdClient` (billing-service `CheckCdBalance`, 500 ms deadline, SYSTEM token). The check
+  *reserves* the job's total atomically (one hold per job id); billing commits it on `EndorsementApplied` and releases it on cancel /
+  validation-failed. If billing is down the job parks at `CD_CHECK_FAILED` (never silently passes). Verified against the real service
+  by `scripts/e2e_with_policy_service.py` with `E2E_BILLING_URL`; the Kafka leg (commit/release events) is only contract-tested.
 - **Service credential:** calls to policy-service use `POLICY_GRPC_TOKEN`, a SYSTEM access token. Access tokens last 15 minutes and
   identity-service has no client-credentials/service-token flow yet, so production needs one (workers must refresh).
 - **File store:** uploads spool to local disk (`LocalFileStore`); API and workers must share it. A MinIO/S3 store fits the same interface.

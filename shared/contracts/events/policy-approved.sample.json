@@ -1,0 +1,9 @@
+{
+  "event_id": "7d3c1c0e-7d57-4b4e-9d8a-0a8f2d0c1a33",
+  "event_type": "PolicyApproved",
+  "broker_id": 1,
+  "employer_id": 10,
+  "policy_id": 1,
+  "policy_number": "E2E-GMC-1",
+  "status": "APPROVED_AND_LIVE"
+}

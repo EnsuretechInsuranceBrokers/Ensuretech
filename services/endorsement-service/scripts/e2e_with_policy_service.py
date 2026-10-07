@@ -10,7 +10,9 @@ tokens from identity-service in the environment:
 
 Run:  DATABASE_URL=... POLICY_GRPC_TARGET=localhost:9090 POLICY_GRPC_TOKEN=$E2E_SYSTEM_TOKEN \
       CD_CLIENT=tests.fakes.InMemoryCd CELERY_TASK_ALWAYS_EAGER=True python scripts/e2e_with_policy_service.py
-Billing is not built yet, so the deposit check uses the in-memory double; everything else is real.
+Deposit check: by default an in-memory double. Set E2E_BILLING_URL (billing-service REST, e.g. http://localhost:8084) and
+BILLING_GRPC_TARGET/BILLING_GRPC_TOKEN (SYSTEM token) to run it against the REAL billing-service instead; the policy's
+deposit account must already exist (normally opened by the PolicyApproved event) and be funded by the script.
 """
 import os
 import sys
@@ -26,6 +28,9 @@ django.setup()
 from django.conf import settings  # noqa: E402
 from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
 from django.core.management import call_command  # noqa: E402
+from django.utils import timezone  # noqa: E402
+
+RUN_START = timezone.now()
 from rest_framework.test import APIClient  # noqa: E402
 
 settings.ALLOWED_HOSTS = ["testserver"]
@@ -37,7 +42,11 @@ from apps.jobs.models import AuditTransition, EndorsementJob, EndorsementMember 
 from apps.validation.models import ValidationLog  # noqa: E402
 from tests.fakes import InMemoryCd  # noqa: E402
 
-InMemoryCd.reset("1000000")
+REAL_BILLING = bool(os.environ.get("E2E_BILLING_URL"))
+if REAL_BILLING:
+    settings.CD_CLIENT = "apps.computation.cd.GrpcCdClient"
+else:
+    InMemoryCd.reset("1000000")
 BASE = "/api/v1/broker/endorsements/"
 HEADER = "Emp Code,Relationship,Member Name,DOB,Gender,Sum Insured,Effective Date"
 CHECKS = []
@@ -102,6 +111,51 @@ settings.POLICY_GRPC_TOKEN = "not-a-token"
 bad = upload(client("E2E_BROKER_TOKEN"), [f"{tag}11,Self,Y,1990-01-01,M,1,,"])
 settings.POLICY_GRPC_TOKEN = good
 check("a rejected service token surfaces as 503, not a crash", bad.status_code == 503, f"{bad.status_code} {bad.content[:80]}")
+
+# 5 ── the deposit, for real: reservations, no double-spending, top-up and retry (only against the real billing-service)
+if REAL_BILLING:
+    import json
+    import urllib.request
+
+    def billing(path, method="GET", body=None):
+        req = urllib.request.Request(os.environ["E2E_BILLING_URL"] + path, method=method,
+                                     data=None if body is None else json.dumps(body).encode(),
+                                     headers={"Authorization": f"Bearer {os.environ['E2E_BROKER_TOKEN']}", "Content-Type": "application/json"})
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read(), parse_float=Decimal)
+
+    acct = lambda: billing("/api/v1/broker/cd/accounts/1")  # noqa: E731
+    jobs_run = list(EndorsementJob.objects.filter(source_type="CSV_UPLOAD", status="ENDORSED", total_premium__gt=0)
+                    .filter(created_at__gte=RUN_START).order_by("created_at"))
+    a = acct()
+    check("every endorsed job's total is held in billing's ledger (reserved == sum of totals)",
+          a["reserved"] == sum(j.total_premium for j in jobs_run) and a["reserved"] > 0, f"{a['reserved']} vs {sum(j.total_premium for j in jobs_run)}")
+    check("available = balance - reserved", a["available"] == a["balance"] - a["reserved"], str(a))
+
+    # a job that needs more than what is left must NOT pass, even though the balance alone would cover it
+    need_members = int(a["available"] / Decimal("588.38")) + 1                      # one more member than the free money covers
+    rows = [f"{tag}2{i:02d},Self,Extra {i},1990-01-01,M,500000,," for i in range(need_members)]
+    over = EndorsementJob.objects.get(pk=upload(client("E2E_BROKER_TOKEN"), rows).json()["job_id"])
+    check("a job exceeding the unreserved money is blocked at the deposit check although the balance alone would cover it",
+          over.status in ("CD_PARTIAL_SUFFICIENT", "CD_INSUFFICIENT") and a["balance"] >= over.total_premium > a["available"],
+          f"{over.status} total={over.total_premium} avail={a['available']} balance={a['balance']}")
+    check("it holds nothing and reached no roster", acct()["reserved"] == a["reserved"] and EndorsementMember.objects.filter(employee_code__startswith=f"{tag}2").count() == 0)
+
+    billing("/api/v1/broker/cd/accounts/1/credits", "POST", {"amount": 5000, "reference": f"E2E-TOPUP-{tag}", "type": "DEPOSIT"})
+    retried = client("E2E_BROKER_TOKEN").post(f"{BASE}{over.id}/retry/")
+    over.refresh_from_db()
+    check("after a top-up, retry passes the check and endorses", retried.status_code == 202 and over.status == "ENDORSED", f"{over.status}")
+    b = acct()
+    check("the retried job's total is now held too", b["reserved"] == a["reserved"] + over.total_premium, f"{b['reserved']} vs {a['reserved'] + over.total_premium}")
+
+    # a deadline-bounded refusal: with a bad service token the check fails visibly instead of passing
+    settings.BILLING_GRPC_TOKEN, good_b = "not-a-token", settings.BILLING_GRPC_TOKEN
+    settings.CD_GRPC_DEADLINE_SECONDS = 0.5
+    from apps.computation.tasks import MAX_CD_ATTEMPTS  # noqa: E402,F401
+    denied = EndorsementJob.objects.get(pk=upload(client("E2E_BROKER_TOKEN"), [f"{tag}300,Self,Denied,1990-01-01,M,500000,,"]).json()["job_id"])
+    settings.BILLING_GRPC_TOKEN = good_b
+    check("a refused billing credential fails the check visibly (CD_CHECK_FAILED), never silently passes",
+          denied.status == "CD_CHECK_FAILED" and EndorsementMember.objects.filter(employee_code=f"{tag}300").count() == 0, denied.status)
 
 failed = [l for l, ok in CHECKS if not ok]
 print(f"\n{len(CHECKS) - len(failed)}/{len(CHECKS)} checks passed")

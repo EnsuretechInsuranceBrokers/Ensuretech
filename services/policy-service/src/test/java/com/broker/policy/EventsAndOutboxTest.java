@@ -73,4 +73,20 @@ class EventsAndOutboxTest extends IntegrationTestBase {
         });
         assertThat(count("status='PUBLISHED'")).isEqualTo(3);
     }
+
+    @Test
+    void policyApprovedMatchesTheSharedContractBillingConsumes() throws Exception {
+        long id = createPolicy(BROKER_A, EMP_A, "P-1", "FLAT", "GPA");
+        mvc.perform(json(put("/api/v1/broker/policies/" + id + "/rate-card"), admin(BROKER_A),
+                "{\"effectiveFrom\":\"2030-04-01\",\"rateTable\":{\"flat\":1000}}")).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/broker/policies/" + id + "/approve").header("Authorization", admin(BROKER_A))).andExpect(status().isOk());
+        var mapper = new tools.jackson.databind.json.JsonMapper();
+        String real = jdbc.sql("SELECT payload::text FROM outbox.outbox_events WHERE event_type='PolicyApproved'").query(String.class).single();
+        String sample = java.nio.file.Files.readString(java.nio.file.Path.of("../../shared/contracts/events/policy-approved.sample.json"));
+        var realKeys = new java.util.TreeSet<String>();
+        mapper.readTree(real).propertyNames().forEach(realKeys::add);
+        var sampleKeys = new java.util.TreeSet<String>();
+        mapper.readTree(sample).propertyNames().forEach(sampleKeys::add);
+        assertThat(realKeys).as("PolicyApproved fields drifted from shared/contracts/events").isEqualTo(sampleKeys);
+    }
 }

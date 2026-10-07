@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package ensuretech.billing.v1;
+
+option java_multiple_files = true;
+option java_package = "com.broker.billing.grpc.gen";
+option java_outer_classname = "BillingCdProto";
+
+// Internal, SYSTEM-token-only API of billing-service (reserving funds is a service action, never a user action).
+// Send `authorization: Bearer <jwt>` metadata. Recommended client deadline: 500 ms.
+service CdBalance {
+  // Checks the policy's contingency deposit and, when it covers `required_amount`, RESERVES that amount for the job so
+  // a concurrent job cannot spend the same money. Idempotent per job_id: asking again re-evaluates and adjusts the
+  // job's single reservation instead of creating another. required_amount <= 0 (a refund) needs no deposit.
+  rpc CheckCdBalance(CdBalanceRequest) returns (CdBalanceResponse);
+}
+
+message CdBalanceRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;           // required: SYSTEM tokens are not tenant-scoped
+  string required_amount = 3;    // decimal string
+  string job_id = 4;             // endorsement job UUID: the idempotency and reservation key
+}
+
+message CdBalanceResponse {
+  string status = 1;             // SUFFICIENT (funds reserved) | PARTIAL_SUFFICIENT | INSUFFICIENT
+  string available_balance = 2;  // balance minus other jobs' reservations, before this job's reservation
+  string required_amount = 3;
+  string deficit_amount = 4;     // max(required - available, 0)
+  string reserved_amount = 5;    // what is now held for this job (0 unless SUFFICIENT)
+}
