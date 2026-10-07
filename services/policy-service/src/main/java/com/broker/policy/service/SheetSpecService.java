@@ -152,7 +152,13 @@ public class SheetSpecService {
         List<Map<String, Object>> allowed = new ArrayList<>();
         for (Integer id : f.getAllowedRelations()) {
             RelationType r = byId.get(id.shortValue());
-            if (r != null) allowed.add(Map.of("id", r.getId(), "code", r.getCode(), "group", r.getRelationGroup()));
+            if (r == null) continue;
+            Map<String, Object> a = new LinkedHashMap<>();
+            a.put("id", r.getId());
+            a.put("code", r.getCode());
+            a.put("group", r.getRelationGroup());
+            a.put("maxAge", r.getMaxAge());          // the relation's own ceiling (e.g. children 25); a relation rule may override it
+            allowed.add(a);
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("allowedRelations", allowed);

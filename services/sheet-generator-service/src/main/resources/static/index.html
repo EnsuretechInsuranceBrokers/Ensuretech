@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Endorsement Sheet Generator</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --muted:#5b6675; --line:#d9dee5; --accent:#1f5fbf; --accent-ink:#fff; --bad:#b3261e; --warn:#8a5a00; --ok:#1b7a3d; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#12161c; --card:#1b212a; --ink:#e7ebf0; --muted:#9aa6b5; --line:#2e3744; --accent:#6aa3f5; --accent-ink:#0b1320; --bad:#ff8a80; --warn:#f2c16b; --ok:#6fd195; --code:#242c37; } }
+  :root[data-theme="dark"] { --bg:#12161c; --card:#1b212a; --ink:#e7ebf0; --muted:#9aa6b5; --line:#2e3744; --accent:#6aa3f5; --accent-ink:#0b1320; --bad:#ff8a80; --warn:#f2c16b; --ok:#6fd195; --code:#242c37; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 12px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); font:inherit; }
+  textarea { min-height:110px; font:12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
+  .tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+  button { padding:8px 14px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font:inherit; cursor:pointer; }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  button[aria-selected="true"] { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .chk { display:flex; gap:8px; align-items:center; font-size:14px; color:var(--ink); } .chk input { width:auto; }
+  .note { font-size:13px; color:var(--muted); } .bad { color:var(--bad); } .warn { color:var(--warn); } .ok { color:var(--ok); }
+  .facts { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:6px 16px; font-size:13px; margin-top:10px; }
+  .facts b { color:var(--muted); font-weight:500; display:block; }
+  .tbl { overflow:auto; max-height:420px; border:1px solid var(--line); border-radius:6px; margin-top:12px; }
+  table { border-collapse:collapse; width:100%; font-size:12px; } th, td { padding:5px 8px; border-bottom:1px solid var(--line); white-space:nowrap; text-align:left; }
+  th { position:sticky; top:0; background:var(--code); }
+  ul.issues { margin:8px 0 0; padding-left:18px; font-size:13px; } code { background:var(--code); padding:1px 5px; border-radius:4px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Endorsement Sheet Generator</h1>
+  <p class="sub">Builds ADD, UPDATE and REMOVE sheets that satisfy one policy's rules. Everything runs in this page; nothing is uploaded unless you press “Generate on server”.</p>
+
+  <section id="s1">
+    <h2>1 · Policy</h2>
+    <div class="tabs" role="tablist" id="srcTabs">
+      <button role="tab" data-src="paste" aria-selected="true">Paste or open a spec file</button>
+      <button role="tab" data-src="service" aria-selected="false">Load from the service</button>
+      <button role="tab" data-src="sample" aria-selected="false">Sample policy</button>
+    </div>
+    <div id="src-paste">
+      <label for="specText">sheet-spec/v1 JSON (the output of <code>GET /api/v1/broker/policies/{id}/sheet-spec</code>)</label>
+      <textarea id="specText" spellcheck="false" placeholder='{"schema":"sheet-spec/v1", ...}'></textarea>
+      <div class="row"><input type="file" id="specFile" accept=".json,application/json" style="width:auto"><button id="useSpec" class="primary">Use this spec</button></div>
+    </div>
+    <div id="src-service" hidden>
+      <div class="grid">
+        <div><label for="policyId">Policy id</label><input id="policyId" type="number" min="1"></div>
+        <div style="grid-column:span 2"><label for="token">Your access token (kept in memory only)</label><input id="token" type="password" autocomplete="off"></div>
+      </div>
+      <div class="row"><button id="loadSpec" class="primary">Load spec</button><span class="note">Works when this page is served by the sheet-generator service.</span></div>
+    </div>
+    <div id="src-sample" hidden>
+      <p class="note">A made-up flat GMC policy for the current financial year, only to try the tool. Real work starts from a real policy's spec.</p>
+      <div class="row"><button id="useSample" class="primary">Use the sample</button></div>
+    </div>
+    <p id="specMsg" class="note" role="status"></p>
+    <div id="specFacts" class="facts" hidden></div>
+    <ul id="specGaps" class="issues bad" hidden></ul>
+  </section>
+
+  <section id="s2">
+    <h2>2 · What to generate</h2>
+    <div class="tabs" role="tablist" id="opTabs">
+      <button role="tab" data-op="ADD" aria-selected="true">ADD</button>
+      <button role="tab" data-op="UPDATE" aria-selected="false">UPDATE</button>
+      <button role="tab" data-op="REMOVE" aria-selected="false">REMOVE</button>
+    </div>
+    <div id="opts-add">
+      <div class="grid">
+        <div><label for="families">Families</label><input id="families" type="number" min="1" max="20000" value="20"></div>
+        <div><label for="spousePct">Spouse %</label><input id="spousePct" type="number" min="0" max="100" value="80"></div>
+        <div><label for="childPct">Children %</label><input id="childPct" type="number" min="0" max="100" value="60"></div>
+        <div><label for="twinPct">Twins % (if allowed)</label><input id="twinPct" type="number" min="0" max="100" value="10"></div>
+        <div><label for="parentPct">Parents / in-laws %</label><input id="parentPct" type="number" min="0" max="100" value="20"></div>
+        <div><label for="midTermPct">Mid-term effective date %</label><input id="midTermPct" type="number" min="0" max="100" value="30"></div>
+        <div><label for="effDate">Fixed effective date (optional)</label><input id="effDate" placeholder="dd-mm-yyyy"></div>
+        <div><label for="seed">Seed (optional)</label><input id="seed" type="number" placeholder="repeatable run"></div>
+        <div><label for="prefix">Employee code prefix</label><input id="prefix" maxlength="10"></div>
+        <div><label for="startNo">First number</label><input id="startNo" type="number" min="1" value="1"></div>
+        <div><label for="siFree">Sum insured (when any value is allowed)</label><input id="siFree" placeholder="500000"></div>
+        <div><label for="flex">Flex plan (if the policy has one)</label><input id="flex"></div>
+        <div><label for="empPrem">Employee premium (no-rule policies)</label><input id="empPrem" placeholder="12000"></div>
+        <div><label for="erPrem">Employer premium</label><input id="erPrem" placeholder="8000"></div>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="fillOptional"> Add state and city</label>
+        <label class="chk"><input type="checkbox" id="inclPrem"> Always add premium columns</label>
+      </div>
+      <p class="note">Codes here are yours to keep unique (prefix + number). “Generate on server” takes them from a shared counter so two testers can never collide.</p>
+    </div>
+    <div id="opts-change" hidden>
+      <div class="grid">
+        <div><label for="count" id="countLabel">How many</label><input id="count" type="number" min="1" value="10"></div>
+        <div id="modeBox"><label for="mode">Remove</label><select id="mode"><option value="MIX">Whole families and single members</option><option value="FAMILY">Whole families</option><option value="MEMBER">Single dependants</option></select></div>
+      </div>
+      <p class="note" id="srcNote"></p>
+      <div class="row"><label for="srcFile" class="note" style="margin:0">Or use another sheet (CSV) as the source:</label><input type="file" id="srcFile" accept=".csv,text/csv" style="width:auto"></div>
+    </div>
+    <div class="row"><button id="go" class="primary" disabled>Generate</button><button id="goServer" disabled hidden>Generate on server (.xlsx)</button></div>
+  </section>
+
+  <section id="s3" hidden>
+    <h2>3 · Result</h2>
+    <p id="summary" role="status"></p>
+    <ul id="warnings" class="issues warn" hidden></ul>
+    <ul id="issues" class="issues bad" hidden></ul>
+    <div class="row"><button id="dlXlsx">Download .xlsx</button><button id="dlCsv">Download .csv</button><button id="copyJson">Copy JSON</button></div>
+    <div class="tbl"><table id="tbl"></table></div>
+  </section>
+</main>
+
+<script id="engine">
+(function (root) {
+  "use strict";
+  // ── dates (UTC midnight, no time zones) ───────────────────────────────────────────────────────────────────
+  var DAY = 86400000;
+  function ymd(y, m, d) { return new Date(Date.UTC(y, m - 1, d)); }
+  function addDays(d, n) { return new Date(d.getTime() + n * DAY); }
+  function addYears(d, n) {                       // Feb 29 + 1 year = Feb 28, like java.time
+    var y = d.getUTCFullYear() + n, m = d.getUTCMonth(), day = d.getUTCDate();
+    var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    return new Date(Date.UTC(y, m, Math.min(day, last)));
+  }
+  function diffDays(a, b) { return Math.round((b.getTime() - a.getTime()) / DAY); }
+  function ageOn(dob, on) {
+    var y = on.getUTCFullYear() - dob.getUTCFullYear();
+    var before = on.getUTCMonth() < dob.getUTCMonth() || (on.getUTCMonth() === dob.getUTCMonth() && on.getUTCDate() < dob.getUTCDate());
+    return before ? y - 1 : y;
+  }
+  function pad(n, w) { var s = String(n); while (s.length < w) s = "0" + s; return s; }
+  function fmt(d) { return pad(d.getUTCDate(), 2) + "-" + pad(d.getUTCMonth() + 1, 2) + "-" + d.getUTCFullYear(); }
+  function iso(d) { return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1, 2) + "-" + pad(d.getUTCDate(), 2); }
+  function parseDate(s) {
+    if (s == null) return null;
+    var t = String(s).trim(), m;
+    if (!t) return null;
+    if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t))) return valid(+m[1], +m[2], +m[3]);
+    if ((m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(t))) return valid(+m[3], +m[2], +m[1]);
+    return null;
+  }
+  function valid(y, mo, d) {
+    var dt = ymd(y, mo, d);
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d ? dt : null;
+  }
+  function minD(a, b) { return a <= b ? a : b; }
+  function maxD(a, b) { return a >= b ? a : b; }
+  function toDate(x) { return x instanceof Date ? x : parseDate(x); }
+  function blank(s) { return s == null || String(s).trim() === ""; }
+
+  // ── columns ───────────────────────────────────────────────────────────────────────────────────────────────
+  var ALL = [
+    ["emp_code", "Employee Code"], ["emp_first", "Employee First Name"], ["emp_last", "Employee Last Name"], ["emp_gender", "Employee Gender"],
+    ["emp_dob", "Employee DOB"], ["emp_doj", "Employee Date of Joining"], ["emp_email", "Employee Email"], ["emp_mobile", "Employee Mobile Number"],
+    ["relation", "Relationship with Employee"], ["mem_first", "Insured Member First Name"], ["mem_last", "Insured Member Last Name"],
+    ["mem_gender", "Insured Member Gender"], ["mem_dob", "Insured Member DOB"], ["dom", "Date of Marriage"], ["eff", "Effective Date"],
+    ["si", "Sum Insured"], ["grade", "Employee Grade"], ["designation", "Employee Designation"], ["salary", "Employee Annual Salary"],
+    ["flex", "Flex Plan"], ["state", "Employee State"], ["city", "Employee City"], ["emp_prem", "Employee Premium"], ["er_prem", "Employer Premium"]
+  ].map(function (c) { return { id: c[0], header: c[1] }; });
+  function norm(h) { return String(h == null ? "" : h).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  var BY_HEADER = {};
+  ALL.forEach(function (c) { BY_HEADER[norm(c.header)] = c.id; });
+  [["empcode", "emp_code"], ["employeecode", "emp_code"], ["employeeid", "emp_code"], ["relation", "relation"], ["relationship", "relation"],
+   ["employeedateofbirth", "emp_dob"], ["dateofbirth", "emp_dob"], ["insuredmemberdateofbirth", "mem_dob"], ["dateofjoining", "emp_doj"],
+   ["doj", "emp_doj"], ["dom", "dom"], ["suminsured", "si"], ["grade", "grade"], ["designation", "designation"], ["annualsalary", "salary"],
+   ["employeemobile", "emp_mobile"], ["employeeemailid", "emp_email"]].forEach(function (a) { if (!(a[0] in BY_HEADER)) BY_HEADER[a[0]] = a[1]; });
+  function idForHeader(h) { var v = BY_HEADER[norm(h)]; return v === undefined ? null : v; }
+  function headerOf(id) { return ALL.filter(function (c) { return c.id === id; })[0].header; }
+
+  // ── spec ──────────────────────────────────────────────────────────────────────────────────────────────────
+  function plain(v) {
+    var s = typeof v === "number" ? v.toFixed(6) : String(v).trim();
+    if (!/^-?\d+(\.\d+)?$/.test(s)) throw new Error("spec sum insured value is not a number: " + v);
+    if (s.indexOf(".") >= 0) s = s.replace(/0+$/, "").replace(/\.$/, "");
+    return s;
+  }
+  function intOrNull(o, k) { return o && typeof o[k] === "number" ? o[k] : null; }
+  function parseSpec(n) {
+    if (!n || typeof n !== "object" || Array.isArray(n)) throw new Error("spec must be a sheet-spec/v1 object");
+    if (n.schema !== "sheet-spec/v1") throw new Error("spec.schema must be sheet-spec/v1");
+    var p = n.policy, r = n.rating, s = n.sheet || {};
+    if (!p || typeof p !== "object") throw new Error("spec.policy is missing");
+    if (!r || typeof r !== "object") throw new Error("spec.rating is missing");
+    var start = parseDate(p.startDate), end = parseDate(p.endDate);
+    if (!start || !end) throw new Error("spec.policy.startDate / endDate must be ISO dates");
+    if (end < start) throw new Error("spec.policy.endDate is before startDate");
+    var f = n.family && typeof n.family === "object" ? n.family : null;
+    var si = [], oneOf = r.sumInsured && r.sumInsured.mode === "ONE_OF";
+    ((r.sumInsured && r.sumInsured.values) || []).forEach(function (v) { si.push(plain(v)); });
+    if (oneOf && !si.length) oneOf = false;
+    var allowed = {};
+    if (f) (f.allowedRelations || []).forEach(function (a) { if (a && a.code) allowed[a.code] = { code: a.code, group: a.group || null, maxAge: intOrNull(a, "maxAge") }; });
+    var rules = {};
+    (n.relationRules || []).forEach(function (x) {
+      if (x && x.relationCode) rules[x.relationCode] = { minAge: intOrNull(x, "minAge"), maxAge: intOrNull(x, "maxAge"), ageDifference: intOrNull(x, "ageDifference"),
+        differenceFrom: x.differenceFromRelation || null, maxTwins: intOrNull(x, "maxTwins") };
+    });
+    var maxMembers = typeof p.maxMembers === "number" ? p.maxMembers : Infinity;
+    if (f && typeof f.maxMembers === "number") maxMembers = Math.min(maxMembers, f.maxMembers);
+    if (maxMembers <= 0) maxMembers = Infinity;
+    var spec = {
+      policyId: p.id || 0, policyNumber: p.number || null, start: start, end: end, maxMembers: maxMembers, proRata: p.proRata || null,
+      premiumType: r.premiumType || null, raterClass: r.raterClass || null, siSubtype: r.suminsuredSubtype || null, raterType: r.raterType || null,
+      dimensions: r.dimensions || [], grades: r.grades ? r.grades.map(String) : [], designations: r.designations ? r.designations.map(String) : [],
+      siOneOf: oneOf, siValues: si, hasFamily: !!f, allowed: allowed, maxChildren: f ? intOrNull(f, "maxChildren") : null,
+      maxParents: f ? intOrNull(f, "maxParents") : null, includeParents: !!(f && f.includeParents), includeParentsInLaw: !!(f && f.includeParentsInLaw),
+      ageMin: f ? intOrNull(f, "ageMin") : null, ageMax: f ? intOrNull(f, "ageMax") : null, rules: rules,
+      needsGrade: !!s.needsGrade, needsDesignation: !!s.needsDesignation, needsFlexPlan: !!s.needsFlexPlan, gaps: (n.gaps || []).map(String)
+    };
+    return spec;
+  }
+  function salaryBased(spec) { return !!(spec.siSubtype && spec.siSubtype.indexOf("SALARY") >= 0); }
+  function noRule(spec) { return [spec.premiumType, spec.siSubtype, spec.raterType].some(function (v) { return v && v.indexOf("NO_RULE") >= 0; }); }
+  function covers(spec, code) { return code === "SELF" || Object.prototype.hasOwnProperty.call(spec.allowed, code); }
+  function minAgeFor(spec, code) { var r = spec.rules[code]; return r ? r.minAge : null; }
+  function maxAgeFor(spec, code) {
+    var r = spec.rules[code];
+    if (r && r.maxAge != null) return r.maxAge;
+    var a = spec.allowed[code];
+    return a ? a.maxAge : null;
+  }
+  function maxTwinsFor(spec, code) { var r = spec.rules[code]; return !r || r.maxTwins == null ? 1 : Math.max(1, r.maxTwins); }
+
+  // ── rules shared by generator and validator ───────────────────────────────────────────────────────────────
+  var ADULT_AGE = 18, MIN_PARENT_CHILD_YEARS = 18;
+  var ADULT_GROUPS = { SELF: 1, SPOUSE: 1, PARENT: 1, PARENT_IN_LAW: 1 };
+  function fallbackGroup(code) {
+    if (/^SON|^DAUGHTER|_CHILD$/.test(code)) return "CHILD";
+    if (/_IN_LAW$/.test(code)) return "PARENT_IN_LAW";
+    if (["SPOUSE", "HUSBAND", "WIFE", "DOMESTIC_PARTNER"].indexOf(code) >= 0) return "SPOUSE";
+    if (code.indexOf("FATHER") >= 0 || code.indexOf("MOTHER") >= 0) return "PARENT";
+    return "OTHER";
+  }
+  function groupOf(code, spec) {
+    if (code === "SELF") return "SELF";
+    var a = spec.allowed[code];
+    return a && a.group ? a.group : fallbackGroup(code);
+  }
+  function gapOk(spec, code, age, others) {
+    var r = spec.rules[code];
+    if (!r || r.ageDifference == null) return true;
+    var wanted = r.differenceFrom === "SELF" ? "SELF" : "SPOUSE";
+    for (var i = 0; i < others.length; i++) if (others[i].group === wanted && Math.abs(others[i].age - age) < r.ageDifference) return false;
+    return true;
+  }
+  function ageWindow(spec, code, group, dLo, dHi) {
+    var lo = dLo, hi = dHi, mn = minAgeFor(spec, code), mx = maxAgeFor(spec, code);
+    if (mn != null) lo = Math.max(lo, mn); else if (ADULT_GROUPS[group]) lo = Math.max(lo, ADULT_AGE);
+    if (mx != null) hi = Math.min(hi, mx);
+    if (spec.ageMin != null) lo = Math.max(lo, spec.ageMin);
+    if (spec.ageMax != null) hi = Math.min(hi, spec.ageMax);
+    return [lo, hi];
+  }
+
+  // ── generation ────────────────────────────────────────────────────────────────────────────────────────────
+  var MALE = ["Aarav", "Vivaan", "Aditya", "Vihaan", "Arjun", "Sai", "Reyansh", "Krishna", "Ishaan", "Rohan", "Karan", "Nikhil", "Rahul", "Amit", "Sandeep", "Vikram", "Ankit", "Deepak", "Manoj", "Suresh", "Rajesh", "Anil", "Sunil", "Ashok", "Prakash", "Nitesh", "Rakesh", "Vijay", "Manish"];
+  var FEMALE = ["Priya", "Ananya", "Diya", "Saanvi", "Aadhya", "Ishita", "Kavya", "Riya", "Neha", "Pooja", "Sneha", "Anjali", "Divya", "Meera", "Shreya", "Nisha", "Swati", "Kavita", "Rekha", "Sunita", "Aisha", "Zoya", "Radhika", "Bhavna", "Preeti", "Simran", "Tanvi", "Vidya", "Komal"];
+  var LAST = ["Sharma", "Verma", "Gupta", "Iyer", "Nair", "Menon", "Reddy", "Rao", "Naidu", "Pillai", "Khan", "Ahmed", "Sheikh", "Patel", "Shah", "Mehta", "Desai", "Joshi", "Kulkarni", "Deshmukh", "Chavan", "Pawar", "Jadhav", "More", "Bhosale", "Singh", "Kaur", "Chauhan", "Rathore", "Yadav", "Mishra", "Tiwari", "Pandey", "Dubey", "Trivedi", "Bose", "Banerjee", "Chatterjee", "Mukherjee", "Sen", "Das", "Roy", "Ghosh", "Kapoor", "Malhotra", "Chopra", "Bhatia", "Arora", "Sethi", "Anand"];
+  var STATE_CITY = [["Maharashtra", "Mumbai"], ["Maharashtra", "Pune"], ["Karnataka", "Bengaluru"], ["Tamil Nadu", "Chennai"], ["Delhi", "New Delhi"], ["Gujarat", "Ahmedabad"], ["Telangana", "Hyderabad"], ["West Bengal", "Kolkata"], ["Haryana", "Gurugram"], ["Kerala", "Kochi"]];
+  var SONS = ["SON", "SON_II", "SON_III", "SON_IV"], DAUGHTERS = ["DAUGHTER", "DAUGHTER_II", "DAUGHTER_III"];
+  var DEFAULT_SI = "500000", DOB_MARGIN_DAYS = 30;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function makeRnd(seed) {
+    var f = mulberry32(seed == null ? (Date.now() ^ (Math.random() * 4294967296)) : seed);
+    return { next: f, int: function (n) { return Math.floor(f() * n); }, bool: function () { return f() < 0.5; }, pct: function (p) { return Math.floor(f() * 100) < p; } };
+  }
+
+  function defaultOptions(n) {
+    return { families: n || 10, spousePct: 80, childPct: 60, twinPct: 10, parentPct: 20, midTermPct: 30, fillOptional: false, includePremiums: false,
+      effectiveDate: null, seed: null, sumInsured: null, flexPlan: null, employeePremium: null, employerPremium: null };
+  }
+  function layout(spec, o) {
+    var want = { emp_code: 1, emp_first: 1, emp_last: 1, emp_gender: 1, emp_dob: 1, emp_doj: 1, emp_email: 1, emp_mobile: 1, relation: 1, mem_first: 1, mem_last: 1, mem_gender: 1, mem_dob: 1, dom: 1, eff: 1, si: 1 };
+    if (spec.needsGrade) want.grade = 1;
+    if (spec.needsDesignation) want.designation = 1;
+    if (salaryBased(spec)) want.salary = 1;
+    if (spec.needsFlexPlan) want.flex = 1;
+    if (o.fillOptional) { want.state = 1; want.city = 1; }
+    if (o.includePremiums || noRule(spec)) { want.emp_prem = 1; want.er_prem = 1; }
+    return ALL.filter(function (c) { return want[c.id]; });
+  }
+  function Unprocessable(message, details) { var e = new Error(message); e.unprocessable = true; e.details = details; return e; }
+  function preflight(spec) {
+    var problems = spec.gaps.slice();
+    if (spec.needsGrade && !spec.grades.length) problems.push("The premium type needs a grade but the rate card lists none");
+    if (spec.needsDesignation && !spec.designations.length) problems.push("The premium type needs a designation but the rate card lists none");
+    var w = ageWindow(spec, "SELF", "SELF", ADULT_AGE, 60);
+    if (w[0] > w[1]) problems.push("The policy's age rules leave no valid employee age (" + w[0] + ".." + w[1] + ")");
+    if (problems.length) throw Unprocessable("The policy's sheet-spec cannot produce a valid sheet yet", problems);
+  }
+
+  function generateAdd(spec, o, ids, todayIn) {
+    var today = toDate(todayIn);
+    if (!(o.families >= 1)) throw new Error("families must be at least 1");
+    [o.spousePct, o.childPct, o.twinPct, o.parentPct, o.midTermPct].forEach(function (p) { if (!(p >= 0 && p <= 100)) throw new Error("percentages must be between 0 and 100"); });
+    var effFixed = o.effectiveDate ? toDate(o.effectiveDate) : null;
+    if (o.effectiveDate && !effFixed) throw new Error("effectiveDate must be dd-MM-yyyy or yyyy-MM-dd");
+    if (effFixed && (effFixed < spec.start || effFixed > spec.end)) throw new Error("effectiveDate must be inside the policy period " + iso(spec.start) + " .. " + iso(spec.end));
+    preflight(spec);
+    var rnd = makeRnd(o.seed), warned = {}, warnOrder = [];
+    function warn(m) { if (!(m in warned)) { warned[m] = 0; warnOrder.push(m); } warned[m]++; }
+    function pick(a) { return a[rnd.int(a.length)]; }
+    var cols = layout(spec, o), has = {};
+    cols.forEach(function (c) { has[c.id] = 1; });
+
+    function dobForAge(age) {
+      var lo = addDays(addYears(today, -(age + 1)), 1), hi = minD(addYears(today, -age), addDays(today, -1));
+      return addDays(lo, rnd.int(diffDays(lo, hi) + 1));
+    }
+    function effectiveDate() {
+      if (effFixed) return effFixed;
+      if (!rnd.pct(o.midTermPct)) return spec.start;
+      var hi = minD(spec.end, maxD(spec.start, today));
+      return addDays(spec.start, rnd.int(diffDays(spec.start, hi) + 1));
+    }
+    function spouseCode(male) { var sp = male ? "HUSBAND" : "WIFE"; return covers(spec, sp) ? sp : covers(spec, "SPOUSE") ? "SPOUSE" : null; }
+    function allowedPrefix(seq) { var n = 0; while (n < seq.length && covers(spec, seq[n])) n++; return n; }
+    function sumInsured() { return spec.siOneOf ? spec.siValues[rnd.int(spec.siValues.length)] : (blank(o.sumInsured) ? DEFAULT_SI : String(o.sumInsured).trim()); }
+
+    function family(index) {
+      var code = ids.prefix + pad(ids.first + index, 6);
+      var eff = effectiveDate(), members = [], people = [], cutoff = minD(eff, today);
+      var male = rnd.bool();
+      var w = ageWindow(spec, "SELF", "SELF", ADULT_AGE, 60);
+      var span = Math.max(0, Math.floor(diffDays(eff, today) / 365.25)) + 1;
+      var hi = Math.max(w[0], w[1] - span), selfAge = w[0] + rnd.int(hi - w[0] + 1);
+      var selfDob = minD(dobForAge(selfAge), addDays(addYears(cutoff, -ADULT_AGE), -DOB_MARGIN_DAYS));
+      var last = pick(LAST);
+      var self = { code: "SELF", group: "SELF", male: male, first: pick(male ? MALE : FEMALE), last: last, dob: selfDob, self: true };
+      members.push(self);
+      var selfAgeNow = ageOn(selfDob, today);
+      people.push({ code: "SELF", group: "SELF", age: selfAgeNow });
+      var room = spec.maxMembers - 1, spouse = null, dom = null;
+
+      if (room > 0 && spec.hasFamily && rnd.pct(o.spousePct)) {
+        var sMale = !male, sc = spouseCode(sMale);
+        if (sc) {
+          var sw = ageWindow(spec, sc, "SPOUSE", ADULT_AGE, 70), domHi = minD(eff, addDays(today, -1));
+          for (var tries = 0; tries < 40 && !spouse; tries++) {
+            var lo = Math.max(sw[0], selfAgeNow - 8), hh = Math.min(sw[1], selfAgeNow + 8);
+            if (lo > hh) { lo = sw[0]; hh = sw[1]; }
+            if (lo > hh) break;
+            var a = lo + rnd.int(hh - lo + 1), dob = dobForAge(a);
+            var domLo = addDays(maxD(addYears(selfDob, ADULT_AGE), addYears(dob, ADULT_AGE)), 1);
+            if (ageOn(dob, today) !== a || domLo > domHi || !gapOk(spec, sc, a, people)) continue;
+            spouse = { code: sc, group: "SPOUSE", male: sMale, first: pick(sMale ? MALE : FEMALE), last: rnd.int(4) === 0 ? pick(LAST) : last, dob: dob, self: false };
+            dom = addDays(domLo, rnd.int(diffDays(domLo, domHi) + 1));
+          }
+          if (!spouse) warn("Spouse skipped: no age satisfies the policy's rules for " + sc);
+        } else warn("Spouse skipped: the policy does not cover a spouse relation");
+      }
+      if (spouse) { members.push(spouse); people.push({ code: spouse.code, group: "SPOUSE", age: ageOn(spouse.dob, today) }); room--; }
+
+      var kids = children(people, room, last);
+      kids.forEach(function (k) { members.push(k); });
+      room -= kids.length;
+      if (room > 0 && spec.hasFamily && rnd.pct(o.parentPct)) parents(people, room, spouse, last).forEach(function (p) { members.push(p); });
+      return rows(members, spouse, dom, code, index, eff);
+    }
+
+    function childAge(genders, n, people, parentAge) {
+      var codes = [];
+      for (var k = 0; k < n; k++) (genders[k] ? SONS : DAUGHTERS).filter(function (c) { return covers(spec, c); }).forEach(function (c) { codes.push(c); });
+      var lo = 0, hi = 25;
+      codes.forEach(function (c) { var w = ageWindow(spec, c, "CHILD", 0, 25); lo = Math.max(lo, w[0]); hi = Math.min(hi, w[1]); });
+      hi = Math.min(hi, parentAge - MIN_PARENT_CHILD_YEARS);
+      var ok = [];
+      for (var a = lo; a <= hi; a++) { if (codes.every(function (c) { return gapOk(spec, c, a, people); })) ok.push(a); }
+      return ok.length ? ok[rnd.int(ok.length)] : null;
+    }
+
+    function children(people, room, last) {
+      var out = [], sons = allowedPrefix(SONS), daughters = allowedPrefix(DAUGHTERS);
+      var cap = Math.min(spec.maxChildren == null ? 4 : spec.maxChildren, sons + daughters, room);
+      if (cap < 1 || !spec.hasFamily || !rnd.pct(o.childPct)) return out;
+      var want = Math.min(cap, rnd.int(100) < 50 ? 1 : rnd.int(100) < 70 ? 2 : 3);
+      var usedSons = 0, usedDaughters = 0, parentAge = Math.min.apply(null, people.map(function (p) { return p.age; }));
+      while (out.length < want) {
+        var twin = want - out.length >= 2 && rnd.pct(o.twinPct), need = twin ? 2 : 1, genders = [], s = usedSons, d = usedDaughters;
+        for (var k = 0; k < need; k++) {
+          var canSon = s < sons, canDaughter = d < daughters;
+          if (!canSon && !canDaughter) { need = k; break; }
+          genders[k] = canSon && (!canDaughter || rnd.bool());
+          if (genders[k]) s++; else d++;
+        }
+        if (need === 0) break;
+        var age = childAge(genders, need, people, parentAge);
+        if (age == null) { warn("Children skipped: no age satisfies the policy's child rules"); break; }
+        var dob = dobForAge(age);
+        for (var j = 0; j < need; j++) out.push({ code: null, group: "CHILD", male: genders[j], first: pick(genders[j] ? MALE : FEMALE), last: last, dob: dob, self: false });
+        usedSons = s; usedDaughters = d;
+      }
+      return assignChildCodes(out);
+    }
+
+    function assignChildCodes(kids) {
+      var sorted = kids.map(function (k, i) { return { k: k, i: i }; }).sort(function (a, b) { return a.k.dob - b.k.dob || a.i - b.i; }).map(function (x) { return x.k; });
+      var s = 0, d = 0, out = sorted.map(function (m) {
+        var c = m.male ? SONS[s++] : DAUGHTERS[d++];
+        return { code: c, group: "CHILD", male: m.male, first: m.first, last: m.last, dob: m.dob, self: false };
+      });
+      var byDob = {}, order = [];
+      out.forEach(function (m) { var key = m.dob.getTime(); if (!byDob[key]) { byDob[key] = []; order.push(key); } byDob[key].push(m); });
+      order.forEach(function (key) {
+        var g = byDob[key], limit = Math.min.apply(null, g.map(function (m) { return maxTwinsFor(spec, m.code); }));
+        for (var i = g.length - 1; i >= limit; i--) { out.splice(out.indexOf(g[i]), 1); warn("Twin dropped: the policy's max twins is " + limit); }
+      });
+      return out;
+    }
+
+    function parents(people, room, spouse, last) {
+      var parentsOk = spec.includeParents && (covers(spec, "FATHER") || covers(spec, "MOTHER"));
+      var inLawsOk = spec.includeParentsInLaw && spouse && (covers(spec, "FATHER_IN_LAW") || covers(spec, "MOTHER_IN_LAW"));
+      if (!parentsOk && !inLawsOk) return [];
+      var inLaws = inLawsOk && (!parentsOk || rnd.bool());
+      var codes = (inLaws ? ["FATHER_IN_LAW", "MOTHER_IN_LAW"] : ["FATHER", "MOTHER"]).filter(function (c) { return covers(spec, c); });
+      var cap = Math.min(codes.length, spec.maxParents == null ? 2 : spec.maxParents, room);
+      if (cap < 1) return [];
+      var n = rnd.bool() ? Math.min(2, cap) : 1, chosen = codes.slice();
+      for (var i = chosen.length - 1; i > 0; i--) { var j = rnd.int(i + 1), t = chosen[i]; chosen[i] = chosen[j]; chosen[j] = t; }
+      chosen = chosen.slice(0, n);
+      var anchorAge = inLaws ? ageOn(spouse.dob, today) : people[0].age, group = inLaws ? "PARENT_IN_LAW" : "PARENT";
+      var out = [], lastName = inLaws ? pick(LAST) : last, placed = people.slice();
+      chosen.forEach(function (c) {
+        var male = c.indexOf("FATHER") === 0, w = ageWindow(spec, c, group, ADULT_AGE, 80);
+        var lo = Math.max(w[0], anchorAge + MIN_PARENT_CHILD_YEARS), hi = Math.min(w[1], anchorAge + 35), ok = [];
+        for (var a = lo; a <= hi; a++) if (gapOk(spec, c, a, placed)) ok.push(a);
+        if (!ok.length) { warn("Parent skipped: no age satisfies the policy's rules for " + c); return; }
+        var age = ok[rnd.int(ok.length)];
+        out.push({ code: c, group: group, male: male, first: pick(male ? MALE : FEMALE), last: lastName, dob: dobForAge(age), self: false });
+        placed.push({ code: c, group: group, age: age });
+      });
+      return out;
+    }
+
+    function rows(members, spouse, dom, code, index, eff) {
+      var self = members[0], si = sumInsured();
+      var grade = spec.needsGrade ? pick(spec.grades) : null, desig = spec.needsDesignation ? pick(spec.designations) : null;
+      var sc = STATE_CITY[rnd.int(STATE_CITY.length)];
+      var dojLo = addDays(addYears(self.dob, ADULT_AGE), 1), dojHi = minD(eff, today);
+      var doj = dojHi < dojLo ? dojLo : addDays(dojLo, rnd.int(Math.min(diffDays(dojLo, dojHi) + 1, 365 * 15)));
+      return members.map(function (m) {
+        var r = { emp_code: code, relation: m.code, eff: fmt(eff), si: si };
+        if (m.self) {
+          r.emp_first = m.first; r.emp_last = m.last; r.emp_gender = m.male ? "Male" : "Female"; r.emp_dob = fmt(m.dob); r.emp_doj = fmt(doj);
+          r.emp_email = email(m, index); r.emp_mobile = mobile(index);
+          if (grade != null) r.grade = grade;
+          if (desig != null) r.designation = desig;
+          if (has.salary) r.salary = String(300000 + 10000 * rnd.int(371));
+          if (has.state) { r.state = sc[0]; r.city = sc[1]; }
+          if (spouse) r.dom = fmt(dom);
+        } else {
+          r.mem_first = m.first; r.mem_last = m.last; r.mem_gender = m.male ? "Male" : "Female"; r.mem_dob = fmt(m.dob);
+          if (m === spouse) r.dom = fmt(dom);
+        }
+        if (has.flex && !blank(o.flexPlan)) r.flex = o.flexPlan;
+        if (has.emp_prem) { r.emp_prem = blank(o.employeePremium) ? "12000" : o.employeePremium; r.er_prem = blank(o.employerPremium) ? "8000" : o.employerPremium; }
+        return r;
+      });
+    }
+    function email(m, index) {
+      var base = (m.first + "." + m.last).toLowerCase().replace(/[^a-z.]/g, "");
+      return base + "." + (ids.prefix + pad(ids.first + index, 6)).toLowerCase() + (ids.tag ? "." + ids.tag : "") + "@b" + ids.brokerId + ".ensuretech.test";
+    }
+    function mobile(index) { return "9" + pad(((ids.brokerId % 90) * 10000000 + ids.first + index) % 1000000000, 9); }
+
+    var out = [];
+    for (var i = 0; i < o.families; i++) family(i).forEach(function (r) { out.push(r); });
+    if (!spec.siOneOf && blank(o.sumInsured)) warn("The policy accepts any sum insured; used " + DEFAULT_SI + " (set sumInsured to change)");
+    if (spec.needsFlexPlan && blank(o.flexPlan)) warn("Flex Plan left blank: the sheet-spec does not list the plans (set flexPlan)");
+    var warnings = warnOrder.map(function (m) { return warned[m] > 1 ? m + " (" + warned[m] + " families)" : m; });
+    return { operation: "ADD", columns: cols, rows: out, warnings: warnings };
+  }
+
+  // ── REMOVE / UPDATE from earlier rows ─────────────────────────────────────────────────────────────────────
+  function families(source) {
+    var by = {}, order = [];
+    source.forEach(function (raw) {
+      var r = {};
+      Object.keys(raw).forEach(function (h) { var id = idForHeader(h); if (id) r[id] = raw[h] == null ? "" : String(raw[h]).trim(); });
+      var code = r.emp_code || "";
+      if (!code || !r.relation) return;
+      r.relation = r.relation.toUpperCase();
+      if (!by[code]) { by[code] = { code: code, rows: [] }; order.push(code); }
+      by[code].rows.push(r);
+    });
+    if (!order.length) throw new Error("The source sheet has no rows with an Employee Code and a Relationship");
+    return order.map(function (c) { return by[c]; });
+  }
+  function shuffle(a, rnd) { for (var i = a.length - 1; i > 0; i--) { var j = rnd.int(i + 1), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function changeDate(spec, row, today, rnd) {
+    var joined = parseDate(row.eff);
+    var lo = !joined || joined < spec.start ? spec.start : joined;
+    if (lo > spec.end) return spec.end;
+    var hi = spec.end < today ? spec.end : (today < lo ? lo : today);
+    return addDays(lo, rnd.int(diffDays(lo, hi) + 1));
+  }
+  function deriveRemove(spec, source, count, mode, seed, todayIn) {
+    var today = toDate(todayIn), rnd = makeRnd(seed);
+    if (!(count >= 1)) throw new Error("families must be at least 1");
+    var all = shuffle(families(source), rnd), keep = { emp_code: 1, emp_first: 1, emp_last: 1, relation: 1, mem_first: 1, mem_last: 1, eff: 1 };
+    var cols = ALL.filter(function (c) { return keep[c.id]; }), out = [], taken = 0;
+    for (var i = 0; i < all.length && taken < count; i++) {
+      var f = all[i], deps = f.rows.filter(function (r) { return r.relation !== "SELF"; });
+      var whole = mode === "FAMILY" || (mode === "MIX" && (!deps.length || rnd.bool()));
+      if (!whole && !deps.length) continue;
+      var chosen = whole ? f.rows : [deps[rnd.int(deps.length)]], date = changeDate(spec, f.rows[0], today, rnd);
+      chosen.forEach(function (s) {
+        var r = {};
+        cols.forEach(function (c) { if (s[c.id] !== undefined) r[c.id] = s[c.id]; });
+        r.eff = fmt(date); out.push(r);
+      });
+      taken++;
+    }
+    return { operation: "REMOVE", columns: cols, rows: out, warnings: taken < count ? ["Only " + taken + " of the " + count + " requested families could be used"] : [] };
+  }
+  var NAMES = ["Aarav", "Vivaan", "Arjun", "Rohan", "Priya", "Ananya", "Meera", "Shreya", "Neha", "Kavya", "Rahul", "Amit", "Sneha", "Divya"];
+  function deriveUpdate(spec, source, count, seed, todayIn) {
+    var today = toDate(todayIn), rnd = makeRnd(seed);
+    if (!(count >= 1)) throw new Error("count must be at least 1");
+    var all = shuffle(families(source), rnd), out = [], made = 0;
+    function row(code, rel, eff, col, v) { var r = { emp_code: code, relation: rel }; r[col] = v; r.eff = eff; return r; }
+    for (var i = 0; i < all.length && made < count; i++) {
+      var f = all[i], self = f.rows.filter(function (r) { return r.relation === "SELF"; })[0] || null, kinds = ["NAME"];
+      if (self) kinds.push("MOBILE", "EMAIL");
+      if (spec.siOneOf && spec.siValues.length > 1) kinds.push("SUM_INSURED");
+      if (self && spec.needsGrade && spec.grades.length > 1) kinds.push("GRADE");
+      if (self && spec.needsDesignation && spec.designations.length > 1) kinds.push("DESIGNATION");
+      if (self && salaryBased(spec)) kinds.push("SALARY");
+      var kind = kinds[rnd.int(kinds.length)], eff = fmt(changeDate(spec, f.rows[0], today, rnd));
+      if (kind === "NAME") {
+        var m = f.rows[rnd.int(f.rows.length)], s = m.relation === "SELF", col = s ? "emp_first" : "mem_first", old = m[col] || "", fresh;
+        do { fresh = NAMES[rnd.int(NAMES.length)]; } while (fresh === old);
+        out.push(row(f.code, m.relation, eff, col, fresh));
+      } else if (kind === "SUM_INSURED") {
+        var oldSi = f.rows[0].si || "", others = spec.siValues.filter(function (v) { return v !== oldSi; }), fs = others[rnd.int(others.length)];
+        f.rows.forEach(function (m2) { out.push(row(f.code, m2.relation, eff, "si", fs)); });
+      } else if (kind === "GRADE" || kind === "DESIGNATION") {
+        var g = kind === "GRADE", pool = g ? spec.grades : spec.designations, c2 = g ? "grade" : "designation", o2 = self[c2] || "";
+        var oth = pool.filter(function (v) { return v !== o2; });
+        out.push(row(f.code, "SELF", eff, c2, oth[rnd.int(oth.length)]));
+      } else if (kind === "SALARY") out.push(row(f.code, "SELF", eff, "salary", String(300000 + 10000 * rnd.int(371))));
+      else if (kind === "MOBILE") out.push(row(f.code, "SELF", eff, "emp_mobile", "9" + pad(100000000 + rnd.int(800000000), 9)));
+      else {
+        var oe = self.emp_email || "", at = oe.indexOf("@");
+        out.push(row(f.code, "SELF", eff, "emp_email", at > 0 ? oe.substring(0, at) + ".u" + (1 + rnd.int(99)) + oe.substring(at) : f.code.toLowerCase() + ".u@ensuretech.test"));
+      }
+      made++;
+    }
+    var changed = { emp_code: 1, relation: 1, eff: 1 };
+    out.forEach(function (r) { Object.keys(r).forEach(function (k) { changed[k] = 1; }); });
+    return { operation: "UPDATE", columns: ALL.filter(function (c) { return changed[c.id]; }), rows: out,
+      warnings: made < count ? ["Only " + made + " of the " + count + " requested updates could be made (one per family)"] : [] };
+  }
+
+  // ── validation (same rules as the service's SheetValidator) ───────────────────────────────────────────────
+  function number(s) { if (s == null) return null; var t = String(s).trim().replace(/,/g, ""); return /^-?\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null; }
+  function required(op) {
+    return op === "ADD" ? ["emp_code", "relation", "emp_dob", "mem_dob", "si", "eff"] : (op === "UPDATE" || op === "REMOVE") ? ["emp_code", "relation", "eff"] : [];
+  }
+  function validate(spec, op, rawRows, todayIn) {
+    var today = toDate(todayIn), issues = [], MAX = 1000;
+    function add(row, code, msg) { if (issues.length < MAX) issues.push({ row: row, code: code, message: msg }); }
+    var present = {}, rows = rawRows.map(function (raw) {
+      var r = {};
+      Object.keys(raw).forEach(function (h) { var id = idForHeader(h); if (id) { r[id] = raw[h] == null ? "" : String(raw[h]).trim(); present[id] = 1; } });
+      return r;
+    });
+    if (!rows.length) add(0, "EMPTY_SHEET", "The sheet has no data rows");
+    required(op).forEach(function (need) { if (!present[need]) add(0, "MISSING_COLUMN", "Column '" + headerOf(need) + "' is missing"); });
+    function g(r, k) { return r[k] === undefined ? "" : r[k]; }
+
+    function checkCommon(n, r, self, adding) {
+      var eff = g(r, "eff"), e = parseDate(eff);
+      if (!eff) add(n, "EFFECTIVE_DATE_MISSING", "Effective Date is blank");
+      else if (!e) add(n, "EFFECTIVE_DATE_UNREADABLE", "Effective Date '" + eff + "' is not dd-MM-yyyy");
+      else if (e < spec.start || e > spec.end) add(n, "EFFECTIVE_DATE_OUTSIDE_POLICY", "Effective Date " + eff + " is outside the policy period " + iso(spec.start) + " .. " + iso(spec.end));
+      var si = g(r, "si");
+      if (si) {
+        var v = number(si);
+        if (v == null || v <= 0) add(n, "SUM_INSURED_INVALID", "Sum Insured '" + si + "' is not a positive number");
+        else if (spec.siOneOf && !spec.siValues.some(function (x) { return parseFloat(x) === v; })) add(n, "SUM_INSURED_NOT_OFFERED", "Sum Insured " + si + " is not one of " + spec.siValues.join(","));
+      }
+      if (self) {
+        choice(n, r, "grade", spec.needsGrade, spec.grades, "grade", adding);
+        choice(n, r, "designation", spec.needsDesignation, spec.designations, "designation", adding);
+      }
+    }
+    function choice(n, r, col, needed, allowed, what, adding) {
+      var v = g(r, col);
+      if (!v) { if (needed && adding) add(n, what.toUpperCase() + "_MISSING", "The policy rates by " + what + " but the employee row has none"); }
+      else if (allowed.length && allowed.indexOf(v) < 0) add(n, what.toUpperCase() + "_UNKNOWN", "'" + v + "' is not a " + what + " on the rate card");
+    }
+
+    if (op === "ADD") {
+      var fams = {}, famOrder = [], closed = {}, emails = {}, current = null;
+      rows.forEach(function (r, i) {
+        var n = i + 1, code = g(r, "emp_code");
+        if (!code) { add(n, "EMPLOYEE_CODE_MISSING", "Employee Code is blank"); return; }
+        if (code !== current) {
+          if (current !== null) closed[current] = 1;
+          if (closed[code]) add(n, "DUPLICATE_EMPLOYEE_CODE", "Employee code " + code + " appears in two separate blocks");
+          current = code;
+        }
+        var rel = g(r, "relation").toUpperCase(), self = rel === "SELF";
+        if (!rel) { add(n, "RELATION_MISSING", "Relationship is blank"); return; }
+        if (!covers(spec, rel)) add(n, "RELATION_NOT_COVERED", rel + " is not covered by this policy");
+        var first = g(r, self ? "emp_first" : "mem_first"), dobText = g(r, self ? "emp_dob" : "mem_dob"), gender = g(r, self ? "emp_gender" : "mem_gender");
+        if (!first) add(n, "NAME_MISSING", "First name is blank");
+        if (gender && ["male", "female", "m", "f"].indexOf(gender.toLowerCase()) < 0) add(n, "GENDER_INVALID", "Gender '" + gender + "' is not Male or Female");
+        var dob = parseDate(dobText);
+        if (!dobText) add(n, "DOB_MISSING", "Date of birth is blank");
+        else if (!dob) add(n, "DOB_UNREADABLE", "Date of birth '" + dobText + "' is not dd-MM-yyyy");
+        else if (dob >= today) add(n, "DOB_IN_FUTURE", "Date of birth is not in the past");
+        if (!fams[code]) { fams[code] = []; famOrder.push(code); }
+        fams[code].push({ row: n, v: r, relation: rel, self: self, dob: dob });
+        checkCommon(n, r, self, true);
+        if (self) { var em = g(r, "emp_email").toLowerCase(); if (em) { if (emails[em]) add(n, "DUPLICATE_EMAIL", "Email " + em + " is used by two employees"); emails[em] = 1; } }
+      });
+      famOrder.forEach(function (code) { checkFamily(code, fams[code]); });
+    } else if (op === "UPDATE" || op === "REMOVE") {
+      var seen = {};
+      rows.forEach(function (r, i) {
+        var n = i + 1, code = g(r, "emp_code"), rel = g(r, "relation").toUpperCase();
+        if (!code || !rel) { add(n, "KEY_MISSING", "Employee Code and Relationship identify the member and are both required"); return; }
+        if (!covers(spec, rel)) add(n, "RELATION_NOT_COVERED", rel + " is not covered by this policy");
+        if (seen[code + "|" + rel]) add(n, "DUPLICATE_MEMBER", code + " " + rel + " appears twice");
+        seen[code + "|" + rel] = 1;
+        checkCommon(n, r, rel === "SELF", false);
+        if (op === "UPDATE" && !ALL.some(function (c) { return ["emp_code", "relation", "eff"].indexOf(c.id) < 0 && g(r, c.id) !== ""; })) add(n, "NOTHING_TO_UPDATE", "An UPDATE row must change at least one value");
+      });
+    } else add(0, "UNKNOWN_OPERATION", "Operation must be ADD, UPDATE or REMOVE");
+
+    function checkFamily(code, lines) {
+      var first = lines[0].row, selves = lines.filter(function (l) { return l.self; }).length;
+      if (selves !== 1) add(first, "SELF_COUNT", "Employee " + code + ": exactly one SELF row is required, found " + selves);
+      if (lines.length > spec.maxMembers) add(first, "MAX_MEMBERS_EXCEEDED", code + ": " + lines.length + " members, the policy allows " + spec.maxMembers);
+      var per = {};
+      lines.forEach(function (l) { per[l.relation] = (per[l.relation] || 0) + 1; });
+      Object.keys(per).forEach(function (rel) { if (per[rel] > 1) add(first, "DUPLICATE_RELATION", code + ": " + rel + " appears " + per[rel] + " times"); });
+      var children = 0, parents = 0, inLaws = 0, people = [], byDob = {}, dobOrder = [];
+      lines.forEach(function (l) {
+        if (!l.dob) return;
+        var grp = groupOf(l.relation, spec);
+        people.push({ code: l.relation, group: grp, age: ageOn(l.dob, today) });
+        if (grp === "CHILD") { children++; var k = l.dob.getTime(); if (!byDob[k]) { byDob[k] = []; dobOrder.push(k); } byDob[k].push(l); }
+        if (grp === "PARENT") parents++;
+        if (grp === "PARENT_IN_LAW") inLaws++;
+      });
+      if (spec.maxChildren != null && children > spec.maxChildren) add(first, "MAX_CHILDREN_EXCEEDED", code + ": " + children + " children, the policy allows " + spec.maxChildren);
+      if (spec.maxParents != null && parents + inLaws > spec.maxParents) add(first, "MAX_PARENTS_EXCEEDED", code + ": " + (parents + inLaws) + " parents / in-laws, the policy allows " + spec.maxParents);
+      if (parents > 0 && inLaws > 0) add(first, "PARENTS_AND_IN_LAWS", code + ": parents and parents-in-law cannot both be covered");
+      dobOrder.forEach(function (k) {
+        var same = byDob[k], limit = Math.min.apply(null, same.map(function (l) { return maxTwinsFor(spec, l.relation); }));
+        if (same.length > limit) add(same[0].row, "TWINS_NOT_ALLOWED", code + ": " + same.length + " children share a DOB but the policy allows " + limit);
+      });
+      lines.forEach(function (l) { checkAges(code, l, people); });
+      checkDates(code, lines);
+    }
+    function checkAges(code, l, people) {
+      if (!l.dob) return;
+      var age = ageOn(l.dob, today), rel = l.relation, grp = groupOf(rel, spec), mn = minAgeFor(spec, rel), mx = maxAgeFor(spec, rel);
+      if (mn == null && ADULT_GROUPS[grp] && age < ADULT_AGE) add(l.row, "ADULT_UNDER_18", rel + " must be at least 18, is " + age);
+      if (mn != null && age < mn) add(l.row, "RELATION_AGE_BELOW_MIN", rel + " age " + age + " is below " + mn);
+      if (mx != null && age > mx) add(l.row, "RELATION_AGE_ABOVE_MAX", rel + " age " + age + " is above " + mx);
+      if ((spec.ageMin != null && age < spec.ageMin) || (spec.ageMax != null && age > spec.ageMax)) add(l.row, "AGE_OUT_OF_RANGE", rel + " age " + age + " is outside " + spec.ageMin + ".." + spec.ageMax);
+      var others = people.slice(), idx = -1;
+      for (var i = 0; i < others.length; i++) if (others[i].code === rel && others[i].group === grp && others[i].age === age) { idx = i; break; }
+      if (idx >= 0) others.splice(idx, 1);
+      if (!gapOk(spec, rel, age, others)) add(l.row, "AGE_GAP_TOO_SMALL", code + ": " + rel + " is too close in age to the " + String(spec.rules[rel].differenceFrom).toLowerCase() + " (the policy requires " + spec.rules[rel].ageDifference + " years)");
+    }
+    function checkDates(code, lines) {
+      var self = lines.filter(function (l) { return l.self; })[0] || null, spouse = lines.filter(function (l) { return groupOf(l.relation, spec) === "SPOUSE"; })[0] || null;
+      lines.forEach(function (l) {
+        var domText = g(l.v, "dom");
+        if (domText) {
+          var dom = parseDate(domText);
+          if (!dom) add(l.row, "DOM_UNREADABLE", "Date of Marriage '" + domText + "' is not dd-MM-yyyy");
+          else if (!spouse) add(l.row, "DOM_WITHOUT_SPOUSE", code + ": Date of Marriage given but the family has no spouse");
+          else {
+            if (dom >= today) add(l.row, "DOM_NOT_IN_PAST", "Date of Marriage " + domText + " is not in the past");
+            [self, spouse].forEach(function (p) {
+              if (p && p.dob && dom < addYears(p.dob, ADULT_AGE)) add(l.row, "DOM_UNDER_18", "Date of Marriage " + domText + " is before the " + (p === self ? "employee" : "spouse") + " turned 18");
+            });
+          }
+        }
+        if (l.self) {
+          var dojText = g(l.v, "emp_doj"), doj = parseDate(dojText);
+          if (dojText && !doj) add(l.row, "DOJ_UNREADABLE", "Date of Joining '" + dojText + "' is not dd-MM-yyyy");
+          else if (doj && l.dob && doj < addYears(l.dob, ADULT_AGE)) add(l.row, "DOJ_UNDER_18", "Date of Joining is before the employee turned 18");
+          if (salaryBased(spec)) { var s = number(g(l.v, "salary")); if (s == null || s <= 0) add(l.row, "SALARY_MISSING", "The sum insured is a salary multiple but the employee row has no annual salary"); }
+        }
+        if (noRule(spec)) ["emp_prem", "er_prem"].forEach(function (pc) { var p = number(g(l.v, pc)); if (p == null || p < 0) add(l.row, "PREMIUM_MISSING", "The policy has no rate rule, so " + headerOf(pc) + " must be given on every row"); });
+      });
+    }
+    return issues;
+  }
+
+  // ── output ────────────────────────────────────────────────────────────────────────────────────────────────
+  function byHeader(sheet) {
+    return sheet.rows.map(function (r) {
+      var o = {};
+      sheet.columns.forEach(function (c) { o[c.header] = r[c.id] === undefined ? "" : r[c.id]; });
+      return o;
+    });
+  }
+  function safe(v) { v = v == null ? "" : String(v); return /^[=+\-@\t\r]/.test(v) ? "'" + v : v; }
+  function toCsv(sheet) {
+    function q(v) { return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+    var lines = [sheet.columns.map(function (c) { return q(c.header); }).join(",")];
+    sheet.rows.forEach(function (r) { lines.push(sheet.columns.map(function (c) { return q(safe(r[c.id])); }).join(",")); });
+    return lines.join("\r\n") + "\r\n";
+  }
+  // A minimal .xlsx: an uncompressed ("stored") zip of the five parts Excel needs, every cell an inline string.
+  var CRC_TABLE = (function () { var t = [], c, n, k; for (n = 0; n < 256; n++) { c = n; for (k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(b) { var c = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function utf8(s) { return new TextEncoder().encode(s); }
+  function xmlEsc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ""); }
+  function colName(i) { var s = ""; i++; while (i > 0) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+  function toXlsx(sheet) {
+    var rowsXml = [];
+    function rowXml(n, vals, bold) {
+      return '<row r="' + n + '">' + vals.map(function (v, i) {
+        return '<c r="' + colName(i) + n + '" t="inlineStr"' + (bold ? ' s="1"' : "") + "><is><t xml:space=\"preserve\">" + xmlEsc(safe(v)) + "</t></is></c>";
+      }).join("") + "</row>";
+    }
+    rowsXml.push(rowXml(1, sheet.columns.map(function (c) { return c.header; }), true));
+    sheet.rows.forEach(function (r, i) { rowsXml.push(rowXml(i + 2, sheet.columns.map(function (c) { return r[c.id] === undefined ? "" : r[c.id]; }), false)); });
+    var files = [
+      ["[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+      ["_rels/.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+      ["xl/workbook.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' + sheet.operation + '" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+      ["xl/_rels/workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+      ["xl/styles.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+      ["xl/worksheets/sheet1.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>' + rowsXml.join("") + "</sheetData></worksheet>"]
+    ];
+    var parts = [], central = [], offset = 0;
+    files.forEach(function (f) {
+      var name = utf8(f[0]), data = utf8(f[1]), crc = crc32(data);
+      var h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true); h.setUint16(10, 0, true); h.setUint16(12, 0x21, true);
+      h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+      parts.push(new Uint8Array(h.buffer), name, data);
+      var c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true); c.setUint16(12, 0, true); c.setUint16(14, 0x21, true);
+      c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+      central.push(new Uint8Array(c.buffer), name);
+      offset += 30 + name.length + data.length;
+    });
+    var cdSize = central.reduce(function (n, p) { return n + p.length; }, 0);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+    var all = parts.concat(central, [new Uint8Array(end.buffer)]), total = all.reduce(function (n, p) { return n + p.length; }, 0), out = new Uint8Array(total), pos = 0;
+    all.forEach(function (p) { out.set(p, pos); pos += p.length; });
+    return out;
+  }
+
+  root.EnsureSheetGen = {
+    COLUMNS: ALL, defaultOptions: defaultOptions, parseSpec: parseSpec, layout: layout, preflight: preflight, generateAdd: generateAdd,
+    deriveRemove: deriveRemove, deriveUpdate: deriveUpdate, validate: validate, byHeader: byHeader, toCsv: toCsv, toXlsx: toXlsx, fmt: fmt, iso: iso, parseDate: parseDate
+  };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+</script>
+<script id="app">
+(function () {
+  "use strict";
+  var G = EnsureSheetGen, $ = function (id) { return document.getElementById(id); };
+  var state = { spec: null, op: "ADD", last: null, source: null, token: null };
+
+  function today() { var n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } return null; }
+  function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+  function show(id, on) { $(id).hidden = !on; }
+  function num(id, d) { var v = parseInt($(id).value, 10); return isNaN(v) ? d : v; }
+
+  // tab strips
+  function tabs(rootId, attr, fn) {
+    $(rootId).addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      [].forEach.call($(rootId).querySelectorAll("button"), function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+      fn(b.getAttribute(attr));
+    });
+  }
+  tabs("srcTabs", "data-src", function (s) { ["paste", "service", "sample"].forEach(function (k) { show("src-" + k, k === s); }); });
+  tabs("opTabs", "data-op", function (op) { state.op = op; refreshOp(); });
+
+  function refreshOp() {
+    var add = state.op === "ADD";
+    show("opts-add", add); show("opts-change", !add);
+    show("modeBox", state.op === "REMOVE");
+    $("countLabel").textContent = state.op === "REMOVE" ? "Families to touch" : "Members to update";
+    $("srcNote").textContent = state.source ? "Source: " + state.source.label + " (" + state.source.rows.length + " rows)." : "Generate an ADD sheet first, or load a CSV as the source.";
+    $("go").disabled = !state.spec || (!add && !state.source);
+  }
+
+  function setSpec(raw, msg) {
+    try {
+      state.spec = G.parseSpec(raw);
+    } catch (e) { state.spec = null; $("specMsg").textContent = e.message; $("specMsg").className = "note bad"; show("specFacts", false); show("specGaps", false); refreshOp(); return; }
+    var s = state.spec;
+    $("specMsg").textContent = msg || "Spec loaded."; $("specMsg").className = "note ok";
+    var f = $("specFacts"); f.textContent = "";
+    [["Policy", (s.policyNumber || "#" + s.policyId)], ["Period", G.iso(s.start) + " → " + G.iso(s.end)], ["Premium type", s.premiumType || "—"], ["Rater", s.raterClass || "—"],
+     ["Sum insured", s.siOneOf ? s.siValues.join(", ") : "any value"], ["Grades", s.grades.join(", ") || "—"], ["Designations", s.designations.join(", ") || "—"],
+     ["Relations", Object.keys(s.allowed).join(", ") || (s.hasFamily ? "none" : "employee only")], ["Max members", isFinite(s.maxMembers) ? s.maxMembers : "—"],
+     ["Max children / parents", (s.maxChildren == null ? "—" : s.maxChildren) + " / " + (s.maxParents == null ? "—" : s.maxParents)]].forEach(function (kv) {
+      var d = el("div"); d.appendChild(el("b", kv[0])); d.appendChild(document.createTextNode(kv[1])); f.appendChild(d);
+    });
+    show("specFacts", true);
+    var gl = $("specGaps"); gl.textContent = "";
+    s.gaps.forEach(function (g) { gl.appendChild(el("li", g)); });
+    show("specGaps", s.gaps.length > 0);
+    if (s.gaps.length) { $("specMsg").textContent = "This policy is not ready: generation is blocked until its gaps are filled in."; $("specMsg").className = "note bad"; }
+    refreshOp();
+  }
+
+  $("useSpec").addEventListener("click", function () {
+    try { setSpec(JSON.parse($("specText").value)); } catch (e) { setSpec(null); $("specMsg").textContent = "That is not valid JSON: " + e.message; }
+  });
+  $("specFile").addEventListener("change", function () {
+    var f = this.files[0]; if (!f) return;
+    if (f.size > 2 * 1024 * 1024) { $("specMsg").textContent = "That file is too large for a spec."; $("specMsg").className = "note bad"; return; }
+    var r = new FileReader(); r.onload = function () { $("specText").value = r.result; $("useSpec").click(); }; r.readAsText(f);
+  });
+  $("useSample").addEventListener("click", function () {
+    var t = today(), y = t.getUTCMonth() >= 3 ? t.getUTCFullYear() : t.getUTCFullYear() - 1;
+    var rel = function (id, code, grp, max) { return { id: id, code: code, group: grp, maxAge: max }; };
+    setSpec({ schema: "sheet-spec/v1", policy: { id: 0, number: "SAMPLE", status: "ACTIVE", startDate: y + "-04-01", endDate: (y + 1) + "-03-31", proRata: "DAILY", maxMembers: 6 },
+      rating: { premiumType: "FLAT", raterClass: "FlatRater", dimensions: [], sumInsured: { mode: "ONE_OF", values: [300000, 500000, 1000000] } },
+      family: { allowedRelations: [rel(2, "SPOUSE", "SPOUSE", null), rel(5, "SON", "CHILD", 25), rel(6, "SON_II", "CHILD", 25), rel(9, "DAUGHTER", "CHILD", 25), rel(10, "DAUGHTER_II", "CHILD", 25), rel(12, "FATHER", "PARENT", null), rel(13, "MOTHER", "PARENT", null)],
+        maxMembers: 6, maxChildren: 3, maxParents: 2, includeParents: true, includeParentsInLaw: false, ageMin: 0, ageMax: 80 },
+      relationRules: [{ relationCode: "SON", maxTwins: 2 }, { relationCode: "DAUGHTER", maxTwins: 2 }],
+      sheet: { needsGrade: false, needsDesignation: false, needsFlexPlan: false }, gaps: [] }, "Sample policy loaded (not a real policy).");
+  });
+  $("loadSpec").addEventListener("click", function () {
+    var id = parseInt($("policyId").value, 10), tok = $("token").value.trim();
+    if (!(id > 0) || !tok) { $("specMsg").textContent = "Enter a policy id and your token."; $("specMsg").className = "note bad"; return; }
+    state.token = tok;
+    fetch("/api/v1/broker/sheets/spec?policyId=" + id, { headers: { Authorization: "Bearer " + tok } }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 404 ? "Policy not found." : r.status === 401 || r.status === 403 ? "The token was refused." : "The service answered " + r.status + ".");
+      return r.json();
+    }).then(function (j) { setSpec(j, "Spec loaded from the service for policy " + id + "."); show("goServer", true); refreshServer(); })
+      .catch(function (e) { $("specMsg").textContent = e.message; $("specMsg").className = "note bad"; });
+  });
+  function refreshServer() { $("goServer").disabled = !(state.token && parseInt($("policyId").value, 10) > 0); }
+  $("token").addEventListener("input", function () { state.token = this.value.trim(); refreshServer(); });
+
+  // defaults
+  var pfx = store("sheetgen.prefix");
+  if (!pfx) { pfx = "T" + Math.random().toString(36).replace(/[^a-z]/g, "").slice(0, 3).toUpperCase().padEnd(3, "X"); store("sheetgen.prefix", pfx); }
+  $("prefix").value = pfx;
+  var startNo = parseInt(store("sheetgen.next") || "1", 10);
+  $("startNo").value = isNaN(startNo) ? 1 : startNo;
+
+  function options() {
+    return { families: num("families", 20), spousePct: num("spousePct", 80), childPct: num("childPct", 60), twinPct: num("twinPct", 10), parentPct: num("parentPct", 20),
+      midTermPct: num("midTermPct", 30), fillOptional: $("fillOptional").checked, includePremiums: $("inclPrem").checked, effectiveDate: $("effDate").value.trim() || null,
+      seed: $("seed").value === "" ? null : parseInt($("seed").value, 10), sumInsured: $("siFree").value.trim() || null, flexPlan: $("flex").value.trim() || null,
+      employeePremium: $("empPrem").value.trim() || null, employerPremium: $("erPrem").value.trim() || null };
+  }
+  function runTag() { return Math.random().toString(16).slice(2, 8); }
+
+  $("go").addEventListener("click", function () {
+    try {
+      var sheet, t = today(), seed = $("seed").value === "" ? Math.floor(Math.random() * 2147483647) : parseInt($("seed").value, 10);
+      if (state.op === "ADD") {
+        var o = options(), prefix = ($("prefix").value || "GEN").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) || "GEN", first = Math.max(1, num("startNo", 1));
+        o.seed = seed;
+        sheet = G.generateAdd(state.spec, o, { prefix: prefix, first: first, brokerId: 0, tag: runTag() }, t);
+        store("sheetgen.next", String(first + o.families)); $("startNo").value = first + o.families; store("sheetgen.prefix", prefix);
+        state.source = { label: "the sheet you just generated", rows: G.byHeader(sheet) };
+      } else if (state.op === "REMOVE") sheet = G.deriveRemove(state.spec, state.source.rows, num("count", 10), $("mode").value, seed, t);
+      else sheet = G.deriveUpdate(state.spec, state.source.rows, num("count", 10), seed, t);
+      show_result(sheet, t, seed);
+    } catch (e) { show_error(e); }
+  });
+
+  function show_error(e) {
+    show("s3", true); $("summary").textContent = e.message; $("summary").className = "bad";
+    var w = $("warnings"); w.textContent = ""; (e.details || []).forEach(function (d) { w.appendChild(el("li", d)); }); show("warnings", !!(e.details && e.details.length)); show("issues", false);
+    $("tbl").textContent = ""; state.last = null;
+  }
+
+  function show_result(sheet, t, seed) {
+    state.last = sheet; refreshOp();
+    var issues = G.validate(state.spec, sheet.operation, G.byHeader(sheet), t);
+    show("s3", true);
+    $("summary").className = issues.length ? "bad" : "ok";
+    $("summary").textContent = sheet.operation + ": " + sheet.rows.length + " rows" + (issues.length ? " · " + issues.length + " validation problem(s) — this is a tool defect, please report it" : " · passes the policy checks") + " · seed " + seed;
+    var w = $("warnings"); w.textContent = ""; sheet.warnings.forEach(function (m) { w.appendChild(el("li", m)); }); show("warnings", sheet.warnings.length > 0);
+    var il = $("issues"); il.textContent = ""; issues.slice(0, 20).forEach(function (i) { il.appendChild(el("li", "row " + i.row + " · " + i.code + " · " + i.message)); }); show("issues", issues.length > 0);
+    var tbl = $("tbl"); tbl.textContent = "";
+    var thead = el("thead"), hr = el("tr"); sheet.columns.forEach(function (c) { hr.appendChild(el("th", c.header)); }); thead.appendChild(hr); tbl.appendChild(thead);
+    var tb = el("tbody"); sheet.rows.slice(0, 200).forEach(function (r) { var tr = el("tr"); sheet.columns.forEach(function (c) { tr.appendChild(el("td", r[c.id] === undefined ? "" : r[c.id])); }); tb.appendChild(tr); }); tbl.appendChild(tb);
+  }
+
+  function download(name, type, data) {
+    var url = URL.createObjectURL(new Blob([data], { type: type })), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  function fname(ext) { return (state.last.operation.toLowerCase()) + "-" + ((state.spec && state.spec.policyNumber) || "policy").replace(/[^A-Za-z0-9_-]/g, "") + "-" + G.iso(today()) + "." + ext; }
+  $("dlXlsx").addEventListener("click", function () { if (state.last) download(fname("xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", G.toXlsx(state.last)); });
+  $("dlCsv").addEventListener("click", function () { if (state.last) download(fname("csv"), "text/csv;charset=utf-8", G.toCsv(state.last)); });
+  $("copyJson").addEventListener("click", function () {
+    if (!state.last) return;
+    var text = JSON.stringify(G.byHeader(state.last), null, 1), b = this;
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { b.textContent = "Copied"; }, function () { b.textContent = "Copy failed"; });
+    setTimeout(function () { b.textContent = "Copy JSON"; }, 1500);
+  });
+
+  // minimal RFC 4180 reader for a CSV source
+  function parseCsv(text) {
+    var rows = [], row = [], f = "", q = false, i = 0;
+    text = text.replace(/^﻿/, "");
+    for (; i < text.length; i++) {
+      var c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ",") { row.push(f); f = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); f = ""; if (row.length > 1 || row[0] !== "") rows.push(row); row = []; }
+      else f += c;
+    }
+    if (f !== "" || row.length) { row.push(f); rows.push(row); }
+    if (rows.length < 2) throw new Error("The CSV needs a header row and at least one data row.");
+    var head = rows[0];
+    return rows.slice(1).map(function (r) { var o = {}; head.forEach(function (h, k) { o[h] = r[k] === undefined ? "" : r[k]; }); return o; });
+  }
+  $("srcFile").addEventListener("change", function () {
+    var f = this.files[0]; if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { $("srcNote").textContent = "That file is too large."; return; }
+    var r = new FileReader();
+    r.onload = function () { try { state.source = { label: f.name, rows: parseCsv(r.result) }; } catch (e) { state.source = null; $("srcNote").textContent = e.message; } refreshOp(); };
+    r.readAsText(f);
+  });
+
+  $("goServer").addEventListener("click", function () {
+    var id = parseInt($("policyId").value, 10), o = options(), body = { policyId: id, operation: state.op, codePrefix: ($("prefix").value || "").toUpperCase() || null,
+      seed: o.seed, options: { families: o.families, spousePct: o.spousePct, childPct: o.childPct, twinPct: o.twinPct, parentPct: o.parentPct, midTermPct: o.midTermPct,
+      fillOptional: o.fillOptional, includePremiums: o.includePremiums, effectiveDate: o.effectiveDate, sumInsured: o.sumInsured, flexPlan: o.flexPlan, employeePremium: o.employeePremium, employerPremium: o.employerPremium } };
+    if (state.op !== "ADD") { body.source = state.source && state.source.rows; body.count = num("count", 10); body.removeMode = $("mode").value; }
+    fetch("/api/v1/broker/sheets/generate/file?format=xlsx", { method: "POST", headers: { Authorization: "Bearer " + state.token, "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) {
+        if (r.ok) return r.blob().then(function (b) { download(state.op.toLowerCase() + "-server.xlsx", b.type, b); $("summary").textContent = "Server sheet downloaded."; $("summary").className = "ok"; show("s3", true); });
+        return r.json().then(function (j) { var e = new Error(j.detail || "The service answered " + r.status); e.details = j.details; throw e; }, function () { throw new Error("The service answered " + r.status); });
+      }).catch(show_error);
+  });
+
+  refreshOp();
+})();
+</script>
+</body>
+</html>

@@ -97,6 +97,7 @@ class RelationRulesTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.rating.sumInsured.mode", is("FREE"))).andExpect(jsonPath("$.sheet.needsGrade", is(true)))
                 .andExpect(jsonPath("$.family.allowedRelations[*].code", hasItems("SPOUSE")))
                 .andExpect(jsonPath("$.family.maxChildren", is(3)))
+                .andExpect(jsonPath("$.family.allowedRelations[?(@.code=='SON')].maxAge", contains(25)))     // the relation's own ceiling, for the sheet generator
                 .andExpect(jsonPath("$.relationRules[0].relationCode", is("SON"))).andExpect(jsonPath("$.relationRules[0].maxTwins", is(2)))
                 .andExpect(jsonPath("$.relationRules[0].proRata", is("NONE")))      // the policy forbids pro-rata: the relation cannot opt back in
                 .andExpect(jsonPath("$.gaps", hasSize(0)));
