@@ -1,0 +1,127 @@
+package com.broker.policy.grpc;
+
+import com.broker.policy.api.NotFoundException;
+import com.broker.policy.api.ValidationFailedException;
+import com.broker.policy.domain.Policy;
+import com.broker.policy.domain.PremiumType;
+import com.broker.policy.domain.PremiumTypeRepository;
+import com.broker.policy.engine.InvalidRateTableException;
+import com.broker.policy.engine.Member;
+import com.broker.policy.engine.RatingException;
+import com.broker.policy.grpc.gen.*;
+import com.broker.policy.security.TenantContext;
+import com.broker.policy.service.PolicyReadinessService;
+import com.broker.policy.service.PolicyService;
+import com.broker.policy.service.PremiumService;
+import com.broker.policy.service.RateCardService;
+import com.broker.policy.service.RateCardView;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.function.Supplier;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
+
+@Component
+public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImplBase {
+    private final PolicyService policies;
+    private final PolicyReadinessService readiness;
+    private final RateCardService rateCards;
+    private final PremiumService premiums;
+    private final PremiumTypeRepository premiumTypes;
+    private final ObjectMapper mapper;
+
+    PolicyGrpcService(PolicyService policies, PolicyReadinessService readiness, RateCardService rateCards,
+                      PremiumService premiums, PremiumTypeRepository premiumTypes, ObjectMapper mapper) {
+        this.policies = policies;
+        this.readiness = readiness;
+        this.rateCards = rateCards;
+        this.premiums = premiums;
+        this.premiumTypes = premiumTypes;
+        this.mapper = mapper;
+    }
+
+    /** Broker tokens act on their own tenant (request value ignored); SYSTEM tokens must name the tenant. */
+    private static long brokerFor(long requested) {
+        TenantContext t = GrpcAuthInterceptor.TENANT.get();
+        if (t == null) throw Status.UNAUTHENTICATED.asRuntimeException();
+        if ("SYSTEM".equals(t.role())) {
+            if (requested <= 0) throw Status.INVALID_ARGUMENT.withDescription("broker_id required for service tokens").asRuntimeException();
+            return requested;
+        }
+        if (t.brokerId() == null) throw Status.PERMISSION_DENIED.withDescription("token has no broker scope").asRuntimeException();
+        return t.brokerId();
+    }
+
+    private <T> void call(StreamObserver<T> out, Supplier<T> body) {
+        try {
+            out.onNext(body.get());
+            out.onCompleted();
+        } catch (StatusRuntimeException e) {
+            out.onError(e);
+        } catch (NotFoundException e) {
+            out.onError(Status.NOT_FOUND.withDescription(e.getMessage()).asRuntimeException());
+        } catch (ValidationFailedException e) {
+            out.onError(Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+        } catch (InvalidRateTableException | RatingException e) {
+            out.onError(Status.FAILED_PRECONDITION.withDescription(e.getMessage()).asRuntimeException());
+        } catch (RuntimeException e) {
+            out.onError(Status.INTERNAL.withDescription("internal error").asRuntimeException());
+        }
+    }
+
+    @Override
+    public void validatePolicyConfig(PolicyConfigRequest req, StreamObserver<ValidationResult> out) {
+        call(out, () -> {
+            Policy p = policies.get(brokerFor(req.getBrokerId()), req.getPolicyId());
+            var issues = readiness.check(p);
+            ValidationResult.Builder b = ValidationResult.newBuilder().setValid(issues.isEmpty());
+            issues.forEach(i -> b.addIssues(ValidationIssue.newBuilder().setCode(i.code()).setMessage(i.message())));
+            return b.build();
+        });
+    }
+
+    @Override
+    public void getRateCard(RateCardRequest req, StreamObserver<RateCardResponse> out) {
+        call(out, () -> {
+            long broker = brokerFor(req.getBrokerId());
+            Policy p = policies.get(broker, req.getPolicyId());           // tenant check before touching the cache
+            RateCardView v = rateCards.getActive(broker, p.getId());
+            PremiumType pt = premiumTypes.findById(p.getPremiumTypeId()).orElseThrow();
+            return RateCardResponse.newBuilder().setRateCardId(v.id()).setPolicyId(v.policyId())
+                    .setEffectiveFrom(v.effectiveFrom().toString()).setTaxRate(v.taxRate().toPlainString())
+                    .setRateTableJson(mapper.writeValueAsString(v.table()))
+                    .setPremiumTypeId(pt.getId()).setRaterClass(pt.getRaterClass()).build();
+        });
+    }
+
+    @Override
+    public void calculatePremium(PremiumRequest req, StreamObserver<PremiumResponse> out) {
+        call(out, () -> {
+            long broker = brokerFor(req.getBrokerId());
+            List<Member> members = req.getMembersList().stream().map(m -> new Member(m.getMemberRef(),
+                    m.getRelationCode(), m.getAge(), emptyToNull(m.getGrade()), emptyToNull(m.getDesignation()),
+                    decimal(m.getSumInsured()), m.getLayersList())).toList();
+            var q = premiums.quote(broker, req.getPolicyId(), members);
+            PremiumResponse.Builder b = PremiumResponse.newBuilder().setSubtotal(q.subtotal().toPlainString())
+                    .setTaxRate(q.taxRate().toPlainString()).setTax(q.tax().toPlainString())
+                    .setTotal(q.total().toPlainString());
+            q.members().forEach(m -> b.addMembers(MemberPremium.newBuilder().setMemberRef(m.memberRef())
+                    .setPremium(m.premium().toPlainString())));
+            return b.build();
+        });
+    }
+
+    private static String emptyToNull(String s) { return s == null || s.isBlank() ? null : s; }
+
+    private static BigDecimal decimal(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return new BigDecimal(s);
+        } catch (NumberFormatException e) {
+            throw Status.INVALID_ARGUMENT.withDescription("sum_insured is not a decimal").asRuntimeException();
+        }
+    }
+}

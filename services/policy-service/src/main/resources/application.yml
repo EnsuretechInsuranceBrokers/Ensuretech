@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: policy-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ensuretech}
+    username: ${DATABASE_USER:ensuretech}
+    password: ${DATABASE_PASSWORD:ensuretech}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.default_schema: policy_svc
+  flyway:
+    schemas: policy_svc
+    default-schema: policy_svc
+    create-schemas: true
+  cache:
+    type: ${CACHE_TYPE:redis}
+    redis:
+      time-to-live: ${RATE_CARD_CACHE_TTL:1h}
+      key-prefix: "policy-svc:"
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: policy-service
+      auto-offset-reset: earliest
+
+server:
+  port: ${PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+app:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:../identity-service/keys/jwt-public.pem}
+    issuer: ${JWT_ISSUER:ensuretech-identity}
+  grpc:
+    port: ${GRPC_PORT:9090}
+    enabled: ${GRPC_ENABLED:true}
+  kafka:
+    listener:
+      enabled: ${KAFKA_LISTENER_ENABLED:true}
+  outbox:
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:true}
+      interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
+      batch-size: 100
+      max-retries: 5

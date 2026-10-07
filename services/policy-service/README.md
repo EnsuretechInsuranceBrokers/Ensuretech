@@ -1,0 +1,68 @@
+# policy-service
+
+Spring Boot 4.1 / Java 21. Owns policies, rate cards, family constructs, the premium engine, and the internal gRPC API
+the endorsement engine calls. Schema: `policy_svc`.
+
+## Trust model (same as organization-service)
+RS256 access tokens from `identity-service` (public key only; issuer checked; refresh tokens rejected). `broker_id` comes
+from the token, never from the request body. Every tenant query includes `broker_id`; another tenant's id is a **404**.
+A policy can only attach to an employer of the caller's broker, checked against `policy_svc.employer_refs`, a projection
+of `employer.events` (idempotent; an event can never re-parent an employer to another broker).
+
+## REST
+| Path (`/api/v1/broker/policies…`) | Roles |
+|---|---|
+| `POST /` create (starts `NOT_APPROVED`) | BROKER_ADMIN |
+| `GET /`, `GET /{id}`, `GET /{id}/readiness` | broker roles |
+| `POST /{id}/approve`, `POST /{id}/deactivate` | BROKER_ADMIN (approve requires readiness) |
+| `PUT /{id}/rate-card` (validated against the premium type; old card kept as history) | BROKER_ADMIN |
+| `PUT /{id}/family-construct` | BROKER_ADMIN |
+| `GET /{id}/rate-card`, `/family-construct` | broker roles |
+| `POST /{id}/family/validate`, `POST /{id}/premium/quote` | broker roles |
+| `GET /lookups/{premium-types,suminsured-subtypes,rater-types,relation-types}` | broker roles |
+| `GET /api/v1/employer/policies[/{id}]` | employer roles: LIVE policies of their own employer only |
+
+Statuses: `NOT_APPROVED → APPROVED_AND_LIVE → INACTIVE`; a nightly sweep moves past-due live policies to `EXPIRED`.
+Domain failures are 422 with machine-readable `issues`; bad shape is 400.
+
+## gRPC (`shared/contracts/grpc/policy_validation.proto`, port 9090)
+`ValidatePolicyConfig`, `GetRateCard` (Redis cache-aside, 1 h TTL, key = `broker:policy`, evicted after the new card commits),
+`CalculatePremium` (addition to the original contract: the engine lives here, so callers ask rather than re-implement it).
+Send `authorization: Bearer <jwt>` metadata. Broker tokens act on their own tenant (the request's `broker_id` is ignored);
+`SYSTEM` service tokens must name `broker_id`; employer/TPA tokens are rejected. Plaintext for now, TLS/mTLS comes with deployment.
+
+## Events
+Emits `policy.events` (key = `broker_id`): `PolicyCreated/Approved/Deactivated/Expired`, `RateCardChanged`, via the shared
+transactional outbox. Consumes `employer.events`. Delivery is at-least-once; dedupe on `event_id`.
+
+## Rating rules: READ THIS
+The legacy rater source is not in the repo, so each `rater_class` below has an **explicit rule I defined**, not one ported
+from legacy. They are covered by tests (all 32 premium types, boundary ages) but **need sign-off against the legacy raters**
+before production. Premiums are **annual and pre-tax**; the caller applies pro-rata. Tax comes from the rate card (default 18%).
+
+| rater_class | `rate_table` | Rule |
+|---|---|---|
+| FlatRater, ProRataRater | `flat` (or `family_definitions` keyed by dependent count) | per member; family-unit types (floaters, `FLAT_EMPLOYEE_*`) charge once on the employee; `EMPLOYEE_ONLY/+1/+2` cap dependents |
+| AgeRater, ProRataAgeRater | `age_bands[{from,to,premium}]` | inclusive bounds, no overlaps; family-unit types use the **eldest** member (assumption) |
+| GDACRater | `gdac_bands` | same band lookup per member (assumption: GDAC = age-banded) |
+| GradeRater | `grades{}` | dependents inherit the employee's grade |
+| DesignationRater | `designations{}` | dependents inherit the employee's designation |
+| MatrixRater | `grade_age_matrix` / `designation_age_matrix` | grade (or designation) then age band |
+| LOLRater | `lol[{limit,premium}]` | sum insured must equal a limit exactly |
+| PermillyRater | `permille` | sum insured × permille / 1000 |
+| FlexRater | `layers{base,enhance,flex}` | sum of the member's selected layers (default `base`) |
+| BaseTopUpRater / BundleRater | `base`+`topup` / `gmc`+`wellness` | both always apply |
+| OpdFlatRater / OpdGradeRater | `opd_flat` / `opd_grades{}` | per member |
+| CompositeRater, ConstructRater | `sections[{rater,table}]` | sum of non-nested sections (assumption for ConstructRater) |
+
+Family construct rules (assumptions): `allowed_relations` is authoritative; saving is rejected if it contradicts
+`include_parents`/`include_parents_in_law`; parents and parents-in-law both count toward `max_parents`; `max_members` includes the employee.
+
+## Run / test
+```bash
+export DATABASE_URL=jdbc:postgresql://localhost:5432/ensuretech   # Flyway creates `policy_svc`
+export REDIS_HOST=localhost KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+mvn spring-boot:run
+mvn test   # needs PostgreSQL (DATABASE_URL) and Redis (REDIS_PORT); truncates policy_svc.* and flushes that Redis DB
+```
+The outbox/security code is duplicated from organization-service; extracting a shared library is a known follow-up.
