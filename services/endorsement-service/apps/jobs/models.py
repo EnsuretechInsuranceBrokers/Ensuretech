@@ -1,0 +1,117 @@
+import uuid
+
+from django.db import models
+
+
+class SourceType(models.TextChoices):
+    GUI = "GUI"
+    CSV_UPLOAD = "CSV_UPLOAD"
+    LEGACY_EXCEL = "LEGACY_EXCEL"
+    FAKER_TEST = "FAKER_TEST"
+    DEMO = "DEMO"
+
+
+class OpType(models.TextChoices):
+    ADD = "ADD"
+    REMOVE = "REMOVE"
+    UPDATE = "UPDATE"
+    COMBINE = "COMBINE"
+
+
+class EndorsementJob(models.Model):
+    """One unit of endorsement work for one policy. All intake paths create these."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    broker_id = models.BigIntegerField()
+    employer_id = models.BigIntegerField()
+    policy_id = models.BigIntegerField()
+    source_type = models.CharField(max_length=20, choices=SourceType.choices)
+    op_type = models.CharField(max_length=10, choices=OpType.choices, null=True, blank=True)
+
+    status = models.CharField(max_length=60, default="REQUEST_RAISED")
+    status_code = models.IntegerField(default=100)
+    phase = models.CharField(max_length=20, default="INIT")
+    category = models.CharField(max_length=20, default="UPLOAD")
+    is_terminal = models.BooleanField(default=False)
+
+    correlation_id = models.CharField(max_length=80, unique=True, default=uuid.uuid4)
+    idempotency_key = models.CharField(max_length=120, null=True, blank=True)
+    parent_session_id = models.UUIDField(null=True, blank=True)
+    schema_mapping_id = models.UUIDField(null=True, blank=True)
+    source_filename = models.CharField(max_length=255, blank=True, default="")
+    file_sha256 = models.CharField(max_length=64, blank=True, default="")
+    effective_date = models.DateField(null=True, blank=True)
+
+    total_rows = models.IntegerField(default=0)
+    failed_rows = models.IntegerField(default=0)      # rows with at least one ERROR
+    chunk_count = models.IntegerField(default=0)
+    chunks_completed = models.IntegerField(default=0)
+    chunks_endorsed = models.IntegerField(default=0)
+    retry_count = models.SmallIntegerField(default=0)
+
+    total_premium = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    tax_amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    premium_delta = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    cd_status = models.CharField(max_length=24, null=True, blank=True)
+
+    actor_user_id = models.CharField(max_length=64, blank=True, default="")
+    actor_ip = models.GenericIPAddressField(null=True, blank=True)
+    is_test_data = models.BooleanField(default=False)
+    error_summary = models.JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "endorsement_jobs"
+        constraints = [
+            models.UniqueConstraint(fields=["broker_id", "idempotency_key"],
+                                    condition=models.Q(idempotency_key__isnull=False),
+                                    name="uniq_job_idempotency_per_broker"),
+        ]
+        indexes = [
+            models.Index(fields=["broker_id", "status"], name="idx_jobs_broker_status"),
+            models.Index(fields=["employer_id", "status"], name="idx_jobs_employer_status"),
+            models.Index(fields=["policy_id", "status"], name="idx_jobs_policy_status"),
+            models.Index(fields=["-created_at"], name="idx_jobs_created_desc"),
+        ]
+
+
+class AuditTransition(models.Model):
+    """Immutable record of every state change. A database trigger rejects UPDATE and DELETE."""
+
+    job = models.ForeignKey(EndorsementJob, on_delete=models.PROTECT, related_name="audit")
+    correlation_id = models.CharField(max_length=80)
+    from_state = models.CharField(max_length=60)
+    to_state = models.CharField(max_length=60)
+    from_code = models.IntegerField()
+    to_code = models.IntegerField()
+    phase = models.CharField(max_length=20)
+    category = models.CharField(max_length=20)
+    is_terminal = models.BooleanField(default=False)
+    actor = models.CharField(max_length=80)
+    actor_ip = models.GenericIPAddressField(null=True, blank=True)
+    broker_id = models.BigIntegerField()
+    employer_id = models.BigIntegerField()
+    policy_id = models.BigIntegerField()
+    source_type = models.CharField(max_length=20)
+    duration_ms = models.IntegerField(null=True, blank=True)     # time spent in the previous state
+    metadata = models.JSONField(default=dict, blank=True)
+    transitioned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "audit_transitions"
+        indexes = [models.Index(fields=["job", "transitioned_at"], name="idx_audit_job_time"),
+                   models.Index(fields=["broker_id", "-transitioned_at"], name="idx_audit_broker_time")]
+        ordering = ["id"]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None:
+            raise RuntimeError("audit rows are immutable")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError("audit rows are immutable")
