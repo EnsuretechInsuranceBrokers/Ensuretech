@@ -5,6 +5,8 @@ from decimal import Decimal
 from typing import Protocol
 
 from django.conf import settings
+
+from apps.core import service_auth
 from django.utils.module_loading import import_string
 
 
@@ -106,10 +108,15 @@ class GrpcPolicyClient:
     def _call(self, method, request):
         grpc = self._grpc
         try:
-            return method(request, timeout=settings.POLICY_GRPC_DEADLINE_SECONDS,
-                          metadata=(("authorization", f"Bearer {settings.POLICY_GRPC_TOKEN}"),))
+            auth = service_auth.bearer(settings.POLICY_GRPC_TOKEN)
+        except service_auth.ServiceAuthError as e:
+            raise PolicyUnavailable(str(e)) from e
+        try:
+            return method(request, timeout=settings.POLICY_GRPC_DEADLINE_SECONDS, metadata=(("authorization", auth),))
         except grpc.RpcError as e:
             code = e.code()
+            if code == grpc.StatusCode.UNAUTHENTICATED:
+                service_auth.provider.invalidate(auth[7:])          # next attempt fetches a fresh token
             if code == grpc.StatusCode.NOT_FOUND:
                 raise PolicyNotFound(e.details()) from e
             if code in (grpc.StatusCode.UNAUTHENTICATED, grpc.StatusCode.PERMISSION_DENIED):

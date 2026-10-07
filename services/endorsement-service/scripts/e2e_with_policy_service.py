@@ -8,6 +8,10 @@ tokens from identity-service in the environment:
     E2E_BROKER_TOKEN  BROKER_ADMIN broker 1      E2E_OTHER_TOKEN  BROKER_ADMIN broker 2
     E2E_SYSTEM_TOKEN  SYSTEM (service account)   E2E_HR_TOKEN     EMPLOYER_ADMIN broker 1 employer 10
 
+Service credentials: either static SYSTEM tokens (POLICY_GRPC_TOKEN / BILLING_GRPC_TOKEN) or, preferred, the client-credentials flow:
+IDENTITY_TOKEN_URL=http://localhost:8000/api/v1/auth/service-token/ SERVICE_CLIENT_ID=... SERVICE_CLIENT_SECRET=...
+(create with `python manage.py service_account create <name>` in identity-service).
+
 Run:  DATABASE_URL=... POLICY_GRPC_TARGET=localhost:9090 POLICY_GRPC_TOKEN=$E2E_SYSTEM_TOKEN \
       CD_CLIENT=tests.fakes.InMemoryCd CELERY_TASK_ALWAYS_EAGER=True python scripts/e2e_with_policy_service.py
 Deposit check: by default an in-memory double. Set E2E_BILLING_URL (billing-service REST, e.g. http://localhost:8084) and
@@ -106,10 +110,27 @@ hr = upload(client("E2E_HR_TOKEN"), [f"{tag}10,Self,Hr User,1990-01-01,M,500000,
 check("an HR user can upload for their own employer's policy", hr.status_code == 202 and EndorsementJob.objects.get(pk=hr.json()["job_id"]).status == "ENDORSED")
 
 # 4 ── a refused service credential is reported, not retried forever
-good = settings.POLICY_GRPC_TOKEN
-settings.POLICY_GRPC_TOKEN = "not-a-token"
+from apps.core import service_auth  # noqa: E402
+
+CLIENT_CREDENTIALS = service_auth.provider.configured()
+
+
+def break_service_auth():
+    """Make outgoing service credentials invalid; returns the undo. Client-credentials mode spoils the secret and drops the cache."""
+    saved = (settings.POLICY_GRPC_TOKEN, settings.BILLING_GRPC_TOKEN, settings.SERVICE_CLIENT_SECRET)
+    settings.POLICY_GRPC_TOKEN = settings.BILLING_GRPC_TOKEN = "not-a-token"
+    settings.SERVICE_CLIENT_SECRET = "wrong-secret"
+    service_auth.provider.invalidate()
+
+    def undo():
+        settings.POLICY_GRPC_TOKEN, settings.BILLING_GRPC_TOKEN, settings.SERVICE_CLIENT_SECRET = saved
+        service_auth.provider.invalidate()
+    return undo
+
+
+undo = break_service_auth()
 bad = upload(client("E2E_BROKER_TOKEN"), [f"{tag}11,Self,Y,1990-01-01,M,1,,"])
-settings.POLICY_GRPC_TOKEN = good
+undo()
 check("a rejected service token surfaces as 503, not a crash", bad.status_code == 503, f"{bad.status_code} {bad.content[:80]}")
 
 # 5 ── the deposit, for real: reservations, no double-spending, top-up and retry (only against the real billing-service)
@@ -149,11 +170,16 @@ if REAL_BILLING:
     check("the retried job's total is now held too", b["reserved"] == a["reserved"] + over.total_premium, f"{b['reserved']} vs {a['reserved'] + over.total_premium}")
 
     # a deadline-bounded refusal: with a bad service token the check fails visibly instead of passing
-    settings.BILLING_GRPC_TOKEN, good_b = "not-a-token", settings.BILLING_GRPC_TOKEN
     settings.CD_GRPC_DEADLINE_SECONDS = 0.5
     from apps.computation.tasks import MAX_CD_ATTEMPTS  # noqa: E402,F401
+    # the policy lookup must still work, so spoil only billing's credential (cd.py gets a stand-in for service_auth)
+    from types import SimpleNamespace  # noqa: E402
+    from apps.computation import cd as cd_mod  # noqa: E402
+    real_auth, saved_b = cd_mod.service_auth, settings.BILLING_GRPC_TOKEN
+    cd_mod.service_auth = SimpleNamespace(bearer=lambda static: "Bearer not-a-token", provider=service_auth.provider,
+                                          ServiceAuthError=service_auth.ServiceAuthError)
     denied = EndorsementJob.objects.get(pk=upload(client("E2E_BROKER_TOKEN"), [f"{tag}300,Self,Denied,1990-01-01,M,500000,,"]).json()["job_id"])
-    settings.BILLING_GRPC_TOKEN = good_b
+    cd_mod.service_auth, settings.BILLING_GRPC_TOKEN = real_auth, saved_b
     check("a refused billing credential fails the check visibly (CD_CHECK_FAILED), never silently passes",
           denied.status == "CD_CHECK_FAILED" and EndorsementMember.objects.filter(employee_code=f"{tag}300").count() == 0, denied.status)
 

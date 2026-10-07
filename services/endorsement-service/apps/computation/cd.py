@@ -9,6 +9,8 @@ from decimal import Decimal
 from typing import Protocol
 
 from django.conf import settings
+
+from apps.core import service_auth
 from django.utils.module_loading import import_string
 
 
@@ -58,11 +60,17 @@ class GrpcCdClient:
     def check(self, broker_id, policy_id, required, job_id):
         grpc = self._grpc
         try:
+            auth = service_auth.bearer(settings.BILLING_GRPC_TOKEN)
+        except service_auth.ServiceAuthError as e:
+            raise CdUnavailable(str(e)) from e
+        try:
             r = self._stub.CheckCdBalance(
                 self._pb.CdBalanceRequest(policy_id=policy_id, broker_id=broker_id, required_amount=str(required), job_id=str(job_id)),
                 timeout=settings.CD_GRPC_DEADLINE_SECONDS,
-                metadata=(("authorization", f"Bearer {settings.BILLING_GRPC_TOKEN}"),))
+                metadata=(("authorization", auth),))
         except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAUTHENTICATED:
+                service_auth.provider.invalidate(auth[7:])
             # Every failure is "could not determine the balance": the engine retries briefly, then parks the job visibly.
             raise CdUnavailable(f"{e.code().name}: {e.details()}") from e
         return CdResult(r.status, Decimal(r.available_balance), Decimal(r.required_amount))

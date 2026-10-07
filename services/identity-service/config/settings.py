@@ -78,8 +78,11 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("apps.users.authentication.TenantJWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
-    "DEFAULT_THROTTLE_RATES": {"auth": env("AUTH_THROTTLE_RATE", default="10/min")},
+    "DEFAULT_THROTTLE_RATES": {"auth": env("AUTH_THROTTLE_RATE", default="10/min"),
+                               "service_auth": env("SERVICE_AUTH_THROTTLE_RATE", default="120/min")},
 }
+
+SERVICE_TOKEN_MINUTES = env.int("SERVICE_TOKEN_MINUTES", default=10)
 
 # ── JWT (RS256: Spring services validate with the public key only) ──────────
 from apps.users.keys import load_or_create_keypair  # noqa: E402

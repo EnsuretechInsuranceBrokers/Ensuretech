@@ -69,3 +69,34 @@ class User(AbstractBaseUser, PermissionsMixin):
             raise ValidationError({"tpa_id": "Required for TPA users."})
         if self.role == Role.SYSTEM and (self.broker_id or self.employer_id or self.tpa_id):
             raise ValidationError("SYSTEM users cannot be tenant-scoped.")
+
+
+class ServiceAccount(models.Model):
+    """A machine identity (client-credentials). Always acts as role SYSTEM, never tenant-scoped."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.SlugField(max_length=60, unique=True)
+    client_id = models.CharField(max_length=40, unique=True)
+    description = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "identity_service_accounts"
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceCredential(models.Model):
+    """Only a hash is stored. Several may be live at once so a secret can be rotated without downtime."""
+
+    account = models.ForeignKey(ServiceAccount, on_delete=models.CASCADE, related_name="credentials")
+    secret_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "identity_service_credentials"

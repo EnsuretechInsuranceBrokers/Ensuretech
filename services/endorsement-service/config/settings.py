@@ -81,6 +81,12 @@ EVENTS_TOPIC = "endorsement.events"
 OUTBOX_BATCH_SIZE = 100
 OUTBOX_MAX_RETRIES = 5
 
+# Client-credentials (preferred). When unset, the static *_GRPC_TOKEN values below are used (dev/tests).
+IDENTITY_TOKEN_URL = env("IDENTITY_TOKEN_URL", default="")            # e.g. http://identity:8000/api/v1/auth/service-token/
+SERVICE_CLIENT_ID = env("SERVICE_CLIENT_ID", default="")
+SERVICE_CLIENT_SECRET = env("SERVICE_CLIENT_SECRET", default="")
+IDENTITY_TOKEN_TIMEOUT_SECONDS = env.float("IDENTITY_TOKEN_TIMEOUT_SECONDS", default=3.0)
+
 POLICY_GRPC_TARGET = env("POLICY_GRPC_TARGET", default="localhost:9090")
 POLICY_GRPC_TOKEN = env("POLICY_GRPC_TOKEN", default="")
 POLICY_GRPC_DEADLINE_SECONDS = env.float("POLICY_GRPC_DEADLINE_SECONDS", default=2.0)

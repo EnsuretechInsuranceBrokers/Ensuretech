@@ -74,3 +74,39 @@ class CreateUserView(generics.CreateAPIView):
         from rest_framework.exceptions import PermissionDenied
 
         raise PermissionDenied("You cannot create users with this role.")
+
+
+class ServiceTokenView(APIView):
+    """OAuth2 client-credentials grant. Accepts form/JSON body or HTTP Basic; errors follow RFC 6749 and never reveal
+    whether the client id exists."""
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+    throttle_scope = "service_auth"
+
+    @staticmethod
+    def _credentials(request):
+        header = request.META.get("HTTP_AUTHORIZATION", "")
+        if header.startswith("Basic "):
+            import base64
+            import binascii
+            try:
+                cid, _, secret = base64.b64decode(header[6:], validate=True).decode().partition(":")
+                return cid, secret
+            except (binascii.Error, UnicodeDecodeError):
+                return "", ""
+        return str(request.data.get("client_id", "")), str(request.data.get("client_secret", ""))
+
+    def post(self, request):
+        from . import service_accounts
+
+        if request.data.get("grant_type") != "client_credentials":
+            return Response({"error": "unsupported_grant_type"}, status=status.HTTP_400_BAD_REQUEST)
+        client_id, secret = self._credentials(request)
+        account = service_accounts.authenticate(client_id, secret)
+        if account is None:
+            return Response({"error": "invalid_client"}, status=status.HTTP_401_UNAUTHORIZED,
+                            headers={"WWW-Authenticate": "Basic", "Cache-Control": "no-store"})
+        token, ttl = service_accounts.issue_token(account)
+        return Response({"access_token": token, "token_type": "Bearer", "expires_in": ttl},
+                        headers={"Cache-Control": "no-store", "Pragma": "no-cache"})

@@ -53,8 +53,9 @@ across workers is the next lever. Nothing here has been benchmarked at 1M rows, 
   *reserves* the job's total atomically (one hold per job id); billing commits it on `EndorsementApplied` and releases it on cancel /
   validation-failed. If billing is down the job parks at `CD_CHECK_FAILED` (never silently passes). Verified against the real service
   by `scripts/e2e_with_policy_service.py` with `E2E_BILLING_URL`; the Kafka leg (commit/release events) is only contract-tested.
-- **Service credential:** calls to policy-service use `POLICY_GRPC_TOKEN`, a SYSTEM access token. Access tokens last 15 minutes and
-  identity-service has no client-credentials/service-token flow yet, so production needs one (workers must refresh).
+- **Service credential:** set `IDENTITY_TOKEN_URL` + `SERVICE_CLIENT_ID/SECRET` and the engine fetches its own SYSTEM token from identity-service
+  (client-credentials; cached, refreshed 60 s before expiry, dropped on UNAUTHENTICATED). Unset, it falls back to the static
+  `POLICY_GRPC_TOKEN`/`BILLING_GRPC_TOKEN`. One identity currently grants SYSTEM on every service (no per-service scopes).
 - **File store:** uploads spool to local disk (`LocalFileStore`); API and workers must share it. A MinIO/S3 store fits the same interface.
 - **Messaging not exercised for real:** RabbitMQ queue topology/DLX is configured but tests run Celery eagerly; the Kafka relay is tested
   with a fake sender. Redis is only used for the shared rate-limit cache when `REDIS_URL` is set.

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
@@ -25,6 +27,13 @@ class TenantContext:
 
 
 class TenantJWTAuthentication(JWTAuthentication):
+    def get_user(self, validated_token):
+        # Service-account tokens (user_id "svc:...") are valid elsewhere but are not users here: 401, never a 500.
+        try:
+            return super().get_user(validated_token)
+        except DjangoValidationError:
+            raise AuthenticationFailed("Token does not identify a user.", code="user_not_found")
+
     def authenticate(self, request):
         result = super().authenticate(request)
         if result is None:
