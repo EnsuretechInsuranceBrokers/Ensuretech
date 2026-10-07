@@ -46,6 +46,7 @@ class EndorsementJob(models.Model):
     failed_rows = models.IntegerField(default=0)      # rows with at least one ERROR
     chunk_count = models.IntegerField(default=0)
     chunks_completed = models.IntegerField(default=0)
+    chunks_priced = models.IntegerField(default=0)
     chunks_endorsed = models.IntegerField(default=0)
     retry_count = models.SmallIntegerField(default=0)
 
@@ -169,3 +170,26 @@ class AppliedRow(models.Model):
     class Meta:
         db_table = "applied_rows"
         constraints = [models.UniqueConstraint(fields=["job_id", "chunk_index", "row_index"], name="uniq_applied_row")]
+
+
+class PremiumLine(models.Model):
+    """Premium result for one family (employee + dependents) in one job. Amounts are annual before pro-rata unless
+    named otherwise. member_premiums is what the endorse step writes onto roster rows."""
+
+    job_id = models.UUIDField()
+    chunk_index = models.IntegerField()
+    employee_code = models.CharField(max_length=60)
+    effective_date = models.DateField()
+    before_annual = models.DecimalField(max_digits=16, decimal_places=2)      # family priced as it is today
+    after_annual = models.DecimalField(max_digits=16, decimal_places=2)       # family priced after this endorsement
+    pro_rata_factor = models.DecimalField(max_digits=8, decimal_places=6)
+    charged = models.DecimalField(max_digits=16, decimal_places=2)            # (after - before) * factor; negative = refund
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    tax = models.DecimalField(max_digits=16, decimal_places=2)
+    total = models.DecimalField(max_digits=16, decimal_places=2)              # charged + tax
+    # [{"relation_code": "SELF", "row_index": 3 | null, "member_id": 9 | null, "premium": "1000.00"}]
+    member_premiums = models.JSONField(default=list)
+
+    class Meta:
+        db_table = "premium_lines"
+        indexes = [models.Index(fields=["job_id", "chunk_index"], name="idx_premium_job_chunk")]

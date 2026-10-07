@@ -373,12 +373,12 @@ def test_a_crashed_worker_s_stale_chunk_can_be_reclaimed(world):
 
     from django.utils import timezone
 
-    from apps.validation.tasks import _claim
+    from apps.jobs.chunks import claim as _claim
     job = job_from(upload(client_for(), GOOD, effective_date="2030-04-01"))
     ChunkState.objects.filter(job_id=job.id).update(status="RUNNING", started_at=timezone.now())
-    assert _claim(job.id, 0) is False                                        # fresh RUNNING belongs to a live worker
+    assert _claim(job.id, 0, "VALIDATE") is False                                        # fresh RUNNING belongs to a live worker
     ChunkState.objects.filter(job_id=job.id).update(started_at=timezone.now() - timedelta(minutes=30))
-    assert _claim(job.id, 0) is True                                         # stale: the worker died
+    assert _claim(job.id, 0, "VALIDATE") is True                                         # stale: the worker died
 
 
 def test_cancel_after_upload_stops_a_job_that_is_waiting_for_a_decision(world):

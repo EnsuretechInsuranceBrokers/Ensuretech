@@ -13,6 +13,7 @@ class ChunkState(models.Model):
 
     job_id = models.UUIDField()
     chunk_index = models.IntegerField()
+    stage = models.CharField(max_length=10, default="VALIDATE")        # VALIDATE | PREMIUM | ENDORSE
     status = models.CharField(max_length=10, choices=ChunkStatus.choices, default=ChunkStatus.PENDING)
     row_count = models.IntegerField(default=0)
     failed_rows = models.IntegerField(default=0)
@@ -23,7 +24,7 @@ class ChunkState(models.Model):
 
     class Meta:
         db_table = "chunk_states"
-        constraints = [models.UniqueConstraint(fields=["job_id", "chunk_index"], name="uniq_chunk_per_job")]
+        constraints = [models.UniqueConstraint(fields=["job_id", "chunk_index", "stage"], name="uniq_chunk_per_job_stage")]
 
 
 class ValidationLog(models.Model):

@@ -52,7 +52,8 @@ def ingest_csv(self, job_id: str):
                                   op_type=job.op_type, raw_payload=r.raw,
                                   normalised_payload={**r.normalised, "_errors": r.errors}, row_hash=r.row_hash)
                         for n, r in enumerate(chunk.rows)], batch_size=1000)
-                    ChunkState.objects.create(job_id=job_id, chunk_index=chunk.index, row_count=len(chunk.rows))
+                    ChunkState.objects.create(job_id=job_id, chunk_index=chunk.index, stage="VALIDATE",
+                                              row_count=len(chunk.rows))
                 rows += len(chunk.rows)
                 chunks += 1
     except FileProblem as e:

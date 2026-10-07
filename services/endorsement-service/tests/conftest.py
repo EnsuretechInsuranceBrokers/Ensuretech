@@ -71,8 +71,8 @@ def world(settings, tmp_path):
     settings.POLICY_CLIENT = "tests.fakes.FakePolicyClient"
     settings.UPLOAD_SPOOL_DIR = str(tmp_path / "spool")
     settings.PIPELINE_AUTO_CONTINUE = False
-    FakePolicyClient.add_policy(BROKER_A, 100, EMP_A, construct={"allowed": {"SPOUSE", "SON", "DAUGHTER", "SON_II"}, "max_children": 2, "max_members": 5})
-    FakePolicyClient.add_policy(BROKER_A, 101, EMP_A, policy_type="GPA")
+    FakePolicyClient.add_policy(BROKER_A, 100, EMP_A, construct={"allowed": {"SPOUSE", "SON", "DAUGHTER", "SON_II"}, "max_children": 2, "max_members": 5}, flat=1000)
+    FakePolicyClient.add_policy(BROKER_A, 101, EMP_A, policy_type="GPA", flat=1000)
     FakePolicyClient.add_policy(BROKER_A, 102, EMP_A, status="NOT_APPROVED")
     FakePolicyClient.add_policy(BROKER_A, 103, EMP_A + 1)            # same broker, a different employer
     FakePolicyClient.add_policy(BROKER_B, 200, EMP_B)
@@ -101,3 +101,24 @@ def upload(client, text, *, op="ADD", policy_id=100, idem=None, mapping_id=None,
         data["effective_date"] = effective_date
     kw = {"HTTP_IDEMPOTENCY_KEY": idem} if idem else {}
     return client.post(prefix + "csv/upload/", data, format="multipart", **kw)
+
+
+@pytest.fixture
+def flow(world, settings):
+    """The whole pipeline: validation -> premium -> CD check -> endorse, with a funded in-memory deposit."""
+    from tests.fakes import InMemoryCd
+    InMemoryCd.reset()
+    settings.PIPELINE_AUTO_CONTINUE = True
+    settings.CD_CLIENT = "tests.fakes.InMemoryCd"
+    yield world
+    InMemoryCd.reset()
+
+
+def add_member(policy_id=100, code="5001", rel="SELF", dob="1985-01-01", premium="1000.00", broker=BROKER_A, employer=EMP_A,
+               grade=None, si="500000", pan=None, job=None):
+    from apps.jobs.models import EndorsementJob, EndorsementMember
+    job = job or EndorsementJob.objects.create(broker_id=broker, employer_id=employer, policy_id=policy_id, source_type="CSV_UPLOAD")
+    return EndorsementMember.objects.create(
+        job=job, policy_id=policy_id, broker_id=broker, employer_id=employer, employee_code=code, relation_code=rel,
+        first_name="Old", last_name="Name", date_of_birth=dob, sum_insured=si, premium_amount=premium, grade=grade,
+        effective_date="2030-04-01", source_type="CSV_UPLOAD", pan=pan)

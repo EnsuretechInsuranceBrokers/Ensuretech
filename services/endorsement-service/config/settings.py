@@ -92,5 +92,6 @@ POLICY_CLIENT = env("POLICY_CLIENT", default="apps.computation.policy_client.Grp
 FILE_STORE = env("FILE_STORE", default="apps.intake.store.LocalFileStore")
 UPLOAD_SPOOL_DIR = env("UPLOAD_SPOOL_DIR", default=str(Path(os.environ.get("TMPDIR", "/tmp")) / "endorsement-uploads"))
 MAX_UPLOAD_BYTES = env.int("MAX_UPLOAD_BYTES", default=200 * 1024 * 1024)
-# When validation passes cleanly, continue straight into premium calculation. Turn off to hold jobs for review.
+# When validation passes CLEANLY, continue straight into premium calculation. Turn off to hold every job for a human
+# to confirm via /proceed/. (Once a job is confirmed or auto-started, the remaining steps always run.)
 PIPELINE_AUTO_CONTINUE = env.bool("PIPELINE_AUTO_CONTINUE", default=True)

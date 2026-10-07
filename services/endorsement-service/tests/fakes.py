@@ -3,6 +3,7 @@ code under test creates sees the same world; call reset() in a fixture."""
 from datetime import date
 from decimal import Decimal
 
+from apps.computation.cd import CdResult, CdUnavailable
 from apps.computation.policy_client import (FamilyIssue, PolicyAccessError, PolicyInfo, PolicyNotFound, PolicyRejected,
                                             PolicyUnavailable, PremiumResult)
 
@@ -79,6 +80,30 @@ class FakePolicyClient:
         sub = sum(by_ref.values(), Decimal("0"))
         tax = (sub * r["tax"] / 100).quantize(Decimal("0.01"))
         return PremiumResult(by_ref, sub, r["tax"], tax, sub + tax)
+
+
+    def calculate_premiums(self, broker_id, policy_id, families):
+        from apps.computation.policy_client import calculate_premiums_one_by_one
+        return calculate_premiums_one_by_one(self, broker_id, policy_id, families)
+
+
+class InMemoryCd:
+    """Deposit balance double. balance >= required -> SUFFICIENT; 0 < balance < required -> PARTIAL; else INSUFFICIENT."""
+    balance = Decimal("0")
+    down = False
+    calls: list = []
+
+    @classmethod
+    def reset(cls, balance="1000000"):
+        cls.balance, cls.down, cls.calls = Decimal(balance), False, []
+
+    def check(self, broker_id, policy_id, required, job_id):
+        InMemoryCd.calls.append((broker_id, policy_id, required))
+        if InMemoryCd.down:
+            raise CdUnavailable("billing down")
+        b = InMemoryCd.balance
+        status = "SUFFICIENT" if b >= required else ("PARTIAL_SUFFICIENT" if b > 0 else "INSUFFICIENT")
+        return CdResult(status, b, required)
 
 
 __all__ = ["FakePolicyClient", "PolicyUnavailable", "PolicyAccessError", "PolicyRejected", "PolicyNotFound"]

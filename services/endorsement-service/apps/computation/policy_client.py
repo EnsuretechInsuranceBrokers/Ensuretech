@@ -80,6 +80,9 @@ class PolicyClient(Protocol):
 
     def calculate_premium(self, broker_id: int, policy_id: int, members: list[PremiumMember]) -> PremiumResult: ...
 
+    def calculate_premiums(self, broker_id: int, policy_id: int,
+                           families: "dict[str, list[PremiumMember]]") -> "dict[str, PremiumResult]": ...
+
 
 def get_policy_client() -> PolicyClient:
     return import_string(settings.POLICY_CLIENT)()
@@ -140,3 +143,19 @@ class GrpcPolicyClient:
         r = self._call(self._stub.CalculatePremium, req)
         return PremiumResult({m.member_ref: Decimal(m.premium) for m in r.members}, Decimal(r.subtotal),
                              Decimal(r.tax_rate), Decimal(r.tax), Decimal(r.total))
+
+    def calculate_premiums(self, broker_id, policy_id, families):
+        return calculate_premiums_one_by_one(self, broker_id, policy_id, families)
+
+
+def calculate_premiums_one_by_one(client, broker_id: int, policy_id: int,
+                                  families: dict[str, list[PremiumMember]]) -> dict[str, PremiumResult]:
+    """Batch pricing on top of the single-family RPC. A rejection names the family so an operator can find it.
+    (policy-service exposes CalculatePremium per family; a batch RPC is the obvious optimisation for 1M-row jobs.)"""
+    out = {}
+    for ref, members in families.items():
+        try:
+            out[ref] = client.calculate_premium(broker_id, policy_id, members)
+        except PolicyRejected as e:
+            raise PolicyRejected(f"employee {ref}: {e}") from e
+    return out
