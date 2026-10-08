@@ -150,7 +150,7 @@ final class Binder
                 $nodes = 0;
                 $bad = $this->checkMap($v, 1, $nodes);
 
-                return $bad === null ? $v : $fail($bad);
+                return $bad === null ? (($f['keys'] ?? null) === 'camel' ? Keys::camel($v) : $v) : $fail($bad);
         }
 
         return $fail('unsupported type');

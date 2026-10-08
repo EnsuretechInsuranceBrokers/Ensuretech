@@ -17,6 +17,17 @@ class ErrorsTest extends TestCase
         $this->assertNotEmpty($r->json('correlation_id'));
     }
 
+    public function test_issue_lists_are_kept_as_code_and_message_and_the_problem_instance_is_not_a_field(): void
+    {
+        $this->fake(['policy.test/*' => Http::response(['detail' => 'No active rate card', 'instance' => '/api/v1/broker/policies/1/approve', 'status' => 422, 'title' => 'x',
+            'issues' => [['code' => 'NO_ACTIVE_RATE_CARD', 'message' => 'No active rate card', 'internal' => 'secret'], 'junk']], 422)]);
+        $r = $this->as()->postJson('/api/v1/broker/policies/1/approve')->assertStatus(422);
+        $this->assertSame([['code' => 'NO_ACTIVE_RATE_CARD', 'message' => 'No active rate card']], $r->json('issues'));
+        $this->assertSame(['issues' => ['No active rate card']], $r->json('errors'));
+        $this->assertStringNotContainsString('secret', $r->getContent());
+        $this->assertStringNotContainsString('/api/v1/broker/policies/1/approve', $r->getContent());
+    }
+
     public function test_a_timeout_is_a_504_without_the_host(): void
     {
         $this->fake(['policy.test/*' => fn () => throw new ConnectionException('cURL error 28: Connection timed out after 10001 ms for http://policy.test/api')]);

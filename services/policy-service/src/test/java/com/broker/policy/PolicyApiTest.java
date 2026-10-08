@@ -46,6 +46,14 @@ class PolicyApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void unreadableBodyIsABadRequestNotAnEmptyForbidden() throws Exception {
+        long id = readyPolicy("P-BAD");
+        mvc.perform(json(put("/api/v1/broker/policies/" + id + "/contributions"), admin(BROKER_A),
+                "{\"type\":\"PERCENT\",\"groups\":{\"SELF\":{\"nested\":1}}}")).andExpect(status().isBadRequest());
+        mvc.perform(json(put("/api/v1/broker/policies/" + id + "/rounding"), admin(BROKER_A), "{not json")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     void otherBrokerCannotSeeOrChangeAPolicy() throws Exception {
         long id = readyPolicy("P-1");
         String b = admin(BROKER_B);

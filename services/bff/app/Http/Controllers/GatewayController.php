@@ -203,8 +203,12 @@ final class GatewayController extends Controller
     {
         $json = $up->json();
         $errors = is_array($json) ? ($json['errors'] ?? null) : null;
+        $issues = self::safeIssues($json);
+        if ($issues && ! is_array($errors)) {
+            return ['errors' => ['issues' => array_column($issues, 'message')], 'issues' => $issues];   // policy-service style: [{code, message}]
+        }
         if (! is_array($errors) && is_array($json) && ! array_is_list($json)) {
-            $reserved = ['detail', 'message', 'status', 'title', 'type', 'path', 'error', 'timestamp', 'trace', 'errors'];
+            $reserved = ['detail', 'message', 'status', 'title', 'type', 'path', 'error', 'timestamp', 'trace', 'errors', 'instance', 'correlation_id', 'code'];
             $errors = array_filter($json, fn ($v, $k) => ! in_array($k, $reserved, true) && (is_string($v) || (is_array($v) && array_is_list($v))), ARRAY_FILTER_USE_BOTH);
         }
         if (! is_array($errors) || $errors === []) {
@@ -217,6 +221,20 @@ final class GatewayController extends Controller
         }
 
         return $out ? ['errors' => $out] : [];
+    }
+
+    /** [{code, message}] with both parts short plain strings; anything else is dropped. */
+    private static function safeIssues(mixed $json): array
+    {
+        $list = is_array($json) && is_array($json['issues'] ?? null) && array_is_list($json['issues']) ? $json['issues'] : [];
+        $out = [];
+        foreach (array_slice($list, 0, 50) as $i) {
+            if (is_array($i) && is_string($i['message'] ?? null)) {
+                $out[] = ['code' => substr(is_string($i['code'] ?? null) ? $i['code'] : 'INVALID', 0, 60), 'message' => substr($i['message'], 0, 200)];
+            }
+        }
+
+        return $out;
     }
 
     /** Files (reports, generated sheets): only declared content types, a size cap, a rebuilt Content-Disposition. Streamed, never buffered. */
@@ -283,9 +301,12 @@ final class GatewayController extends Controller
                 while (($pos = strpos($buffer, "\n\n")) !== false) {
                     $event = substr($buffer, 0, $pos);
                     $buffer = substr($buffer, $pos + 2);
-                    echo $this->reshape($event, $shaper, $e['schema'])."\n\n";
-                    @ob_flush();
-                    flush();
+                    $out = $this->reshape($event, $shaper, $e['schema']);
+                    if ($out !== '') {
+                        echo $out."\n\n";
+                        @ob_flush();
+                        flush();
+                    }
                 }
                 if (strlen($buffer) > 65536) {
                     return;                                  // a runaway event: stop rather than buffer without bound
@@ -306,7 +327,12 @@ final class GatewayController extends Controller
                 $data = json_decode(trim(substr($line, 5)), true);
             } elseif (str_starts_with($line, ':')) {
                 return $line;                                // a keep-alive comment
+            } elseif (preg_match('/^retry:\s*(\d{1,6})$/', $line, $m)) {
+                $retry = $m[1];
             }
+        }
+        if ($data === null && ! str_contains($event, 'data:')) {
+            return isset($retry) ? "retry: $retry" : '';     // a block with no data (the stream's `retry:` preamble) is not an event
         }
         $name = preg_match('/^[a-z_]{1,30}$/', $name) ? $name : 'message';
         try {

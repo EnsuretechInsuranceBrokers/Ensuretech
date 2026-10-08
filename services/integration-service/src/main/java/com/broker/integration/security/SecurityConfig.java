@@ -33,6 +33,7 @@ public class SecurityConfig {
         http.csrf(c -> c.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
+                .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()   // else every unhandled error is masked as an empty 403
                 .requestMatchers(HttpMethod.GET, "/actuator/health/**").permitAll()
                 .requestMatchers("/api/v1/broker/**")
                     .hasAnyRole("BROKER_ADMIN", "BROKER_SPECIALIZER", "BROKER_NON_ADMIN")

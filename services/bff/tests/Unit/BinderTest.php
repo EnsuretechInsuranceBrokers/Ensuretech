@@ -120,4 +120,11 @@ class BinderTest extends TestCase
     {
         $this->assertNotEmpty($this->errors([1, 2]));
     }
+
+    public function test_free_form_maps_can_be_recased_below_the_top_level(): void
+    {
+        $this->assertSame(['SPOUSE' => ['allowed' => true, 'windowDays' => 30, 'startBasis' => 'EVENT']],
+            \App\Bff\Keys::camel(['SPOUSE' => ['allowed' => true, 'window_days' => 30, 'start_basis' => 'EVENT']]));
+        $this->assertSame(['SPOUSE' => ['window_days' => 30]], \App\Bff\Keys::snake(['SPOUSE' => ['windowDays' => 30]]));
+    }
 }

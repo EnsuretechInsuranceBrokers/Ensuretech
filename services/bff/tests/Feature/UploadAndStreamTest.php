@@ -52,6 +52,15 @@ class UploadAndStreamTest extends TestCase
         $send()->assertStatus(429)->assertJsonPath('title', 'Too many requests')->assertHeader('Retry-After');
     }
 
+    public function test_the_retry_preamble_is_not_an_event(): void
+    {
+        $sse = "retry: 2000\n\nevent: progress\ndata: ".json_encode(['job_id' => 'j', 'state' => 'CD_INSUFFICIENT', 'phase' => 'CD', 'category' => 'BLOCKED', 'percent' => 66])."\n\n";
+        $this->fake(['engine.test/*' => Http::response($sse, 200, ['Content-Type' => 'text/event-stream'])]);
+        $out = $this->as()->get('/api/v1/broker/endorsements/a1b2c3d4-0000-4000-8000-000000000001/progress')->streamedContent();
+        $this->assertStringStartsWith("retry: 2000\n\nevent: progress", $out);
+        $this->assertStringNotContainsString('unreadable event', $out);
+    }
+
     public function test_progress_events_are_reshaped_event_by_event(): void
     {
         $sse = "event: progress\ndata: ".json_encode(['job_id' => 'j', 'state' => 'VALIDATION_IN_PROGRESS', 'status_code' => 210, 'phase' => 'VALIDATION', 'category' => 'PROCESSING',

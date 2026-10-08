@@ -34,4 +34,9 @@ class ApiExceptionHandler {
                 .collect(Collectors.toMap(f -> f.getField(), f -> String.valueOf(f.getDefaultMessage()), (a, b) -> a)));
         return pd;
     }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    ProblemDetail unreadable(org.springframework.http.converter.HttpMessageNotReadableException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed or unreadable request body");
+    }
 }
