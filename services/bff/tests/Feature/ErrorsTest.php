@@ -70,7 +70,7 @@ class ErrorsTest extends TestCase
     public function test_django_style_field_errors_are_understood(): void
     {
         $this->fake(['identity.test/*' => Http::response(['password' => ['This password is too common.'], 'email' => 'already exists', 'detail' => 'x', 'trace' => 'boom'], 400)]);
-        $r = $this->as()->postJson('/api/v1/broker/users', ['email' => 'a@b.co', 'role' => 'BROKER_ADMIN', 'password' => 'abcdefgh1'])->assertStatus(400);
+        $r = $this->as()->postJson('/api/v1/broker/users', ['email' => 'a@b.co', 'first_name' => 'A', 'last_name' => 'B', 'role' => 'BROKER_ADMIN', 'password' => 'abcdefgh1'])->assertStatus(400);
         $this->assertSame(['This password is too common.'], $r->json('errors.password'));
         $this->assertSame(['already exists'], $r->json('errors.email'));
         $this->assertArrayNotHasKey('trace', $r->json('errors'));
