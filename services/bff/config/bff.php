@@ -5,6 +5,9 @@
  | goes out, composes views across services, and holds explicitly-owned, expiring mitigations. It holds NO business logic and NO database.
  */
 return [
+    // Shared with every core service (GATEWAY_SECRET there). Without it a service refuses the call, so nothing but this BFF can reach them.
+    'gateway_secret' => env('BFF_GATEWAY_SECRET', ''),
+
     // Where each service lives on the private network. (Production: mTLS terminates in front of these; see README.)
     'upstreams' => [
         'identity' => env('UPSTREAM_IDENTITY', 'http://localhost:8000'),

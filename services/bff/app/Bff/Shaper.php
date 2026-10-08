@@ -57,6 +57,9 @@ final class Shaper
             } elseif (is_array($value) && ! isset($spec['raw'])) {
                 $value = null;          // an undeclared nested structure is not part of the contract
             }
+            if (! empty($spec['obj']) && $value === []) {
+                $value = new \stdClass();                  // an empty JSON object must stay an object, not become []
+            }
             if (($spec['keys'] ?? null) === 'snake' && is_array($value)) {
                 $value = Keys::snake($value);
             }

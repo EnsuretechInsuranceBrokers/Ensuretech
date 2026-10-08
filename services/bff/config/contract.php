@@ -17,6 +17,7 @@ $djangoQuery = ['page' => 'page', 'page_size' => 'page_size'];
 
 $base = [
     'schemas' => [
+        'job_error_summary' => ['errors_by_rule' => ['as' => 'errors_by_rule', 'raw' => true, 'obj' => true]],
         // ── pages (one public shape, three backend dialects)
         'spring_page' => ['content' => ['as' => 'items', 'list' => '@item'], 'totalElements' => 'total', 'number' => ['as' => 'page', 'add' => 1], 'size' => 'page_size'],
         'django_page' => ['results' => ['as' => 'items', 'list' => '@item'], 'count' => 'total', 'page' => 'page', 'page_size' => 'page_size'],
@@ -40,7 +41,7 @@ $base = [
             'phase' => 'phase', 'category' => 'category', 'is_terminal' => 'is_terminal', 'source_filename' => 'source_filename', 'effective_date' => 'effective_date',
             'total_rows' => 'total_rows', 'failed_rows' => 'failed_rows', 'chunk_count' => 'chunk_count', 'chunks_completed' => 'chunks_completed',
             'total_premium' => 'total_premium', 'tax_amount' => 'tax_amount', 'premium_delta' => 'premium_delta', 'cd_status' => 'cd_status',
-            'error_summary' => ['as' => 'error_summary', 'raw' => true], 'created_at' => 'created_at', 'started_at' => 'started_at', 'completed_at' => 'completed_at'],
+            'error_summary' => ['as' => 'error_summary', 'schema' => 'job_error_summary'], 'created_at' => 'created_at', 'started_at' => 'started_at', 'completed_at' => 'completed_at'],
         'job_audit' => ['from_state' => 'from_status', 'to_state' => 'to_status', 'phase' => 'phase', 'category' => 'category', 'actor' => 'actor',
             'duration_ms' => 'duration_ms', 'transitioned_at' => 'at'],
         'progress' => ['job_id' => 'job_id', 'state' => 'status', 'phase' => 'phase', 'category' => 'category', 'percent' => 'percent', 'total_rows' => 'total_rows',

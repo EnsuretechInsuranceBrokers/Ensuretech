@@ -16,19 +16,24 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
+        web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [CorrelationId::class, SecurityHeaders::class]);
-        $middleware->alias(['bff.auth' => Authenticate::class, 'bff.gateway' => RequireGateway::class, 'bff.ops' => RequireOps::class, 'bff.limit' => \App\Http\Middleware\Limit::class]);
+        $middleware->web(prepend: [\App\Http\Middleware\PortalHeaders::class]);
+        $middleware->alias(['portal.auth' => \App\Http\Middleware\PortalAuth::class, 'bff.auth' => Authenticate::class, 'bff.gateway' => RequireGateway::class, 'bff.ops' => RequireOps::class, 'bff.limit' => \App\Http\Middleware\Limit::class]);
         $middleware->trustProxies(at: env('BFF_TRUSTED_PROXIES') ? explode(',', env('BFF_TRUSTED_PROXIES')) : null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(fn (Request $request) => true);
+        $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
         // One error shape for everything, and never an internal detail in it.
         $exceptions->render(function (Throwable $e, Request $request) {
+            if (! $request->is('api/*') && ! $request->expectsJson()) {
+                return null;                                // the portal's pages use Laravel's HTML error pages (no detail unless APP_DEBUG)
+            }
             if ($e instanceof HttpResponseException) {
                 return $e->getResponse();                   // e.g. the rate limiter's own 429
             }

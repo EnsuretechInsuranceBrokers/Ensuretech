@@ -26,6 +26,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "config.gateway.GatewaySecretMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -105,3 +106,5 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "TOKEN_OBTAIN_SERIALIZER": "apps.users.serializers.TenantTokenObtainPairSerializer",
 }
+
+GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF; blank = the check is off (local development)

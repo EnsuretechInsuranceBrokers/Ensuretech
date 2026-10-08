@@ -26,6 +26,18 @@ class ShapingAndForwardingTest extends TestCase
         $this->assertNull($body['renewal_date']);
     }
 
+    public function test_every_upstream_call_carries_the_gateway_secret_and_a_session_key_derived_from_it(): void
+    {
+        $this->fake(['policy.test/*' => Http::response(self::POLICY)]);
+        $this->as()->getJson('/api/v1/broker/policies/123')->assertOk();
+        Http::assertSent(function (Request $r) {
+            $sid = $r->header('X-Session-Id')[0] ?? '';
+
+            return ($r->header('X-Gateway-Secret')[0] ?? '') === 'test-gateway-secret' && $sid !== ''
+                && hash_equals(hash_hmac('sha256', $sid, 'test-gateway-secret'), $r->header('X-Session-Key')[0] ?? '');
+        });
+    }
+
     public function test_spring_pages_become_the_public_page_shape_and_page_numbers_are_1_based(): void
     {
         $this->fake(['policy.test/*' => Http::response(['content' => [self::POLICY], 'totalElements' => 41, 'totalPages' => 1, 'number' => 2, 'size' => 20, 'pageable' => ['x' => 1]])]);

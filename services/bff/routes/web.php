@@ -1,0 +1,28 @@
+<?php
+
+use App\Http\Controllers\Portal\PortalController as P;
+use Illuminate\Support\Facades\Route;
+
+/* The portal. Everything after /login needs a server-side session; pages call the BFF's own API in-process (App\Frontend\Gateway). */
+Route::get('/', fn () => redirect('/app'));
+Route::get('/login', [P::class, 'loginForm']);
+Route::post('/login', [P::class, 'login'])->middleware('throttle:10,1');
+Route::post('/logout', [P::class, 'logout']);
+
+Route::middleware('portal.auth')->prefix('app')->group(function () {
+    Route::get('/', [P::class, 'dashboard']);
+    Route::get('/employers', [P::class, 'employers']);
+    Route::post('/employers', [P::class, 'employerCreate']);
+    Route::get('/policies', [P::class, 'policies']);
+    Route::get('/policies/{id}', [P::class, 'policy'])->whereNumber('id');
+    Route::post('/policies/{id}/approve', [P::class, 'policyApprove'])->whereNumber('id');
+    Route::get('/endorsements', [P::class, 'endorsements']);
+    Route::post('/endorsements/upload', [P::class, 'upload']);
+    Route::get('/endorsements/{id}', [P::class, 'job']);
+    Route::get('/endorsements/{id}/progress', [P::class, 'progress']);
+    Route::post('/endorsements/{id}/{action}', [P::class, 'jobAction']);
+    Route::get('/cd', [P::class, 'cd']);
+    Route::post('/cd/{policyId}/credit', [P::class, 'cdCredit'])->whereNumber('policyId');
+    Route::post('/cd/{policyId}/replenish', [P::class, 'cdReplenish'])->whereNumber('policyId');
+    Route::match(['get', 'post'], '/assistant', [P::class, 'assistant']);
+});

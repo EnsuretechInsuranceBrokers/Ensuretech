@@ -11,7 +11,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-only-insecure-key" if DEBUG e
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "testserver"])
 
 INSTALLED_APPS = ["rest_framework", "apps.core", "apps.projections", "apps.readapi", "apps.rag"]
-MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
+MIDDLEWARE = ["config.gateway.GatewaySecretMiddleware", "django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {}          # MongoDB only: read models are disposable and rebuilt from events; there is no relational state here
@@ -54,3 +54,5 @@ RAG_MAX_QUESTION_CHARS = 1000
 RAG_MAX_DOC_CHARS = env.int("RAG_MAX_DOC_CHARS", default=200_000)
 
 REPORT_MAX_ROWS = env.int("REPORT_MAX_ROWS", default=50_000)
+
+GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF; blank = the check is off (local development)

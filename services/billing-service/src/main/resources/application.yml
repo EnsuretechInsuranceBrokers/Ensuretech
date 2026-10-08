@@ -54,3 +54,6 @@ app:
       interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
       batch-size: 100
       max-retries: 5
+
+gateway:
+  secret: ${GATEWAY_SECRET:}     # shared with the BFF; blank = the check is off (local development)

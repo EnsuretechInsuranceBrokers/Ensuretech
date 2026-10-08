@@ -23,6 +23,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "config.gateway.GatewaySecretMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
@@ -118,3 +119,5 @@ CELERY_BEAT_SCHEDULE["expire-gui-sessions"] = {"task": "apps.intake.tasks.expire
 # ── pro-rata (legacy parity; both are per-portal switches there) ─────────────────────────────────────────────────
 REMOVAL_INCLUDES_LEAVING_DAY = env.bool("REMOVAL_INCLUDES_LEAVING_DAY", default=True)        # False reproduces the TATA AIG same-day-removal variant
 REMOVAL_REFUND_WHEN_PRORATA_DISABLED = env("REMOVAL_REFUND_WHEN_PRORATA_DISABLED", default="DAILY")   # DAILY (legacy) | FULL | NONE
+
+GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF; blank = the check is off (local development)
