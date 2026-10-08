@@ -157,6 +157,30 @@ public class PolicyController {
         return ContributionDto.of(contributions.get(broker(), id));
     }
 
+    @PutMapping("/{id}/rounding")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    RoundingDto putRounding(@PathVariable long id, @Valid @RequestBody RoundingDto r) {
+        Policy p = policies.setRounding(broker(), id, r.type(), r.unit());
+        return new RoundingDto(p.getPremiumRounding(), p.getRoundingUnit());
+    }
+
+    @PutMapping("/{id}/midterm")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    MidtermDto putMidterm(@PathVariable long id, @Valid @RequestBody MidtermDto r) {
+        return new MidtermDto(policies.setMidtermBasis(broker(), id, r.basis()).getMidtermBasis());
+    }
+
+    @GetMapping("/{id}/midterm")
+    MidtermDto getMidterm(@PathVariable long id) {
+        return new MidtermDto(policies.get(broker(), id).getMidtermBasis());
+    }
+
+    @GetMapping("/{id}/rounding")
+    RoundingDto getRounding(@PathVariable long id) {
+        Policy p = policies.get(broker(), id);
+        return new RoundingDto(p.getPremiumRounding(), p.getRoundingUnit());
+    }
+
     @GetMapping("/{id}/sheet-spec")
     Map<String, Object> sheetSpec(@PathVariable long id) {
         return sheetSpecs.build(policies.get(broker(), id));

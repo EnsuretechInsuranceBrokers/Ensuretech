@@ -14,7 +14,7 @@ from datetime import timedelta
 from django.conf import settings
 
 from .contribution import ContributionPlan, group_of
-from .pro_rata import joiner_factor, money, removal_factor
+from .pro_rata import joiner_factor, money, removal_factor, round_amount
 
 UPDATABLE = ("first_name", "last_name", "dob", "gender", "pan", "mobile", "email", "grade", "designation",
              "annual_salary", "sum_insured")
@@ -127,6 +127,7 @@ def price_chunk(job: EndorsementJob, chunk_index: int, client: PolicyClient) -> 
     default_kind, inception = facts["pro_rata_type"], facts.get("is_inception", False)
     leaving_day = settings.REMOVAL_INCLUDES_LEAVING_DAY
     plan = ContributionPlan(facts.get("contribution_type"), facts.get("contribution_groups"))
+    rounding, rounding_unit = facts.get("premium_rounding") or "NONE", facts.get("rounding_unit") or 1
 
     def kind_of(relation_code: str) -> str:
         return kinds.get(relation_code) or default_kind
@@ -159,10 +160,11 @@ def price_chunk(job: EndorsementJob, chunk_index: int, client: PolicyClient) -> 
                 f = joiner_factor(kind, start, end, from_day, inception)
             raw += delta * f
             raw_employee += (e_after - e_before) * f
-        charged = money(raw)
+        charged = round_amount(raw, rounding, rounding_unit)
         employee_charged = employer_charged = None
         if plan.enabled:
-            employee_charged = money(raw_employee)
+            employee_charged = round_amount(raw_employee, rounding, rounding_unit)
+            employee_charged = min(employee_charged, charged) if charged >= 0 else max(employee_charged, charged)   # rounding must not make one side pay more than the whole
             employer_charged = charged - employee_charged
         total_delta = after_amt - before_amt
         factor = (charged / total_delta).quantize(Decimal("0.000001")) if total_delta else Decimal(1)

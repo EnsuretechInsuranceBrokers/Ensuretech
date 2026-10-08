@@ -24,6 +24,16 @@ def _fail(job_id, reason: str) -> None:
     transition(job_id, State.VALIDATION_FAILED, metadata={"ingest_error": reason})
 
 
+def with_cover_start(payload: dict, errors: list, job) -> dict:
+    """DATE_OF_UPLOAD policies start a mid-term joiner's cover on the day the sheet was uploaded (never before the policy starts),
+    whatever date of joining the sheet carries. Inception-window policies and every other operation are left alone."""
+    facts = job.metadata.get("policy") or {}
+    if (job.op_type != "ADD" or facts.get("midterm_basis") != "DATE_OF_UPLOAD" or facts.get("is_inception") or not facts.get("start_date")
+            or any(e.get("field") == "effective_date" for e in errors or [])):
+        return payload
+    return {**payload, "effective_date": max(job.created_at.date().isoformat(), facts["start_date"])}
+
+
 @shared_task(bind=True, name="apps.intake.tasks.ingest_csv", acks_late=True, autoretry_for=(OperationalError,),
              retry_backoff=True, max_retries=3)
 def ingest_csv(self, job_id: str):
@@ -50,7 +60,7 @@ def ingest_csv(self, job_id: str):
                     StagedRow.objects.bulk_create([
                         StagedRow(job_id=job_id, chunk_index=chunk.index, row_index=rows + n, source_line=r.source_line,
                                   op_type=job.op_type, raw_payload=r.raw,
-                                  normalised_payload={**r.normalised, "_errors": r.errors}, row_hash=r.row_hash)
+                                  normalised_payload={**with_cover_start(r.normalised, r.errors, job), "_errors": r.errors}, row_hash=r.row_hash)
                         for n, r in enumerate(chunk.rows)], batch_size=1000)
                     ChunkState.objects.create(job_id=job_id, chunk_index=chunk.index, stage="VALIDATE",
                                               row_count=len(chunk.rows))

@@ -33,6 +33,9 @@ public class Policy {
     @Column(name = "pro_rata_type", nullable = false) private ProRataType proRataType = ProRataType.NONE;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "construct_config", nullable = false) private Map<String, Object> constructConfig = new HashMap<>();
+    @Column(name = "midterm_basis", nullable = false) private String midtermBasis = "DATE_OF_JOINING";
+    @Column(name = "premium_rounding", nullable = false) private String premiumRounding = "NONE";
+    @Column(name = "rounding_unit", nullable = false) private int roundingUnit = 1;
     @Column(name = "is_test_data", nullable = false) private boolean testData;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -78,6 +81,11 @@ public class Policy {
     public void setMaxMembers(Integer v) { maxMembers = v; }
     public boolean isInception() { return inception; }
     public void setInception(boolean v) { inception = v; }
+    public String getMidtermBasis() { return midtermBasis; }
+    public void setMidtermBasis(String v) { midtermBasis = v; }
+    public String getPremiumRounding() { return premiumRounding; }
+    public int getRoundingUnit() { return roundingUnit; }
+    public void setRounding(String type, int unit) { premiumRounding = type; roundingUnit = unit; }
     public ProRataType getProRataType() { return proRataType; }
     public void setProRataType(ProRataType v) { proRataType = v; }
     public Map<String, Object> getConstructConfig() { return constructConfig; }

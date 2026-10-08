@@ -235,4 +235,48 @@ class GrpcTest extends IntegrationTestBase {
         assertThat(info.getContributionType()).isEqualTo("FIXED");
         assertThat(info.getContributionGroupsMap()).containsEntry("SELF", "1200.5").containsEntry("CHILD", "300");
     }
+
+    @Test
+    void getPolicyCarriesTheRoundingPolicyAndRejectsBadOnes() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-RD");
+        PolicyInfo none = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
+        assertThat(none.getPremiumRounding()).isEqualTo("NONE");
+        assertThat(none.getRoundingUnit()).isEqualTo(1);
+        var put = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/rounding");
+        var ok = org.springframework.test.web.servlet.result.MockMvcResultMatchers.status();
+        mvc.perform(put.header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"type\":\"FLOOR\",\"unit\":10}"))
+                .andExpect(ok.isOk());
+        PolicyInfo info = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build());
+        assertThat(info.getPremiumRounding()).isEqualTo("FLOOR");
+        assertThat(info.getRoundingUnit()).isEqualTo(10);
+        for (String bad : new String[] {"{\"type\":\"BANKERS\"}", "{\"type\":\"ROUND\",\"unit\":0}", "{\"type\":\"ROUND\",\"unit\":1000000}"}) {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/rounding")
+                    .header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(bad))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is4xxClientError());
+        }
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/rounding")
+                .header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"type\":\"NONE\",\"unit\":50}"))
+                .andExpect(ok.isOk());
+        assertThat(stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getRoundingUnit()).isEqualTo(1);   // NONE resets the unit
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/rounding")
+                .header("Authorization", admin(BROKER_B)).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"type\":\"ROUND\"}"))
+                .andExpect(ok.isNotFound());
+    }
+
+    @Test
+    void getPolicyCarriesTheMidtermBasis() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-MT");
+        assertThat(stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getMidtermBasis()).isEqualTo("DATE_OF_JOINING");
+        for (String basis : new String[] {"DATE_OF_UPLOAD", "NO_MIDTERM"}) {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/midterm")
+                    .header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"basis\":\"" + basis + "\"}"))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+            assertThat(stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getMidtermBasis()).isEqualTo(basis);
+        }
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/broker/policies/" + id + "/midterm")
+                .header("Authorization", admin(BROKER_A)).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"basis\":\"WHENEVER\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is4xxClientError());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/broker/policies/" + id + "/midterm")
+                .header("Authorization", admin(BROKER_B))).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound());
+    }
 }

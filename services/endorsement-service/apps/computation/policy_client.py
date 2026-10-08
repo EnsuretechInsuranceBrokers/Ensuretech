@@ -42,6 +42,9 @@ class PolicyInfo:
     relation_prorata: dict = field(default_factory=dict)      # relation code -> DAILY | MONTHLY | NONE (already resolved by policy-service)
     contribution_type: str = "NONE"                            # NONE | PERCENT | FIXED
     contribution_groups: dict = field(default_factory=dict)    # group -> decimal string (see computation/contribution.py)
+    premium_rounding: str = "NONE"                             # NONE | FLOOR | CEIL | ROUND (see pro_rata.round_amount)
+    rounding_unit: int = 1
+    midterm_basis: str = "DATE_OF_JOINING"                     # DATE_OF_JOINING | DATE_OF_UPLOAD | NO_MIDTERM
 
 
 @dataclass(frozen=True)
@@ -135,7 +138,7 @@ class GrpcPolicyClient:
                           date.fromisoformat(r.start_date), date.fromisoformat(r.end_date), r.pro_rata_type,
                           r.is_inception, r.premium_type_code, r.requires_family_construct,
                           {x.relation_code: x.pro_rata_type for x in r.relation_rules},
-                          r.contribution_type or "NONE", dict(r.contribution_groups))
+                          r.contribution_type or "NONE", dict(r.contribution_groups), r.premium_rounding or "NONE", r.rounding_unit or 1, r.midterm_basis or "DATE_OF_JOINING")
 
     def validate_families(self, broker_id, policy_id, families):
         pb = self._pb

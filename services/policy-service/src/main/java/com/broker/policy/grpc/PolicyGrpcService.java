@@ -172,7 +172,7 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
                     .setPolicyNumber(p.getPolicyNumber()).setPolicyType(p.getPolicyType())
                     .setStatus(p.getStatus().name()).setStartDate(p.getStartDate().toString())
                     .setEndDate(p.getEndDate().toString()).setProRataType(p.getProRataType().name())
-                    .setIsInception(p.isInception()).setPremiumTypeId(pt.getId()).setPremiumTypeCode(pt.getCode())
+                    .setMidtermBasis(p.getMidtermBasis()).setPremiumRounding(p.getPremiumRounding()).setRoundingUnit(p.getRoundingUnit()).setIsInception(p.isInception()).setPremiumTypeId(pt.getId()).setPremiumTypeCode(pt.getCode())
                     .setRequiresFamilyConstruct(java.util.Set.of("GMC", "OPD", "WELLNESS").contains(p.getPolicyType()));
             for (RelationRule r : relationRules.findByPolicyIdOrderByRelationCode(p.getId())) {
                 RelationRuleInfo.Builder b = RelationRuleInfo.newBuilder().setRelationCode(r.getRelationCode()).setMaxTwins(r.getMaxTwins())

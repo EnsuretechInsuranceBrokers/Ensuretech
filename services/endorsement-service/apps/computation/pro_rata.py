@@ -11,7 +11,7 @@ A factor is the fraction of the ANNUAL premium that applies; money is rounded on
 """
 import calendar
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 
 SIX = Decimal("0.000001")
 KINDS = ("DAILY", "MONTHLY", "NONE")
@@ -19,6 +19,15 @@ KINDS = ("DAILY", "MONTHLY", "NONE")
 
 def money(d: Decimal) -> Decimal:
     return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def round_amount(d: Decimal, kind: str = "NONE", unit: int = 1) -> Decimal:
+    """Legacy roundTo: FLOOR / CEIL / ROUND (half away from zero, like PHP round) to a multiple of ``unit``; NONE keeps paise."""
+    if kind not in ("FLOOR", "CEIL", "ROUND"):
+        return money(d)
+    q = d / Decimal(max(int(unit or 1), 1))
+    n = q.to_integral_value(rounding={"FLOOR": ROUND_FLOOR, "CEIL": ROUND_CEILING, "ROUND": ROUND_HALF_UP}[kind])
+    return money(n * Decimal(max(int(unit or 1), 1)))
 
 
 def _add_months(d: date, n: int) -> date:

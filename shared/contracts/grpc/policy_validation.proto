@@ -109,6 +109,9 @@ message PolicyInfo {
   // PARENT_IN_LAW_SINGLE, PARENT_IN_LAW_DOUBLE, OTHERS. Values are decimal strings.
   string contribution_type = 14;
   map<string, string> contribution_groups = 15;
+  string premium_rounding = 16;  // NONE, FLOOR, CEIL, ROUND: how the money charged for an endorsement is rounded
+  int32 rounding_unit = 17;      // the multiple it is rounded to (1 = whole rupees); 1 when NONE
+  string midterm_basis = 18;     // DATE_OF_JOINING, DATE_OF_UPLOAD or NO_MIDTERM: how a mid-term joiner's cover start is decided
 }
 
 // Per-relation rules (legacy policy_age_details). pro_rata_type is already resolved: NONE if the policy forbids pro-rata, else the

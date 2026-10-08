@@ -3,6 +3,7 @@ package com.broker.policy.service;
 import com.broker.policy.api.ConflictException;
 import com.broker.policy.api.NotFoundException;
 import com.broker.policy.api.ValidationFailedException;
+import com.broker.policy.api.ValidationFailedException.Issue;
 import com.broker.policy.domain.*;
 import com.broker.policy.outbox.OutboxPublisher;
 import java.time.LocalDate;
@@ -132,5 +133,27 @@ public class PolicyService {
         body.put("status", p.getStatus().name());
         if (premiumTypeCode != null) body.put("premium_type", premiumTypeCode);
         outbox.publish("Policy", p.getId(), type, TOPIC, String.valueOf(p.getBrokerId()), body);
+    }
+
+    @Transactional
+    public Policy setRounding(long brokerId, long id, String type, Integer unit) {
+        java.util.List<Issue> bad = new java.util.ArrayList<>();
+        if (type == null || !java.util.Set.of("NONE", "FLOOR", "CEIL", "ROUND").contains(type)) bad.add(new Issue("TYPE", "type must be NONE, FLOOR, CEIL or ROUND"));
+        int u = unit == null ? 1 : unit;
+        if (u < 1 || u > 100000) bad.add(new Issue("UNIT", "unit must be between 1 and 100000"));
+        if (!bad.isEmpty()) throw new ValidationFailedException(bad);
+        Policy p = get(brokerId, id);
+        p.setRounding(type, "NONE".equals(type) ? 1 : u);
+        return p;
+    }
+
+    @Transactional
+    public Policy setMidtermBasis(long brokerId, long id, String basis) {
+        if (basis == null || !java.util.Set.of("DATE_OF_JOINING", "DATE_OF_UPLOAD", "NO_MIDTERM").contains(basis)) {
+            throw new ValidationFailedException("MIDTERM_BASIS", "basis must be DATE_OF_JOINING, DATE_OF_UPLOAD or NO_MIDTERM");
+        }
+        Policy p = get(brokerId, id);
+        p.setMidtermBasis(basis);
+        return p;
     }
 }

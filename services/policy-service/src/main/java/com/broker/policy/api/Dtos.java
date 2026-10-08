@@ -101,6 +101,11 @@ public final class Dtos {
         public static ContributionDto of(ContributionPlan p) { return new ContributionDto(p.getType().name(), p.getGroups()); }
     }
 
+    /** type NONE | FLOOR | CEIL | ROUND; unit is the multiple the charged amount is rounded to (1 = whole rupees). */
+    public record RoundingDto(@NotBlank String type, Integer unit) {}
+
+    public record MidtermDto(@NotBlank String basis) {}
+
     public record PutRelationRulesRequest(@NotNull List<@Valid RelationRuleDto> rules) {}
 
     public record PersonDto(@NotBlank String relationCode, @NotNull @PositiveOrZero Integer age, String dob) {}

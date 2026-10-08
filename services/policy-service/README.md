@@ -84,3 +84,13 @@ PERCENT: the employee pays that % (0-100) of each member's premium; FIXED: that 
 engine on `GetPolicy` (`contribution_type`, `contribution_groups`). No plan = `NONE` = the split is **not computed** (not "employer pays").
 **Assumption to confirm:** legacy's `calculatePremiumWithContribution` was not in the files I was given; I implemented the rule visible in its callers (fixed: `employee = min(premium, contribution)`, employer = remainder;
 percent: employee = premium x %). Fixed amounts are *not* pro-rated separately: the split follows each member's pro-rated charge. Legacy has separate OPD contribution types (`premium_contribution_type_opd`) - not ported.
+
+## Premium rounding
+`PUT/GET /api/v1/broker/policies/{id}/rounding` `{"type":"NONE|FLOOR|CEIL|ROUND","unit":10}` (BROKER_ADMIN to write). Legacy `roundTo`: the engine rounds the money
+charged for an endorsement (after pro-rata) to a multiple of `unit`; ROUND is half away from zero (PHP `round`), FLOOR/CEIL are mathematical (so a FLOOR on a refund
+refunds slightly more). Default NONE (paise kept): legacy rounds for one portal only, so a policy opts in. Carried to the engine in `PolicyInfo.premium_rounding/rounding_unit`.
+
+## Mid-term joiner basis
+`PUT/GET /api/v1/broker/policies/{id}/midterm` `{"basis":"DATE_OF_JOINING|DATE_OF_UPLOAD|NO_MIDTERM"}` (legacy `EnrollmentMidtermType`; BROKER_ADMIN to write). Default DATE_OF_JOINING.
+The engine applies it: DATE_OF_UPLOAD starts a joiner's cover on the upload day (never before the policy start; inception-window policies are exempt);
+NO_MIDTERM rejects `MIDTERM_NOT_ALLOWED` any ADD whose cover start is after the policy start unless the policy is in its inception window. Carried in `PolicyInfo.midterm_basis`.

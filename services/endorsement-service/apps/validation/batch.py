@@ -47,6 +47,11 @@ def validate_rows(job: EndorsementJob, staged: list, policy_facts: dict, client:
     # duplicates inside the chunk (families are never split across chunks, so this is the whole file's view)
     for i in df.index[has_key & key.duplicated(keep="first")]:
         add(int(i), "employee_code", "DUPLICATE_ROW_IN_FILE", "same employee and relation appears more than once", value=key[i])
+    # NO_MIDTERM: once the policy has started (and is out of its inception window) nobody new can be added
+    if op == "ADD" and policy_facts.get("midterm_basis") == "NO_MIDTERM" and not policy_facts.get("is_inception") and policy_facts.get("start_date"):
+        start = policy_facts["start_date"]
+        for i in df.index[df["effective_date"].notna() & df["effective_date"].astype(str).gt(start)]:      # ISO dates compare as text
+            add(int(i), "effective_date", "MIDTERM_NOT_ALLOWED", f"this policy does not accept mid-term joiners (it started on {start})", value=df.at[i, "effective_date"])
     pan = df["pan"].where(df["pan"].notna() & df["pan"].astype(str).str.strip().ne(""))
     first_key = key.groupby(pan).transform("first")
     for i in df.index[pan.notna() & key.ne(first_key)]:
