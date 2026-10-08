@@ -198,17 +198,22 @@ final class GatewayController extends Controller
         return $d !== null && strlen($d) <= 300 && ! preg_match('/\b(exception|stack ?trace|at [a-z]+\.[a-z.]+\()/i', $d) ? $d : null;
     }
 
-    /** {field: [messages]} only. */
+    /** {field: [messages]} only. Understands our own `errors` map and the Django REST style where the fields sit at the top level. */
     private function safeErrors(UpstreamResponse $up): array
     {
-        $errors = $up->json('errors');
-        if (! is_array($errors)) {
+        $json = $up->json();
+        $errors = is_array($json) ? ($json['errors'] ?? null) : null;
+        if (! is_array($errors) && is_array($json) && ! array_is_list($json)) {
+            $reserved = ['detail', 'message', 'status', 'title', 'type', 'path', 'error', 'timestamp', 'trace', 'errors'];
+            $errors = array_filter($json, fn ($v, $k) => ! in_array($k, $reserved, true) && (is_string($v) || (is_array($v) && array_is_list($v))), ARRAY_FILTER_USE_BOTH);
+        }
+        if (! is_array($errors) || $errors === []) {
             return [];
         }
         $out = [];
         foreach (array_slice($errors, 0, 50, true) as $field => $msgs) {
             $msgs = is_array($msgs) ? $msgs : [$msgs];
-            $out[(string) $field] = array_values(array_map(fn ($m) => substr((string) (is_scalar($m) ? $m : ''), 0, 200), array_slice($msgs, 0, 10)));
+            $out[substr((string) $field, 0, 80)] = array_values(array_map(fn ($m) => substr((string) (is_scalar($m) ? $m : ''), 0, 200), array_slice($msgs, 0, 10)));
         }
 
         return $out ? ['errors' => $out] : [];

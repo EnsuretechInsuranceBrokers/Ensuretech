@@ -18,12 +18,12 @@ return [
         'change_password' => ['old_password' => ['type' => 'string', 'required' => true, 'max' => 200], 'new_password' => ['type' => 'string', 'required' => true, 'max' => 200, 'min' => 8]],
         'user_create_broker' => [
             'email' => ['type' => 'string', 'required' => true, 'max' => 254, 'pattern' => '/^[^@\s]+@[^@\s]+$/'],
-            'first_name' => ['type' => 'string', 'max' => 100], 'last_name' => ['type' => 'string', 'max' => 100], 'phone' => ['type' => 'string', 'max' => 20],
+            'first_name' => ['type' => 'string', 'required' => true, 'max' => 100], 'last_name' => ['type' => 'string', 'required' => true, 'max' => 100], 'phone' => ['type' => 'string', 'max' => 20],
             'role' => ['type' => 'string', 'required' => true, 'enum' => ['BROKER_ADMIN', 'BROKER_SPECIALIZER', 'BROKER_NON_ADMIN', 'EMPLOYER_ADMIN', 'EMPLOYER_NON_ADMIN']],
             'password' => ['type' => 'string', 'required' => true, 'max' => 200, 'min' => 8], 'employer_id' => ['type' => 'int', 'min' => 1]],
         'user_create_employer' => [
             'email' => ['type' => 'string', 'required' => true, 'max' => 254, 'pattern' => '/^[^@\s]+@[^@\s]+$/'],
-            'first_name' => ['type' => 'string', 'max' => 100], 'last_name' => ['type' => 'string', 'max' => 100], 'phone' => ['type' => 'string', 'max' => 20],
+            'first_name' => ['type' => 'string', 'required' => true, 'max' => 100], 'last_name' => ['type' => 'string', 'required' => true, 'max' => 100], 'phone' => ['type' => 'string', 'max' => 20],
             'role' => ['type' => 'string', 'required' => true, 'enum' => ['EMPLOYER_ADMIN', 'EMPLOYER_NON_ADMIN']],
             'password' => ['type' => 'string', 'required' => true, 'max' => 200, 'min' => 8]],
     ],

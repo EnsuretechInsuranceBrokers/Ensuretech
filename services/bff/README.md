@@ -26,15 +26,26 @@ client --JWT--> BFF --(same JWT, X-Correlation-Id)--> identity / organization / 
 ```bash
 composer install && cp .env.example .env && php artisan key:generate
 php artisan serve --port 8090
-php artisan test            # 43 tests, no database or network: upstreams are faked
+php artisan test            # 54 tests, no database or network: upstreams are faked
 ```
 Needs the identity public key (`BFF_JWT_PUBLIC_KEY_PATH` or `BFF_JWT_PUBLIC_KEY`) and the `UPSTREAM_*` URLs (defaults match each service's default port; read-service on 8087 is a guess).
 Use the `redis` cache store when more than one instance runs, so rate-limit counters are shared.
+
+## The frontend's only door
+The contract now covers the whole product surface a broker or HR screen needs, ~90 endpoints x gateways: sign-in/refresh/logout/me/change-password and user creation;
+employers (create, edit, deactivate, parent/child, config), branches; the full policy lifecycle (create, approve, deactivate, readiness, rate card, family construct,
+relation rules, contributions, rounding, mid-term, mid-term dependants, family validation, premium quote); deposits (accounts, statements, credits, thresholds, pools,
+replenishments); TPA configuration, sync jobs, reconciliation; endorsement intake (CSV upload and preview, column mappings, row-level errors, GUI sessions, progress stream,
+cancel/proceed/retry/close); dashboards, activity, downloadable reports; the assistant (ask, knowledge). Test-data generation (`/sheets/*`) exists only when `BFF_QA_TOOLS=true`.
+Request bodies are validated and renamed by `App\Bff\Binder` from the contract's `inputs`; files and reports stream through with a type allowlist and size cap.
+
+**What the BFF cannot do by itself:** make it the *only* door. That is a deployment property: publish only the BFF's port, keep every service on a private network
+(and mTLS between them), and let nothing else resolve to them. The services still verify every token, so a leaked port is not an open door, but the isolation must be real.
 
 ## Not done / assumptions (read before relying on it)
 - **Never run against the real services.** Contract shapes were taken from reading each service's code (`PolicyResponse`, `AccountResponse`, `job_to_dict`, the read-service listing...); the tests use fakes. Spring `Page` JSON is assumed to have `content/totalElements/number/size` at the top level. Run it once against the running stack before trusting a field.
 - **No mTLS.** The README requires service-to-service mTLS; that belongs to the deployment (reverse proxy / mesh) and is not configured here.
 - **Payment Service bypass** is documented in the root README and intentionally has no route here.
-- Contract covers the endpoints a broker or HR screen needs now (employers, policies, deposits, endorsements and their progress, dashboards, sync jobs). Not yet: identity (login/refresh/users), policy configuration writes, rate cards, sheet generation, RAG `ask`, row-level error reports (`/errors/` - its shape is not in the contract yet), reports downloads.
+- Not in the contract (the services have them, the frontend has no need yet or it needs a decision): admin broker creation (SYSTEM only), service-token issue, the read-service's own policy listing (policy-service serves policies), notification-service, knowledge-document detail, GUI row listing beyond the session view, CORS preflight for PUT/PATCH/DELETE (only GET/POST/OPTIONS are allowed cross-origin by default: widen `config/cors.php` for the portal).
 - No GraphQL or WebSocket (the README mentions them for clients). CORS is closed by default: set `BFF_CORS_ORIGINS` to the portal origin(s).
 - Anomaly detection beyond honeypots and rate limits is not built.
