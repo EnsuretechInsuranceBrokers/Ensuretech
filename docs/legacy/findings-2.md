@@ -66,3 +66,8 @@ B. Replace my pro-rata kinds with DAILY / MONTHLY (legacy semantics) per relatio
 C. Add the id-mapping tables (relation, premium type, sum-insured subtype) and port the premium types production actually uses.
 D. Drive the post-endorsement states from integration-service (insurer send, TPA confirmation, e-card, endorsement copy), including the TPA pull/reconcile described in findings-1.
 E. Generalise CD accounts (policy / group / company) in billing-service.
+
+## 7. Status of section 5 (updated)
+Done: 1 (id mapping, `policy_svc.legacy_id_map` + `GET /api/v1/broker/lookups/legacy-ids`; many legacy premium/sum-insured types are UNMAPPED or APPROXIMATE because the new design's seeds decompose them differently), 2 (per-relation rules), 3 (contribution split), 4 (post-endorsement states and the internal lifecycle endpoint; the
+insurer/TPA/e-card *adapters* that call it are still to build), 8 (DAILY/MONTHLY). Open: 5 (CD accounts spanning policies/groups/companies), 6 (parent/child employers), 7 (rounding policy and per-portal switches).
+Rounding is blocked on the question of which policies round premiums (legacy rounds only for one portal); CD and parent/child are blocked on how you want ownership modelled.

@@ -227,4 +227,26 @@ class PolicyApiTest extends IntegrationTestBase {
         mvc.perform(get("/api/v1/broker/lookups/relation-types").header("Authorization", admin(BROKER_A)))
                 .andExpect(jsonPath("$", hasSize(25)));
     }
+
+    @Test
+    void legacyIdsTranslateAndEveryMappedIdExists() throws Exception {
+        mvc.perform(get("/api/v1/broker/lookups/legacy-ids?kind=RELATION").header("Authorization", admin(BROKER_A)))
+                .andExpect(jsonPath("$", hasSize(18)))
+                .andExpect(jsonPath("$[?(@.legacyCode=='DAUGHTER')].newId", contains(9)))       // legacy 3 is a daughter; here 3 is a husband
+                .andExpect(jsonPath("$[?(@.legacyId==3)].legacyCode", contains("DAUGHTER")));
+        mvc.perform(get("/api/v1/broker/lookups/legacy-ids?kind=PREMIUM_TYPE").header("Authorization", admin(BROKER_A)))
+                .andExpect(jsonPath("$", hasSize(29)))
+                .andExpect(jsonPath("$[?(@.legacyId==31)].status", contains("UNMAPPED")));
+        mvc.perform(get("/api/v1/broker/lookups/legacy-ids?kind=SUMINSURED_SUBTYPE").header("Authorization", admin(BROKER_A)))
+                .andExpect(jsonPath("$", hasSize(26)));
+        mvc.perform(get("/api/v1/broker/lookups/legacy-ids?kind=NOPE").header("Authorization", admin(BROKER_A))).andExpect(status().isBadRequest());
+        // no dangling targets: every new_id names a real row of its lookup table
+        var orphans = jdbc.sql("""
+                SELECT count(*) FROM policy_svc.legacy_id_map m WHERE m.new_id IS NOT NULL AND NOT EXISTS (
+                  SELECT 1 FROM policy_svc.relation_types r WHERE m.kind = 'RELATION' AND r.id = m.new_id
+                  UNION ALL SELECT 1 FROM policy_svc.premium_types p WHERE m.kind = 'PREMIUM_TYPE' AND p.id = m.new_id
+                  UNION ALL SELECT 1 FROM policy_svc.suminsured_subtypes s WHERE m.kind = 'SUMINSURED_SUBTYPE' AND s.id = m.new_id)""")
+                .query(Long.class).single();
+        org.assertj.core.api.Assertions.assertThat(orphans).isZero();
+    }
 }

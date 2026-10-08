@@ -20,6 +20,7 @@ of `employer.events` (idempotent; an event can never re-parent an employer to an
 | `GET /{id}/rate-card`, `/family-construct` | broker roles |
 | `POST /{id}/family/validate`, `POST /{id}/premium/quote` | broker roles |
 | `GET /lookups/{premium-types,suminsured-subtypes,rater-types,relation-types}` | broker roles |
+| `GET /lookups/legacy-ids?kind=RELATION|PREMIUM_TYPE|SUMINSURED_SUBTYPE` | legacy id → this system's id, with MAPPED / APPROXIMATE / UNMAPPED status |
 | `GET /api/v1/employer/policies[/{id}]` | employer roles: LIVE policies of their own employer only |
 
 Statuses: `NOT_APPROVED → APPROVED_AND_LIVE → INACTIVE`; a nightly sweep moves past-due live policies to `EXPIRED`.
