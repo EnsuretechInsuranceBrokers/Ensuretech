@@ -49,3 +49,10 @@ Request bodies are validated and renamed by `App\Bff\Binder` from the contract's
 - Not in the contract (the services have them, the frontend has no need yet or it needs a decision): admin broker creation (SYSTEM only), service-token issue, the read-service's own policy listing (policy-service serves policies), notification-service, knowledge-document detail, GUI row listing beyond the session view, CORS preflight for PUT/PATCH/DELETE (only GET/POST/OPTIONS are allowed cross-origin by default: widen `config/cors.php` for the portal).
 - No GraphQL or WebSocket (the README mentions them for clients). CORS is closed by default: set `BFF_CORS_ORIGINS` to the portal origin(s).
 - Anomaly detection beyond honeypots and rate limits is not built.
+
+## Portal and the gateway secret
+- **Portal** (`/login`, `/app/...`): server-rendered pages that call this app's own API in-process (`App\Frontend\Gateway`), so there is no network hop and the same
+  authentication, rate limits and response shaping apply. Tokens are kept in the server-side session (`SESSION_ENCRYPT=true`) and never reach the browser.
+- **Gateway secret**: set `BFF_GATEWAY_SECRET` here and `GATEWAY_SECRET` in every core service. Every upstream call carries `X-Gateway-Secret`, `X-Session-Id` and
+  `X-Session-Key` (HMAC-SHA256 of the session id with the secret); the services refuse browser-facing paths without them, so nothing but the BFF can use them,
+  even with a valid user token. Generate: `php -r 'echo bin2hex(random_bytes(32));'`. See `docs/full-stack-local.md` for a full local run.
