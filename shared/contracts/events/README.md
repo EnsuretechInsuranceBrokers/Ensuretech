@@ -15,3 +15,5 @@ Changing a field means changing the sample, which fails whichever side forgot to
 | all event samples above | various | read-service (projects them into MongoDB read models and RAG history chunks) |
 | `cd-balance-updated` | billing-service (`cd-balance.updates`) | read-service |
 | state-changed / applied / policy-approved / cd-balance (`CdBalanceLow` carries the same fields as `cd-balance-updated`) / tpa-sync-failed | producers above | notification-service (mail triggers) |
+
+`CdBalanceUpdated`/`CdBalanceLow` also carry `account_id` and `account_type` (`POLICY`, `GROUP`, `COMPANY`, `MULTIPLE`). For a shared account `policy_id` is its lowest member and the optional `policy_ids` lists every member (up to 1000); consumers that key balances by policy must update each of them.

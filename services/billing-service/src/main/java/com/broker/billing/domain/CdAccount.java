@@ -9,8 +9,10 @@ import java.time.Instant;
 public class CdAccount {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "broker_id", nullable = false, updatable = false) private Long brokerId;
-    @Column(name = "employer_id", nullable = false, updatable = false) private Long employerId;
-    @Column(name = "policy_id", nullable = false, updatable = false) private Long policyId;
+    @Column(name = "employer_id", updatable = false) private Long employerId;                  // null for a MULTIPLE (cross-employer) pool
+    @Column(name = "policy_id", updatable = false) private Long policyId;                      // home policy of a POLICY account only
+    @Column(name = "account_type", nullable = false, updatable = false) private String accountType = "POLICY";
+    @Column(length = 120) private String name;
     @Column(nullable = false) private BigDecimal balance = BigDecimal.ZERO;
     @Column(nullable = false) private BigDecimal reserved = BigDecimal.ZERO;
     @Column(name = "threshold_amount", nullable = false) private BigDecimal thresholdAmount = BigDecimal.ZERO;
@@ -29,6 +31,9 @@ public class CdAccount {
     public Long getBrokerId() { return brokerId; }
     public Long getEmployerId() { return employerId; }
     public Long getPolicyId() { return policyId; }
+    public String getAccountType() { return accountType; }
+    public String getName() { return name; }
+    public boolean isPool() { return !"POLICY".equals(accountType); }
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal v) { balance = v; }
     public BigDecimal getReserved() { return reserved; }

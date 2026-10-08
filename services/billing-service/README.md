@@ -10,6 +10,15 @@ REST `:8084`, gRPC `:9091`.
 - `cd_replenishment_requests`: request / approve / reject top-ups (unique reference per account).
 - Invariants (asserted in tests): `balance == signed ledger sum`; `reserved == sum of HELD reservations`.
 
+## Shared accounts (legacy CDAccountType)
+`account_type` is `POLICY` (default; one policy), `GROUP` (chosen policies of one employer), `COMPANY` (every policy of an employer; new policies
+join when their `PolicyApproved` arrives; at most one per employer) or `MULTIPLE` (any of the broker's policies, no employer). A policy is funded by exactly
+one account (`cd_account_policies`), and every existing per-policy API (`/cd/accounts/{policyId}`, credits, replenishments, gRPC check) resolves
+through that link, so a pool needs no engine change. `POST /broker/cd/pools`, `GET /broker/cd/pools/{id}`, `POST .../{id}/policies`, `DELETE .../{id}/policies/{policyId}`.
+Rules: a policy can join only while its own account is untouched (no ledger, holds or requests): money is never merged silently; members cannot leave while
+money is held, nor leave a COMPANY pool; HR users cannot see a MULTIPLE pool. Events carry `account_id`, `account_type` and, for pools, `policy_ids`.
+Not done: deleting a pool, moving funded balances between accounts, per-policy sub-ledgers/allocations inside a pool.
+
 ## Flow with the endorsement engine
 1. Engine calls gRPC `CheckCdBalance(policy, broker, required, job_id)` (SYSTEM token only). Enough available money → **reserved
    atomically**; re-checks per call, and releases the hold if it can no longer cover. Otherwise returns the deficit.

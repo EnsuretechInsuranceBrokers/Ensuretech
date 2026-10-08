@@ -52,10 +52,26 @@ public class CdLedgerService {
     /** Idempotent. An existing account for the policy under a DIFFERENT broker is a tenant-integrity error. */
     @Transactional
     public CdAccount openAccount(long brokerId, long employerId, long policyId) {
-        jdbc.sql("INSERT INTO billing.cd_accounts(broker_id, employer_id, policy_id) VALUES (:b, :e, :p) ON CONFLICT (policy_id) DO NOTHING")
-                .param("b", brokerId).param("e", employerId).param("p", policyId).update();
+        if (!linked(policyId)) {
+            Long company = jdbc.sql("SELECT id FROM billing.cd_accounts WHERE broker_id = :b AND employer_id = :e AND account_type = 'COMPANY'")
+                    .param("b", brokerId).param("e", employerId).query(Long.class).optional().orElse(null);
+            if (company != null) {                                                          // a company pool funds every policy of the employer
+                jdbc.sql("INSERT INTO billing.cd_account_policies(policy_id, account_id, broker_id) VALUES (:p, :a, :b) ON CONFLICT DO NOTHING")
+                        .param("p", policyId).param("a", company).param("b", brokerId).update();
+            } else {
+                jdbc.sql("INSERT INTO billing.cd_accounts(broker_id, employer_id, policy_id) VALUES (:b, :e, :p) ON CONFLICT (policy_id) DO NOTHING")
+                        .param("b", brokerId).param("e", employerId).param("p", policyId).update();
+                jdbc.sql("INSERT INTO billing.cd_account_policies(policy_id, account_id, broker_id) "
+                        + "SELECT policy_id, id, broker_id FROM billing.cd_accounts WHERE policy_id = :p ON CONFLICT DO NOTHING")
+                        .param("p", policyId).update();
+            }
+        }
         return accounts.lockByPolicyAndBroker(policyId, brokerId)
                 .orElseThrow(() -> new ConflictException("Policy " + policyId + " already belongs to another broker"));
+    }
+
+    private boolean linked(long policyId) {
+        return jdbc.sql("SELECT count(*) FROM billing.cd_account_policies WHERE policy_id = :p").param("p", policyId).query(Long.class).single() > 0;
     }
 
     // ── the deposit check, which now reserves ─────────────────────────────────────────────────────────────────
@@ -158,7 +174,7 @@ public class CdLedgerService {
             return;
         }
         post(acct, total.signum() > 0 ? EntryType.DEBIT : EntryType.CREDIT, total.abs(), ReferenceType.ENDORSEMENT,
-                jobId.toString(), "Endorsement " + jobId, "SYSTEM");
+                jobId.toString(), "Endorsement " + jobId + " (policy " + policyId + ")", "SYSTEM");
     }
 
     // ── credits ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -194,6 +210,14 @@ public class CdLedgerService {
         body.put("broker_id", acct.getBrokerId());
         body.put("employer_id", acct.getEmployerId());
         body.put("policy_id", acct.getPolicyId());
+        body.put("account_id", acct.getId());
+        body.put("account_type", acct.getAccountType());
+        if (acct.isPool()) {                                                                // consumers key balances by policy: tell them every member's
+            java.util.List<Long> members = jdbc.sql("SELECT policy_id FROM billing.cd_account_policies WHERE account_id = :a ORDER BY policy_id LIMIT 1000")
+                    .param("a", acct.getId()).query(Long.class).list();
+            body.put("policy_id", members.isEmpty() ? null : members.getFirst());
+            body.put("policy_ids", members);
+        }
         body.put("entry_type", type.name());
         body.put("amount", amount.toPlainString());
         body.put("balance", after.toPlainString());
@@ -202,12 +226,14 @@ public class CdLedgerService {
         body.put("threshold", acct.getThresholdAmount().toPlainString());
         body.put("reference_type", refType.name());
         body.put("reference_id", refId);
-        outbox.publish("CdAccount", acct.getPolicyId(), "CdBalanceUpdated", TOPIC, String.valueOf(acct.getBrokerId()), body);
+        outbox.publish("CdAccount", aggregateId(acct), "CdBalanceUpdated", TOPIC, String.valueOf(acct.getBrokerId()), body);
         if (acct.available().compareTo(acct.getThresholdAmount()) < 0 && type == EntryType.DEBIT) {
-            outbox.publish("CdAccount", acct.getPolicyId(), "CdBalanceLow", TOPIC, String.valueOf(acct.getBrokerId()), body);
+            outbox.publish("CdAccount", aggregateId(acct), "CdBalanceLow", TOPIC, String.valueOf(acct.getBrokerId()), body);
         }
         return e;
     }
+
+    private static String aggregateId(CdAccount a) { return a.isPool() ? "pool-" + a.getId() : String.valueOf(a.getPolicyId()); }
 
     @Transactional
     public CdAccount setThreshold(long brokerId, long policyId, BigDecimal threshold) {

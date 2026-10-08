@@ -6,6 +6,7 @@ import com.broker.billing.domain.LedgerEntry.ReferenceType;
 import com.broker.billing.security.TenantContext;
 import com.broker.billing.security.TenantContextHolder;
 import com.broker.billing.service.CdLedgerService;
+import com.broker.billing.service.CdPoolService;
 import com.broker.billing.service.ReplenishmentService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,8 +26,11 @@ public class CdController {
     private final LedgerEntryRepository ledgerRepo;
     private final CdLedgerService ledger;
     private final ReplenishmentService replenishments;
+    private final CdPoolService pools;
 
-    CdController(CdAccountRepository accounts, LedgerEntryRepository ledgerRepo, CdLedgerService ledger, ReplenishmentService replenishments) {
+    CdController(CdAccountRepository accounts, LedgerEntryRepository ledgerRepo, CdLedgerService ledger, ReplenishmentService replenishments,
+                 CdPoolService pools) {
+        this.pools = pools;
         this.accounts = accounts;
         this.ledgerRepo = ledgerRepo;
         this.ledger = ledger;
@@ -38,7 +42,7 @@ public class CdController {
         TenantContext t = TenantContextHolder.require();
         if (t.brokerId() == null) throw new ForbiddenTenantException("Caller is not tenant-scoped");
         CdAccount a = accounts.findByPolicyIdAndBrokerId(policyId, t.brokerId()).orElseThrow(() -> new NotFoundException("No CD account for policy"));
-        if (t.isEmployerScoped() && !a.getEmployerId().equals(t.employerId())) throw new NotFoundException("No CD account for policy");
+        if (t.isEmployerScoped() && !t.employerId().equals(a.getEmployerId())) throw new NotFoundException("No CD account for policy");
         return a;
     }
 
@@ -50,13 +54,13 @@ public class CdController {
         TenantContext t = TenantContextHolder.require();
         if (t.brokerId() == null) throw new ForbiddenTenantException("Caller is not tenant-scoped");
         List<CdAccount> list = t.isEmployerScoped()
-                ? accounts.findByBrokerIdAndEmployerIdOrderByPolicyId(t.brokerId(), t.employerId())
-                : accounts.findByBrokerIdOrderByPolicyId(t.brokerId());
+                ? accounts.findByBrokerIdAndEmployerIdOrderById(t.brokerId(), t.employerId())
+                : accounts.findByBrokerIdOrderById(t.brokerId());
         return list.stream().map(AccountResponse::of).toList();
     }
 
     @GetMapping({"/api/v1/broker/cd/accounts/{policyId}", "/api/v1/employer/cd/accounts/{policyId}"})
-    AccountResponse get(@PathVariable long policyId) { return AccountResponse.of(visible(policyId)); }
+    AccountResponse get(@PathVariable long policyId) { return AccountResponse.of(visible(policyId), policyId); }
 
     @GetMapping({"/api/v1/broker/cd/accounts/{policyId}/statements", "/api/v1/employer/cd/accounts/{policyId}/statements"})
     Page<EntryResponse> statements(@PathVariable long policyId, @RequestParam(defaultValue = "0") int page,
@@ -90,7 +94,7 @@ public class CdController {
     @PreAuthorize("hasRole('BROKER_ADMIN')")
     AccountResponse threshold(@PathVariable long policyId, @Valid @RequestBody ThresholdRequest r) {
         visible(policyId);
-        return AccountResponse.of(ledger.setThreshold(TenantContextHolder.requireBrokerId(), policyId, r.thresholdAmount()));
+        return AccountResponse.of(ledger.setThreshold(TenantContextHolder.requireBrokerId(), policyId, r.thresholdAmount()), policyId);
     }
 
     @PostMapping("/api/v1/broker/cd/accounts/{policyId}/replenishments/{id}/approve")
@@ -124,5 +128,35 @@ public class CdController {
         CdAccount a = visible(policyId);
         return ResponseEntity.status(201).body(ReplenishmentResponse.of(
                 replenishments.request(a.getBrokerId(), policyId, r.amount(), r.reference(), actor())));
+    }
+
+    // ── shared accounts (pools) ──────────────────────────────────────────────────────────────────────────────
+    /** A GROUP (some policies of one employer), COMPANY (all of an employer's) or MULTIPLE (any of the broker's) deposit account. */
+    @PostMapping("/api/v1/broker/cd/pools")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    ResponseEntity<PoolResponse> createPool(@Valid @RequestBody PoolCreate r) {
+        CdAccount a = pools.create(TenantContextHolder.requireBrokerId(), r.type(), r.name(), r.employerId(), r.policyIds());
+        return ResponseEntity.status(201).body(new PoolResponse(AccountResponse.of(a, null), pools.members(a.getId())));
+    }
+
+    @GetMapping("/api/v1/broker/cd/pools/{id}")
+    PoolResponse pool(@PathVariable long id) {
+        CdAccount a = accounts.findByIdAndBrokerId(id, TenantContextHolder.requireBrokerId()).filter(CdAccount::isPool)
+                .orElseThrow(() -> new NotFoundException("No such pool"));
+        return new PoolResponse(AccountResponse.of(a, null), pools.members(a.getId()));
+    }
+
+    @PostMapping("/api/v1/broker/cd/pools/{id}/policies")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    PoolResponse addToPool(@PathVariable long id, @Valid @RequestBody PolicyIds r) {
+        CdAccount a = pools.addPolicies(TenantContextHolder.requireBrokerId(), id, r.policyIds());
+        return new PoolResponse(AccountResponse.of(a, null), pools.members(a.getId()));
+    }
+
+    @DeleteMapping("/api/v1/broker/cd/pools/{id}/policies/{policyId}")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    PoolResponse removeFromPool(@PathVariable long id, @PathVariable long policyId) {
+        CdAccount a = pools.removePolicy(TenantContextHolder.requireBrokerId(), id, policyId);
+        return new PoolResponse(AccountResponse.of(a, null), pools.members(a.getId()));
     }
 }

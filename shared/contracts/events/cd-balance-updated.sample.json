@@ -4,6 +4,8 @@
   "broker_id": 1,
   "employer_id": 10,
   "policy_id": 1,
+  "account_id": 1,
+  "account_type": "POLICY",
   "entry_type": "DEBIT",
   "amount": "1765.15",
   "balance": "3234.85",

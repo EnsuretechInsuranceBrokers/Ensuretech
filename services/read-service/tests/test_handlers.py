@@ -83,3 +83,19 @@ def test_malformed_events_are_poison_not_crashes(db, bad):
 def test_unknown_event_types_are_ignored(db):
     assert handle_event(db, {"event_type": "SomethingNew", "x": 1}) is False
     assert handle_event(db, {"nope": 1}) is False
+
+
+def test_a_shared_deposit_account_updates_every_member_policy_and_a_cross_employer_pool_has_no_employer(db):
+    e = {**sample("cd-balance-updated"), "account_type": "GROUP", "policy_ids": [1, 2, 3]}
+    handle_event(db, e)
+    docs = list(db[mongo.CD_ACCOUNTS].find().sort("_id", 1))
+    assert [d["_id"] for d in docs] == [1, 2, 3] and {d["balance"] for d in docs} == {str(_money_of(e["balance"]))}
+    assert all(d["account_type"] == "GROUP" and d["employer_id"] == 10 for d in docs)
+    db[mongo.CD_ACCOUNTS].delete_many({})
+    handle_event(db, {**e, "account_type": "MULTIPLE", "employer_id": None})
+    assert {d["employer_id"] for d in db[mongo.CD_ACCOUNTS].find()} == {None}
+
+
+def _money_of(v):
+    from decimal import Decimal
+    return Decimal(v).quantize(Decimal("0.01"))

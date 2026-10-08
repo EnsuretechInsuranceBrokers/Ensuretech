@@ -101,12 +101,17 @@ def policy_event(db, e):
 
 def cd_balance_updated(db, e):
     _req(e, "policy_id", "balance", "reserved", "available")
-    pid, broker, employer = _int(e, "policy_id"), _int(e, "broker_id"), _int(e, "employer_id")
+    broker = _int(e, "broker_id")
+    employer = None if e.get("account_type") == "MULTIPLE" else _int(e, "employer_id")      # a cross-employer pool belongs to no one employer
     available, threshold = _money(e["available"]), _money(e["threshold"]) if e.get("threshold") is not None else None
-    db[mongo.CD_ACCOUNTS].update_one({"_id": pid}, {"$set": {
-        "broker_id": broker, "employer_id": employer, "balance": str(_money(e["balance"])), "reserved": str(_money(e["reserved"])),
-        "available": str(available), "threshold": None if threshold is None else str(threshold),
-        "low": None if threshold is None else available < threshold, "updated_at": datetime.now(UTC)}}, upsert=True)
+    doc = {"broker_id": broker, "employer_id": employer, "balance": str(_money(e["balance"])), "reserved": str(_money(e["reserved"])),
+           "available": str(available), "threshold": None if threshold is None else str(threshold),
+           "low": None if threshold is None else available < threshold, "updated_at": datetime.now(UTC),
+           "account_id": e.get("account_id"), "account_type": e.get("account_type")}
+    # a shared account (group / company / multiple) funds several policies: every member sees the same balance
+    ids = e.get("policy_ids") if isinstance(e.get("policy_ids"), list) and e.get("policy_ids") else [_int(e, "policy_id")]
+    for pid in ids:
+        db[mongo.CD_ACCOUNTS].update_one({"_id": pid}, {"$set": doc}, upsert=True)
 
 
 def tpa_sync(db, e):

@@ -8,13 +8,25 @@ import java.time.Instant;
 public final class Dtos {
     private Dtos() {}
 
+    /** {@code policyId} is the policy asked about (a pooled account answers for each of its members); null in listings of pools. */
     public record AccountResponse(Long policyId, Long employerId, BigDecimal balance, BigDecimal reserved,
-                                  BigDecimal available, BigDecimal thresholdAmount, boolean belowThreshold) {
-        public static AccountResponse of(CdAccount a) {
-            return new AccountResponse(a.getPolicyId(), a.getEmployerId(), a.getBalance(), a.getReserved(), a.available(),
-                    a.getThresholdAmount(), a.available().compareTo(a.getThresholdAmount()) < 0);
+                                  BigDecimal available, BigDecimal thresholdAmount, boolean belowThreshold,
+                                  Long accountId, String accountType, String name) {
+        public static AccountResponse of(CdAccount a) { return of(a, a.getPolicyId()); }
+
+        public static AccountResponse of(CdAccount a, Long policyId) {
+            return new AccountResponse(policyId, a.getEmployerId(), a.getBalance(), a.getReserved(), a.available(),
+                    a.getThresholdAmount(), a.available().compareTo(a.getThresholdAmount()) < 0, a.getId(), a.getAccountType(), a.getName());
         }
     }
+
+    public record PoolCreate(@NotNull @Pattern(regexp = "GROUP|COMPANY|MULTIPLE") String type,
+                             @NotBlank @Size(max = 120) String name, Long employerId,
+                             @Size(max = 500) java.util.List<@NotNull Long> policyIds) {}
+
+    public record PolicyIds(@NotEmpty @Size(max = 500) java.util.List<@NotNull Long> policyIds) {}
+
+    public record PoolResponse(AccountResponse account, java.util.List<Long> policyIds) {}
 
     public record EntryResponse(Long id, String entryType, BigDecimal amount, BigDecimal balanceAfter, String referenceType,
                                 String referenceId, String narration, String createdBy, Instant createdAt) {
