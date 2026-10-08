@@ -99,8 +99,8 @@ class ShapingAndForwardingTest extends TestCase
     public function test_unknown_paths_and_methods_do_not_exist(): void
     {
         $this->fake();
-        $this->as()->getJson('/api/v1/broker/employers/1/configs')->assertStatus(404);          // exists upstream, not in the contract
-        $this->as()->deleteJson('/api/v1/broker/employers/1')->assertStatus(405);
+        $this->as()->getJson('/api/v1/broker/employers/1/audit')->assertStatus(404);          // not in the contract
+        $this->as()->putJson('/api/v1/broker/employers/1')->assertStatus(405);
         $this->as()->getJson('/api/v1/broker/anything-else')->assertStatus(404);
         Http::assertNothingSent();
     }

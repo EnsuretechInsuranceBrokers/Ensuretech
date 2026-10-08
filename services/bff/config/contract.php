@@ -15,7 +15,7 @@ $UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 $springQuery = ['page' => ['page', -1], 'page_size' => 'size'];     // Spring pages are 0-based and call the size `size`
 $djangoQuery = ['page' => 'page', 'page_size' => 'page_size'];
 
-return [
+$base = [
     'schemas' => [
         // ── pages (one public shape, three backend dialects)
         'spring_page' => ['content' => ['as' => 'items', 'list' => '@item'], 'totalElements' => 'total', 'number' => ['as' => 'page', 'add' => 1], 'size' => 'page_size'],
@@ -40,7 +40,7 @@ return [
             'phase' => 'phase', 'category' => 'category', 'is_terminal' => 'is_terminal', 'source_filename' => 'source_filename', 'effective_date' => 'effective_date',
             'total_rows' => 'total_rows', 'failed_rows' => 'failed_rows', 'chunk_count' => 'chunk_count', 'chunks_completed' => 'chunks_completed',
             'total_premium' => 'total_premium', 'tax_amount' => 'tax_amount', 'premium_delta' => 'premium_delta', 'cd_status' => 'cd_status',
-            'error_summary' => 'error_summary', 'created_at' => 'created_at', 'started_at' => 'started_at', 'completed_at' => 'completed_at'],
+            'error_summary' => ['as' => 'error_summary', 'raw' => true], 'created_at' => 'created_at', 'started_at' => 'started_at', 'completed_at' => 'completed_at'],
         'job_audit' => ['from_state' => 'from_status', 'to_state' => 'to_status', 'phase' => 'phase', 'category' => 'category', 'actor' => 'actor',
             'duration_ms' => 'duration_ms', 'transitioned_at' => 'at'],
         'progress' => ['job_id' => 'job_id', 'state' => 'status', 'phase' => 'phase', 'category' => 'category', 'percent' => 'percent', 'total_rows' => 'total_rows',
@@ -138,3 +138,18 @@ return [
     // Composed views: one public call, several services. Defined in App\Http\Controllers\OverviewController.
     'compositions' => ['policies.overview' => ['path' => 'policies/{id}/overview', 'gateways' => ['broker', 'employer'], 'where' => ['id' => $ID]]],
 ];
+
+// The rest of the contract lives in contract/*.php (one file per area). Schemas, inputs and endpoints are merged; a name defined twice is a bug.
+foreach (glob(base_path('contract/*.php')) as $file) {
+    $part = require $file;
+    foreach (['schemas', 'inputs', 'endpoints'] as $section) {
+        foreach ($part[$section] ?? [] as $key => $def) {
+            if (isset($base[$section][$key])) {
+                throw new LogicException("contract: $section '$key' is defined twice ($file)");
+            }
+            $base[$section][$key] = isset($part['feature']) && $section === 'endpoints' ? $def + ['feature' => $part['feature']] : $def;
+        }
+    }
+}
+
+return $base;

@@ -13,10 +13,10 @@ final class Upstream
     private const PASS = ['Accept-Language'];
 
     /** @return array<string,string> */
-    public function headers(Request $in, array $extraHeaders = []): array
+    public function headers(Request $in, array $extraHeaders = [], bool $forwardToken = true): array
     {
         $headers = ['X-Correlation-Id' => (string) $in->attributes->get('correlation_id'), 'X-Forwarded-For' => (string) $in->ip()];
-        if ($token = $in->bearerToken()) {
+        if ($forwardToken && ($token = $in->bearerToken())) {
             $headers['Authorization'] = 'Bearer '.$token;          // the services verify it again; the BFF is not their authority
         }
         foreach (array_merge(self::PASS, $extraHeaders) as $h) {
@@ -28,12 +28,12 @@ final class Upstream
         return $headers;
     }
 
-    public function client(Request $in, string $service, ?float $timeout = null, array $extraHeaders = []): PendingRequest
+    public function client(Request $in, string $service, ?float $timeout = null, array $extraHeaders = [], bool $forwardToken = true): PendingRequest
     {
         return Http::baseUrl(rtrim(config("bff.upstreams.$service"), '/'))
             ->connectTimeout((float) config('bff.timeouts.connect'))
             ->timeout($timeout ?? (float) config('bff.timeouts.request'))
-            ->acceptJson()->withHeaders($this->headers($in, $extraHeaders))->withoutRedirecting();
+            ->acceptJson()->withHeaders($this->headers($in, $extraHeaders, $forwardToken))->withoutRedirecting();
     }
 
     /** '/api/v1/{gw}/x/{id}' + params => a concrete, URL-encoded path. */

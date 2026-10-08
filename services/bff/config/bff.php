@@ -14,7 +14,11 @@ return [
         'billing' => env('UPSTREAM_BILLING', 'http://localhost:8084'),
         'integration' => env('UPSTREAM_INTEGRATION', 'http://localhost:8085'),
         'read' => env('UPSTREAM_READ', 'http://localhost:8087'),
+        'sheets' => env('UPSTREAM_SHEETS', 'http://localhost:8086'),
     ],
+
+    // Tools that must never exist in production (they generate test data).
+    'features' => ['qa_tools' => (bool) env('BFF_QA_TOOLS', false)],
 
     'timeouts' => [
         'connect' => (float) env('BFF_CONNECT_TIMEOUT', 2),
@@ -44,12 +48,14 @@ return [
         'anonymous_per_minute' => (int) env('BFF_RATE_ANON', 120),     // per IP, before authentication: blunts token guessing
         'tenant_per_minute' => (int) env('BFF_RATE_TENANT', 600),      // per broker (or employer), shared by all its users
         'user_per_minute' => (int) env('BFF_RATE_USER', 240),          // per user
+        'auth_per_minute' => (int) env('BFF_RATE_AUTH', 10),           // login / refresh, per IP
         'heavy_per_minute' => (int) env('BFF_RATE_HEAVY', 20),         // uploads and other expensive calls, per user
     ],
 
     'limits' => [
         'max_upload_bytes' => (int) env('BFF_MAX_UPLOAD_BYTES', 100 * 1024 * 1024),
         'max_json_body_bytes' => (int) env('BFF_MAX_JSON_BODY_BYTES', 256 * 1024),
+        'max_download_bytes' => (int) env('BFF_MAX_DOWNLOAD_BYTES', 200 * 1024 * 1024),
     ],
 
     // Response mitigations (README s.9). A file of entries with owner, reason, expiry and removal condition; see App\Bff\Mitigations.

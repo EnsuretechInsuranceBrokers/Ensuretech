@@ -15,10 +15,10 @@ class RequireGateway
     public function handle(Request $request, Closure $next, string $gateway)
     {
         $p = $request->attributes->get('principal');
-        if ($p === null || $p->gateway() !== $gateway) {
+        if ($p === null || ($gateway !== 'any' && $p->gateway() !== $gateway) || $p->gateway() === null) {
             return Problem::response(403, 'Not allowed');
         }
-        if ($p->brokerId === null || ($gateway === 'employer' && $p->employerId === null)) {
+        if ($p->brokerId === null || ($p->gateway() === 'employer' && $p->employerId === null)) {
             return Problem::response(403, 'Not allowed');
         }
 

@@ -36,6 +36,9 @@ final class Shaper
             throw new ShapeException("expected an object for schema '$schema'");
         }
         $def = $this->schemas[$schema] ?? throw new ShapeException("unknown schema '$schema'");
+        if (isset($def['__passthrough'])) {
+            return $row;                                   // only for tools that are off in production (see contract/sheets.php)
+        }
         $out = [];
         foreach ($def as $from => $spec) {
             $spec = is_string($spec) ? ['as' => $spec] : $spec;

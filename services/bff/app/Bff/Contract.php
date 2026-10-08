@@ -11,13 +11,20 @@ final class Contract
 
     private array $endpoints;
 
+    private array $inputs;
+
     public function __construct(?array $config = null)
     {
         $config ??= config('contract');
         $this->schemas = $config['schemas'];
+        $this->inputs = $config['inputs'] ?? [];
         $this->endpoints = [];
         foreach ($config['endpoints'] as $name => $e) {
-            $this->endpoints[$name] = $this->resolve($name, $e);
+            $resolved = $this->resolve($name, $e);                       // always validated, whether or not the feature is on
+            if (isset($e['feature']) && ! config("bff.features.{$e['feature']}")) {
+                continue;
+            }
+            $this->endpoints[$name] = $resolved;
         }
         $this->compositions = $config['compositions'] ?? [];
     }
@@ -34,8 +41,32 @@ final class Contract
         if (! array_key_exists($e['service'], config('bff.upstreams'))) {
             throw new InvalidArgumentException("contract endpoint '$name': unknown service '{$e['service']}'");
         }
+        $e['scope'] ??= 'gateway';
+        if (! in_array($e['scope'], ['gateway', 'auth', 'public'], true)) {
+            throw new InvalidArgumentException("contract endpoint '$name': unknown scope '{$e['scope']}'");
+        }
+        if (isset($e['input']) && ! isset($this->inputs[$e['input']])) {
+            throw new InvalidArgumentException("contract endpoint '$name' uses unknown input '{$e['input']}'");
+        }
+        if (isset($e['input'], $e['body'])) {
+            throw new InvalidArgumentException("contract endpoint '$name' has both 'input' and 'body'");
+        }
         $resp = $e['response'] ?? null;
         $stream = $e['stream'] ?? null;
+        if (isset($e['download'])) {
+            $e['kind'] = 'download';
+            $e['schema'] = '';
+            $e['name'] = $name;
+
+            return $e;
+        }
+        if ($resp === 'none') {                                  // the endpoint answers 204 and says nothing else
+            $e['kind'] = 'empty';
+            $e['schema'] = '';
+            $e['name'] = $name;
+
+            return $e;
+        }
         if ($resp === null && $stream === null) {
             throw new InvalidArgumentException("contract endpoint '$name' has no response schema: an endpoint that does not say what it returns is not exposed");
         }
@@ -92,6 +123,11 @@ final class Contract
     public function endpoints(): array
     {
         return $this->endpoints;
+    }
+
+    public function binder(): Binder
+    {
+        return new Binder($this->inputs);
     }
 
     public function shaper(): Shaper

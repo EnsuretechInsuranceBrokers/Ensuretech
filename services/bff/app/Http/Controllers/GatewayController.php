@@ -34,14 +34,17 @@ final class GatewayController extends Controller
             if ($e['kind'] === 'stream') {
                 return $this->stream($request, $e, $path);
             }
-            $client = $this->upstream->client($request, $e['service'], isset($e['multipart']) ? (float) config('bff.timeouts.upload') : null, $e['headers'] ?? []);
+            if ($e['kind'] === 'download') {
+                return $this->download($request, $e, $path);
+            }
+            $client = $this->upstream->client($request, $e['service'], isset($e['multipart']) ? (float) config('bff.timeouts.upload') : null, $e['headers'] ?? [], $e['scope'] !== 'public');
             $method = $request->getMethod();
             $query = Upstream::query($request, $e['query'] ?? []);
 
             if (isset($e['multipart'])) {
                 $up = $this->multipart($request, $client, $e, $path, $query);
             } elseif (in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
-                $body = $this->jsonBody($request, $e['body'] ?? []);
+                $body = isset($e['input']) ? $this->boundBody($request, $e['input']) : $this->jsonBody($request, $e['body'] ?? []);
                 if ($body instanceof JsonResponse) {
                     return $body;
                 }
@@ -92,6 +95,28 @@ final class GatewayController extends Controller
         return $out;
     }
 
+    /** Validates and renames the JSON body against the contract's input schema (App\Bff\Binder); a bad request never reaches a service. */
+    private function boundBody(Request $request, string $input): array|JsonResponse
+    {
+        $raw = $request->getContent();
+        if (strlen($raw) > config('bff.limits.max_json_body_bytes')) {
+            return Problem::response(413, 'The request body is too large');
+        }
+        if ($raw !== '' && ! str_contains((string) $request->header('Content-Type'), 'json')) {
+            return Problem::response(415, 'Send the body as application/json');
+        }
+        $data = $raw === '' ? [] : json_decode($raw, true);
+        if (! is_array($data)) {
+            return Problem::response(400, 'The body must be a JSON object');
+        }
+        [$bound, $errors] = $this->contract->binder()->bind($data, $input);
+        if ($errors) {
+            return Problem::response(422, 'Invalid request', null, ['errors' => array_map(fn ($m) => array_values(array_unique($m)), array_slice($errors, 0, 50, true))]);
+        }
+
+        return $bound;
+    }
+
     private function multipart(Request $request, $client, array $e, string $path, array $query): UpstreamResponse|Response
     {
         $spec = $e['multipart'];
@@ -122,7 +147,7 @@ final class GatewayController extends Controller
         }
         $status = $up->status();
         if ($status >= 200 && $status < 300) {
-            if ($status === 204) {
+            if ($status === 204 || $e['kind'] === 'empty') {
                 return response()->noContent();
             }
             $data = $up->json();
@@ -187,6 +212,52 @@ final class GatewayController extends Controller
         }
 
         return $out ? ['errors' => $out] : [];
+    }
+
+    /** Files (reports, generated sheets): only declared content types, a size cap, a rebuilt Content-Disposition. Streamed, never buffered. */
+    private function download(Request $request, array $e, string $path): Response
+    {
+        $d = $e['download'];
+        $method = $request->getMethod();
+        $client = $this->upstream->client($request, $e['service'], (float) config('bff.timeouts.upload'), $e['headers'] ?? [])->withOptions(['stream' => true])->accept('*/*');
+        $query = Upstream::query($request, $e['query'] ?? []);
+        if ($method === 'POST') {
+            $body = isset($e['input']) ? $this->boundBody($request, $e['input']) : [];
+            if ($body instanceof JsonResponse) {
+                return $body;
+            }
+            $up = $client->post($path.($query ? '?'.http_build_query($query) : ''), $body === [] ? new \stdClass : $body);
+        } else {
+            $up = $client->get($path, $query);
+        }
+        if (! $up->successful()) {
+            return $this->deliver($up, ['name' => $e['name'], 'service' => $e['service'], 'kind' => 'error', 'schema' => ''], $request->route()->defaults['_gateway']);
+        }
+        $type = strtolower(trim(explode(';', (string) $up->header('Content-Type'))[0]));
+        if (! in_array($type, $d['types'], true)) {
+            Log::error('bff upstream file has an unexpected content type', ['endpoint' => $e['name'], 'type' => $type]);
+
+            return Problem::response(502, 'The service gave an unexpected answer');
+        }
+        $name = 'download';
+        if (preg_match('/filename="?([^";]+)"?/i', (string) $up->header('Content-Disposition'), $m)) {
+            $name = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($m[1])) ?: 'download';
+        }
+        $max = (int) ($d['max_bytes'] ?? config('bff.limits.max_download_bytes'));
+        $body = $up->toPsrResponse()->getBody();
+        $extra = array_filter(['X-Report-Truncated' => $up->header('X-Report-Truncated') ?: null]);
+
+        return new StreamedResponse(function () use ($body, $max) {
+            $sent = 0;
+            while (! $body->eof() && $sent < $max) {
+                $chunk = $body->read(8192);
+                $sent += strlen($chunk);
+                echo $chunk;
+                @ob_flush();
+                flush();
+            }
+        }, 200, $extra + ['Content-Type' => $type, 'Content-Disposition' => 'attachment; filename="'.$name.'"', 'X-Correlation-Id' => (string) $request->attributes->get('correlation_id'),
+            'Cache-Control' => 'no-store']);
     }
 
     /** Server-Sent Events are re-emitted event by event through the same allowlist, so progress carries no more than a job read does. */

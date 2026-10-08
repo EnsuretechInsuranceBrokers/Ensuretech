@@ -56,7 +56,9 @@ class EdgeTest extends TestCase
         $contract = app(Contract::class);
         $this->assertNotEmpty($contract->endpoints());
         foreach ($contract->endpoints() as $name => $e) {
-            $this->assertNotEmpty($e['schema'], "$name has no response schema");
+            if (! in_array($e['kind'], ['empty', 'download'], true)) {
+                $this->assertNotEmpty($e['schema'], "$name has no response schema");
+            }
             $this->assertContains($e['service'], array_keys(config('bff.upstreams')), "$name: unknown service");
             foreach ($e['gateways'] as $gw) {
                 $this->assertContains($gw, ['broker', 'employer']);
@@ -80,7 +82,10 @@ class EdgeTest extends TestCase
     public function test_every_public_schema_field_is_snake_case(): void
     {
         foreach (app(Contract::class)->schemas() as $name => $schema) {
-            foreach ($schema as $spec) {
+            foreach ($schema as $key => $spec) {
+                if ($key === '__passthrough') {
+                    continue;
+                }
                 $as = is_array($spec) ? $spec['as'] : $spec;
                 $this->assertMatchesRegularExpression('/^[a-z][a-z0-9_]*$/', $as, "schema $name exposes '$as'");
             }

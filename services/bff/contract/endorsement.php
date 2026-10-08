@@ -1,0 +1,63 @@
+<?php
+
+$UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+$ROWKEY = '[A-Za-z0-9_.:-]{1,64}';
+$OPS = ['ADD', 'UPDATE', 'REMOVE'];
+$both = ['broker', 'employer'];
+
+return [
+    'schemas' => [
+        'csv_preview' => ['headers' => ['as' => 'headers', 'raw' => true], 'suggestions' => ['as' => 'suggestions', 'list' => 'csv_suggestion'],
+            'unmapped_headers' => ['as' => 'unmapped_headers', 'raw' => true], 'missing_required' => ['as' => 'missing_required', 'raw' => true], 'auto_confirmable' => 'auto_confirmable'],
+        'csv_suggestion' => ['header' => 'header', 'field' => 'field', 'confidence' => 'confidence'],
+        'column_mapping' => ['id' => 'id', 'source_name' => 'source_name', 'source_key' => 'source_key', 'column_map' => ['as' => 'column_map', 'raw' => true],
+            'options' => ['as' => 'options', 'raw' => true], 'version' => 'version', 'is_confirmed' => 'is_confirmed', 'employer_id' => 'employer_id', 'created_at' => 'created_at'],
+        'job_errors' => ['results' => ['as' => 'items', 'list' => 'job_error'], 'count' => 'total', 'page' => 'page', 'page_size' => 'page_size', 'summary' => ['as' => 'summary', 'raw' => true]],
+        'job_error' => ['line' => 'line', 'employee_code' => 'employee_code', 'field' => 'field', 'rule' => 'rule', 'severity' => 'severity', 'message' => 'message', 'value' => 'value'],
+        'gui_session_created' => ['session_id' => 'session_id', 'state' => 'state', 'expires_at' => 'expires_at', 'schema' => ['as' => 'schema', 'raw' => true]],
+        'gui_session' => ['session_id' => 'session_id', 'state' => 'state', 'policy_id' => 'policy_id', 'expires_at' => 'expires_at', 'row_count' => 'row_count',
+            'rows_with_errors' => 'rows_with_errors', 'rows' => ['as' => 'rows', 'list' => 'gui_row'], 'jobs' => ['as' => 'jobs', 'list' => 'gui_job']],
+        'gui_row' => ['row_key' => 'row_key', 'op_type' => 'op_type', 'row' => ['as' => 'row', 'raw' => true], 'issues' => ['as' => 'issues', 'raw' => true]],
+        // clients build the progress URL from job_id: /api/v1/{gateway}/endorsements/{job_id}/progress
+        'gui_job' => ['job_id' => 'job_id', 'op_type' => 'op_type', 'rows' => 'rows'],
+        'gui_submitted' => ['session_id' => 'session_id', 'jobs' => ['as' => 'jobs', 'list' => 'gui_job']],
+        'gui_check' => ['valid' => 'valid', 'issues' => ['as' => 'issues', 'raw' => true], 'normalised' => ['as' => 'normalised', 'raw' => true]],
+        'gui_abandoned' => ['session_id' => 'session_id', 'state' => 'state'],
+    ],
+    'inputs' => [
+        'mapping_create' => ['source_name' => ['type' => 'string', 'required' => true, 'max' => 120], 'source_key' => ['type' => 'string', 'max' => 40],
+            'column_map' => ['type' => 'map', 'required' => true], 'options' => ['type' => 'map'], 'employer_id' => ['type' => 'int', 'min' => 1]],
+        'mapping_update' => ['column_map' => ['type' => 'map', 'required' => true], 'options' => ['type' => 'map']],
+        'gui_session_create' => ['policy_id' => ['type' => 'int', 'required' => true, 'min' => 1], 'effective_date' => ['type' => 'date']],
+        'gui_row_check' => ['op_type' => ['type' => 'string', 'required' => true, 'enum' => $OPS], 'row' => ['type' => 'map', 'required' => true], 'row_key' => ['type' => 'string', 'max' => 64]],
+        'gui_row_put' => ['op_type' => ['type' => 'string', 'required' => true, 'enum' => $OPS], 'row' => ['type' => 'map', 'required' => true]],
+    ],
+    'endpoints' => [
+        'endorsements.csv_preview' => ['methods' => ['POST'], 'path' => 'endorsements/csv/preview', 'gateways' => $both, 'service' => 'endorsement', 'upstream' => '/api/v1/{gw}/endorsements/csv/preview/',
+            'multipart' => ['file' => 'file', 'fields' => ['op_type', 'policy_id']], 'heavy' => true, 'response' => 'csv_preview'],
+        'endorsements.mappings' => ['methods' => ['GET'], 'path' => 'endorsements/csv/mappings', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/csv/mappings/', 'response' => ['list' => 'column_mapping']],
+        'endorsements.mappings_create' => ['methods' => ['POST'], 'path' => 'endorsements/csv/mappings', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/csv/mappings/', 'input' => 'mapping_create', 'response' => 'column_mapping'],
+        'endorsements.mappings_update' => ['methods' => ['PUT'], 'path' => 'endorsements/csv/mappings/{id}', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/csv/mappings/{id}/', 'where' => ['id' => $UUID], 'input' => 'mapping_update', 'response' => 'column_mapping'],
+        'endorsements.errors' => ['methods' => ['GET'], 'path' => 'endorsements/{id}/errors', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/{id}/errors/', 'where' => ['id' => $UUID],
+            'query' => ['page' => 'page', 'page_size' => 'page_size', 'severity' => 'severity', 'rule' => 'rule', 'employee_code' => 'employee_code'], 'response' => 'job_errors'],
+
+        'gui.create' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions', 'gateways' => $both, 'service' => 'endorsement', 'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/',
+            'input' => 'gui_session_create', 'response' => 'gui_session_created'],
+        'gui.get' => ['methods' => ['GET'], 'path' => 'endorsements/gui/sessions/{id}', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/', 'where' => ['id' => $UUID], 'response' => 'gui_session'],
+        'gui.validate' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions/{id}/rows/validate', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/rows/validate/', 'where' => ['id' => $UUID], 'input' => 'gui_row_check', 'response' => 'gui_check'],
+        'gui.row_put' => ['methods' => ['PUT'], 'path' => 'endorsements/gui/sessions/{id}/rows/{row_key}', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/rows/{row_key}/', 'where' => ['id' => $UUID, 'row_key' => $ROWKEY], 'input' => 'gui_row_put', 'response' => 'gui_row'],
+        'gui.row_delete' => ['methods' => ['DELETE'], 'path' => 'endorsements/gui/sessions/{id}/rows/{row_key}', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/rows/{row_key}/', 'where' => ['id' => $UUID, 'row_key' => $ROWKEY], 'response' => 'none'],
+        'gui.submit' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions/{id}/submit', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/submit/', 'where' => ['id' => $UUID], 'response' => 'gui_submitted'],
+        'gui.abandon' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions/{id}/abandon', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/abandon/', 'where' => ['id' => $UUID], 'response' => 'gui_abandoned'],
+    ],
+];

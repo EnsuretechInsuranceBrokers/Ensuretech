@@ -14,6 +14,9 @@ $contract = app(Contract::class);
 
 Route::middleware(['bff.limit:bff-anonymous', 'bff.auth', 'bff.limit:bff-tenant', 'bff.limit:bff-user'])->group(function () use ($contract) {
     foreach ($contract->endpoints() as $name => $e) {
+        if ($e['scope'] !== 'gateway') {
+            continue;                                    // 'auth' endpoints (any signed-in user) and 'public' ones (login) are registered below
+        }
         foreach ($e['gateways'] as $gw) {
             $route = Route::match($e['methods'], "v1/$gw/{$e['path']}", GatewayController::class)
                 ->defaults('_endpoint', $name)->defaults('_gateway', $gw)->name("bff.$gw.$name")
@@ -36,10 +39,30 @@ Route::middleware(['bff.limit:bff-anonymous', 'bff.auth', 'bff.limit:bff-tenant'
         }
     }
 
+    // Endpoints for any signed-in broker/HR user, not tied to one gateway (who am I, change my password, create a user in my tenant, ...)
+    foreach ($contract->endpoints() as $name => $e) {
+        if ($e['scope'] === 'auth') {
+            $route = Route::match($e['methods'], "v1/{$e['path']}", GatewayController::class)->defaults('_endpoint', $name)->defaults('_gateway', 'auth')
+                ->name("bff.auth.$name")->middleware('bff.gateway:any');
+            foreach ($e['where'] ?? [] as $param => $re) {
+                $route->where($param, $re);
+            }
+        }
+    }
+
     Route::middleware('bff.ops')->prefix('v1/ops')->group(function () {
         Route::get('mitigations', [OpsController::class, 'mitigations']);
         Route::get('upstreams', [OpsController::class, 'upstreams']);
     });
+});
+
+// Public endpoints (login, refresh): no token yet, so the strict per-IP budget applies.
+Route::middleware(['bff.limit:bff-anonymous', 'bff.limit:bff-auth'])->group(function () use ($contract) {
+    foreach ($contract->endpoints() as $name => $e) {
+        if ($e['scope'] === 'public') {
+            Route::match($e['methods'], "v1/{$e['path']}", GatewayController::class)->defaults('_endpoint', $name)->defaults('_gateway', 'public')->name("bff.public.$name");
+        }
+    }
 });
 
 // Bait. Unauthenticated on purpose: probes rarely hold a token.

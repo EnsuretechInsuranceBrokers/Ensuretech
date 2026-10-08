@@ -19,7 +19,7 @@ abstract class TestCase extends BaseTestCase
             'bff.jwt.public_key' => self::$keys['public'], 'bff.jwt.public_key_path' => null, 'bff.jwt.issuer' => 'ensuretech-identity',
             'bff.mitigations_path' => null,
             'bff.upstreams' => ['identity' => 'http://identity.test', 'organization' => 'http://org.test', 'policy' => 'http://policy.test',
-                'endorsement' => 'http://engine.test', 'billing' => 'http://billing.test', 'integration' => 'http://integration.test', 'read' => 'http://read.test'],
+                'endorsement' => 'http://engine.test', 'billing' => 'http://billing.test', 'integration' => 'http://integration.test', 'read' => 'http://read.test', 'sheets' => 'http://sheets.test'],
         ]);
         $this->app->forgetInstance(\App\Bff\Mitigations::class);
         $this->app->forgetInstance(\App\Bff\JwtVerifier::class);
