@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 import org.assertj.core.api.Assertions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.api.Test;
 
 class ReconcileFlowTest extends IntegrationTestBase {
@@ -71,5 +72,25 @@ class ReconcileFlowTest extends IntegrationTestBase {
         world.tpaStatus = 200;
         jdbc.sql("UPDATE integration.policy_routes SET tpa_id = NULL WHERE policy_id = 79").update();
         mvc.perform(post(URL + "79/reconcile").header("Authorization", admin(BROKER_A))).andExpect(status().isConflict());          // no TPA
+    }
+
+    @Autowired private com.broker.integration.sync.ReconcileScheduler scheduler;
+
+    @Test
+    void theSchedulerReconcilesTheStalestPoliciesFirstAndNeverTwiceInsideTheInterval() throws Exception {
+        config(BROKER_A, 3, "NONE", 100);
+        policy(81, "P-81", FakeWorld.member(1, "E1", "SELF", "A", "B"));
+        policy(82, "P-82", FakeWorld.member(2, "E2", "SELF", "C", "D"));
+        jdbc.sql("INSERT INTO integration.policy_routes(policy_id, broker_id, employer_id, tpa_id) VALUES (83, 1, 10, NULL)").update();           // no TPA: never scheduled
+        world.activeLivesJson = "{\"members\":[{\"employee_code\":\"E1\",\"relation\":\"Self\",\"member_id\":\"T1\",\"member_name\":\"A B\"}]}";
+        Assertions.assertThat(scheduler.runOnce()).isEqualTo(2);
+        Assertions.assertThat(world.tpaIdsRecorded).containsEntry(1L, "T1");
+        Assertions.assertThat(scheduler.runOnce()).isZero();                                                                                    // both ran moments ago
+        jdbc.sql("UPDATE integration.reconcile_runs SET created_at = now() - interval '1 day' WHERE policy_id = 82").update();
+        Assertions.assertThat(scheduler.runOnce()).isEqualTo(1);
+        world.tpaStatus = 503;
+        jdbc.sql("UPDATE integration.reconcile_runs SET created_at = now() - interval '2 days'").update();
+        Assertions.assertThat(scheduler.runOnce()).isEqualTo(2);                                                                                // failures are survived and recorded
+        Assertions.assertThat(jdbc.sql("SELECT count(*) FROM integration.reconcile_runs WHERE status = 'FAILED'").query(Long.class).single()).isEqualTo(2L);
     }
 }

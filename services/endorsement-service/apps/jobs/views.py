@@ -56,6 +56,20 @@ class JobCancelView(APIView):
         return Response(job_to_dict(job))
 
 
+class JobCloseView(APIView):
+    """An operator closes an endorsement that has been applied but is still waiting on the insurer/TPA (legacy CLOSED)."""
+    permission_classes = [GatewayPermission, CAN_DECIDE]
+
+    def post(self, request, job_id):
+        job = get_scoped_or_404(EndorsementJob.objects, request.user, id=job_id)
+        try:
+            job = transition(job.id, State.CLOSED, actor=request.user.user_id, actor_ip=request.META.get("REMOTE_ADDR"),
+                             metadata={"reason": str(request.data.get("reason", ""))[:300]})
+        except InvalidTransition as e:
+            raise Conflict(str(e)) from e
+        return Response(job_to_dict(job))
+
+
 class JobProceedView(APIView):
     """HR/broker confirms: continue with the valid rows (VALIDATION_PARTIAL) or release a held clean job."""
     permission_classes = [GatewayPermission, CAN_DECIDE]

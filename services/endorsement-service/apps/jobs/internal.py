@@ -82,8 +82,11 @@ class LifecycleView(APIView):
         if name not in State.__members__ or State[name] not in LIFECYCLE_STATES:
             raise ValidationError({"state": "must be one of " + ", ".join(sorted(s.name for s in LIFECYCLE_STATES)) + "."})
         meta = {k: str(request.data[k])[:200] for k in ("reference", "note") if request.data.get(k)}
+        target = State[name]
+        if target == State.COMPLETED and job.failed_rows:
+            target = State.PARTIAL_PROCESSED          # legacy PARTIAL_PROCESSED: finished, but some rows were rejected on the way
         try:
-            job = transition(job.id, State[name], actor="integration-service", metadata=meta)
+            job = transition(job.id, target, actor="integration-service", metadata=meta)
         except (InvalidTransition, StaleTransition) as e:
             return Response({"detail": str(e)}, status=409)
         return Response({"job_id": str(job.id), "state": job.status, "status_code": job.status_code, "phase": job.phase,

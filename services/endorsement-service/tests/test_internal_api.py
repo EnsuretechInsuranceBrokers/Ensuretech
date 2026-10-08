@@ -121,3 +121,26 @@ def test_policy_roster_and_tpa_ids_are_system_only_active_only_and_policy_scoped
     assert c.get(f"/api/v1/internal/policies/{job.policy_id}/members/?limit=x").status_code == 400
     for role, bid in (("BROKER_ADMIN", 1), ("TPA_USER", None)):
         assert client_for(role, bid).get(f"/api/v1/internal/policies/{job.policy_id}/members/").status_code == 403
+
+
+def test_a_job_with_rejected_rows_finishes_as_partial_processed(make_job):
+    from apps.jobs.models import EndorsementJob
+    job = _walk(make_job(), *HAPPY)
+    EndorsementJob.objects.filter(pk=job.id).update(failed_rows=3)
+    r = client_for("SYSTEM", None).post(f"{BASE}{job.id}/lifecycle/", {"state": "COMPLETED"}, format="json").json()
+    assert r["state"] == "PARTIAL_PROCESSED" and r["is_terminal"] is True and r["category"] == "PARTIAL"
+
+
+def test_an_operator_can_close_an_applied_endorsement_but_not_one_still_being_processed(make_job):
+    waiting = _walk(make_job(), *HAPPY, "SENT_TO_INSURER", "AWAITING_TPA_CONFIRMATION")
+    broker = client_for("BROKER_ADMIN", 1)
+    r = broker.post(f"/api/v1/broker/endorsements/{waiting.id}/close/", {"reason": "insurer confirmed by phone"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "CLOSED"
+    from apps.jobs.models import AuditTransition
+    assert AuditTransition.objects.get(job=waiting, to_state="CLOSED").metadata == {"reason": "insurer confirmed by phone"}
+    assert broker.post(f"/api/v1/broker/endorsements/{waiting.id}/close/", {}, format="json").status_code == 200        # closing twice is a no-op
+    done = _walk(make_job(), *HAPPY, "COMPLETED")
+    assert broker.post(f"/api/v1/broker/endorsements/{done.id}/close/", {}, format="json").status_code == 409          # already finished another way
+    early = _walk(make_job(), "FILE_STREAMED", "VALIDATION_QUEUED")
+    assert broker.post(f"/api/v1/broker/endorsements/{early.id}/close/", {}, format="json").status_code == 409          # not applied yet
+    assert client_for("BROKER_ADMIN", 2).post(f"/api/v1/broker/endorsements/{waiting.id}/close/", {}, format="json").status_code == 404

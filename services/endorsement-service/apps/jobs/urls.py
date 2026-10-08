@@ -21,6 +21,7 @@ urlpatterns = [
     path("<uuid:job_id>/", views.JobDetailView.as_view()),
     path("<uuid:job_id>/audit/", views.JobAuditView.as_view()),
     path("<uuid:job_id>/cancel/", views.JobCancelView.as_view()),
+    path("<uuid:job_id>/close/", views.JobCloseView.as_view()),
     path("<uuid:job_id>/progress/", progress.job_progress),
     path("<uuid:job_id>/proceed/", views.JobProceedView.as_view()),
     path("<uuid:job_id>/retry/", views.JobRetryView.as_view()),

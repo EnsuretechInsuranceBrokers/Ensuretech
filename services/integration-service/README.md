@@ -47,4 +47,5 @@ Also run once for real: Java worker → identity token → Django internal API �
 trimmed and case-insensitive (optionally ignoring leading zeros, per TPA), the TPA's relation label translated through a per-TPA mapping (built-in defaults + overrides), spouse covers
 husband/wife, children must also match by name (full name, or first name as a whole word), one TPA record claims one member and vice versa. Anything unplaceable is a stored miss with a reason
 (`GET /reconcile-runs/{id}`), never skipped silently. `PUT /tpa-configs/{id}/reconciliation` sets `stripLeadingZeros` and `relationLabels`. Runs are synchronous, capped at 200,000 members.
-Not done: the real Care/MediAssist/FHPL/Paramount response formats (only our generic JSON shape), a scheduler (the legacy system pulls on cron), the ICICI deleted/added status flags, and the nested "dependentList" variants beyond the generic `dependents` array.
+Scheduler: `app.reconcile.enabled` (env `RECONCILE_ENABLED`, off by default) + `cron` (default every 6 h) reconciles at most `batch` policies per tick, stalest first, none more often than `min-interval-seconds`; failed runs go to the back of the queue.
+Not done: the real Care/MediAssist/FHPL/Paramount response formats (only our generic JSON shape), the ICICI deleted/added status flags, and the nested "dependentList" variants beyond the generic `dependents` array.
