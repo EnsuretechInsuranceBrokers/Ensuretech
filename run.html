@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ensuretech: how to run it</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b2430;--mut:#667085;--line:#e4e7ec;--brand:#1f5eff;--code:#0f172a;--codeink:#e2e8f0;--warn:#b54708;--ok:#067647}
+@media(prefers-color-scheme:dark){:root{--bg:#10151c;--card:#171e28;--ink:#e6eaf0;--mut:#98a2b3;--line:#27313f;--brand:#6c93ff;--code:#0a0e14;--warn:#fdb022;--ok:#47cd89}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font:16px/1.6 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+.wrap{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1200px;margin:0 auto}
+nav{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:1.2rem 1rem;border-right:1px solid var(--line);font-size:.9rem}
+nav a{display:block;color:var(--ink);text-decoration:none;padding:.15rem .4rem;border-radius:5px}nav a:hover{background:var(--card)}nav .h{margin:.8rem 0 .2rem;color:var(--mut);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+main{padding:1.5rem 1.5rem 6rem;min-width:0}
+h1{font-size:1.9rem;margin:.2rem 0}h2{font-size:1.4rem;margin:2.5rem 0 .5rem;padding-top:.5rem;border-top:1px solid var(--line)}h3{font-size:1.1rem;margin:1.6rem 0 .3rem}
+p,li{max-width:75ch}code{font:.88em ui-monospace,monospace;background:color-mix(in srgb,var(--brand) 10%,transparent);padding:.05em .3em;border-radius:4px}
+.pre{position:relative;margin:.6rem 0}pre{margin:0;background:var(--code);color:var(--codeink);padding:.9rem 1rem;border-radius:8px;overflow-x:auto;font:.85rem/1.5 ui-monospace,monospace}
+pre code{background:none;padding:0;color:inherit}
+.copy{position:absolute;top:.4rem;right:.4rem;font-size:.75rem;padding:.15rem .5rem;border-radius:5px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;cursor:pointer}
+table{border-collapse:collapse;width:100%;margin:.6rem 0;font-size:.92rem;display:block;overflow-x:auto}th,td{text-align:left;padding:.4rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-size:.8rem}
+.note,.warn,.ok{padding:.7rem 1rem;border-radius:8px;margin:.8rem 0;border-left:4px solid;background:var(--card)}.note{border-color:var(--brand)}.warn{border-color:var(--warn)}.ok{border-color:var(--ok)}
+.tag{display:inline-block;font-size:.72rem;padding:.05rem .5rem;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+a{color:var(--brand)}details{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.5rem 1rem;margin:.6rem 0}summary{cursor:pointer;font-weight:600}
+@media(max-width:820px){.wrap{display:block}nav{position:static;height:auto;border:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <strong>Ensuretech</strong>
+  <div class="h">Setup</div>
+  <a href="#map">1. What runs where</a><a href="#prereq">2. Install first</a><a href="#infra">3. Infrastructure</a><a href="#db">4. Database + keys</a><a href="#env">5. Environment</a>
+  <div class="h">Components</div>
+  <a href="#identity">6.1 identity</a><a href="#org">6.2 organization</a><a href="#policy">6.3 policy</a><a href="#billing">6.4 billing</a><a href="#engine">6.5 endorsement engine</a>
+  <a href="#integration">6.6 integration</a><a href="#read">6.7 read-service</a><a href="#notif">6.8 notification</a><a href="#sheet">6.9 sheet generator</a><a href="#bff">6.10 BFF + portal</a>
+  <div class="h">Using it</div>
+  <a href="#secret">7. The gateway secret</a><a href="#smoke">8. First run walkthrough</a><a href="#tests">9. Tests</a><a href="#trouble">10. Troubleshooting</a><a href="#stop">11. Stopping</a>
+</nav>
+<main>
+<h1>Run Ensuretech locally</h1>
+<p>Every component, in the order to start it. Files used: <code>setup.sql</code> (databases), <code>seed.sql</code> (brokers), <code>local.env</code> (all environment), <code>docker-compose.infra.yml</code> (optional infrastructure). All commands are run from the repository root unless a step says otherwise. Each block has a <em>Copy</em> button.</p>
+<div class="note"><strong>Honest status.</strong> The service-by-service steps and every environment value were verified by running the whole stack in a Linux sandbox (native PostgreSQL, Redis, FerretDB, Kafka, no Docker). <code>docker-compose.infra.yml</code> could not be run there, so treat it as a convenience that is untested. Nothing here talks to a real TPA, insurer, SMS gateway or payment gateway; see <code>docs/runtime-dependencies.md</code>.</div>
+
+<h2 id="map">1. What runs where</h2>
+<p>You open <strong>one thing</strong>: the BFF (a Laravel app) on port 8090. It serves the portal and is the only door to everything else. Every core service refuses calls that did not come through it (§7).</p>
+<table>
+<tr><th>Component</th><th>Tech</th><th>Port</th><th>Database / store</th><th>Needs</th></tr>
+<tr><td>BFF + portal</td><td>Laravel 13, PHP 8.3</td><td><b>8090</b></td><td>none (file sessions)</td><td>all services below</td></tr>
+<tr><td>identity-service</td><td>Django</td><td>8000</td><td><code>ensuretech_identity</code></td><td>PostgreSQL, RSA keys</td></tr>
+<tr><td>organization-service</td><td>Spring Boot</td><td>8081</td><td><code>ensuretech_org</code></td><td>PostgreSQL, Kafka</td></tr>
+<tr><td>policy-service</td><td>Spring Boot + gRPC</td><td>8082, gRPC 9090</td><td><code>ensuretech_policy</code></td><td>PostgreSQL, Redis, Kafka</td></tr>
+<tr><td>endorsement engine</td><td>Django (ASGI) + Celery</td><td>8083</td><td><code>ensuretech_endorsement</code></td><td>PostgreSQL, Kafka, policy + billing gRPC, identity</td></tr>
+<tr><td>billing-service</td><td>Spring Boot + gRPC</td><td>8084, gRPC 9091</td><td><code>ensuretech_billing</code></td><td>PostgreSQL, Kafka</td></tr>
+<tr><td>integration-service</td><td>Spring Boot</td><td>8085</td><td><code>ensuretech_integration</code></td><td>PostgreSQL, Kafka, engine, policy, identity</td></tr>
+<tr><td>sheet-generator-service</td><td>Spring Boot + static page</td><td>8086</td><td><code>ensuretech_sheetgen</code></td><td>PostgreSQL, policy</td></tr>
+<tr><td>read-service (+ projector)</td><td>Django</td><td>8087</td><td>MongoDB (or FerretDB)</td><td>Kafka</td></tr>
+<tr><td>notification-service (consumer + sender)</td><td>Django</td><td>none (workers)</td><td><code>ensuretech_notification</code></td><td>PostgreSQL, Kafka, an SMTP server</td></tr>
+</table>
+<p>Events flow over Kafka (<code>employer.events</code>, <code>policy.events</code>, <code>endorsement.events</code>, <code>cd-balance.updates</code>, <code>tpa.events</code>). That is how policy-service learns of employers, billing opens a deposit account for each new policy, and the dashboards fill in. <strong>If Kafka is down the screens that need events stay empty.</strong></p>
+
+<h2 id="prereq">2. Install first</h2>
+<table>
+<tr><th>Tool</th><th>Version</th><th>For</th></tr>
+<tr><td>JDK</td><td>21</td><td>the five Spring services</td></tr>
+<tr><td>Maven</td><td>3.9+</td><td>building them (first build downloads dependencies)</td></tr>
+<tr><td>Python</td><td>3.13+</td><td>identity, engine, read, notification</td></tr>
+<tr><td>PHP + Composer</td><td>8.3+ / 2.x (extensions: mbstring, xml, curl, openssl, fileinfo)</td><td>BFF</td></tr>
+<tr><td>PostgreSQL</td><td>16 (14+ works)</td><td>all relational data</td></tr>
+<tr><td>Redis</td><td>7</td><td>policy-service rate-card cache</td></tr>
+<tr><td>Kafka</td><td>3.9, single node KRaft</td><td>events</td></tr>
+<tr><td>MongoDB 7 <em>or</em> FerretDB</td><td>-</td><td>read-service</td></tr>
+<tr><td>A mail catcher (Mailpit)</td><td>optional</td><td>to see notification emails</td></tr>
+<tr><td>openssl, curl, psql</td><td>-</td><td>keys, checks, database setup</td></tr>
+</table>
+
+<h2 id="infra">3. Infrastructure</h2>
+<h3>Option A: Docker (easiest, untested here)</h3>
+<div class="pre"><button class="copy">Copy</button><pre><code>docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml ps</code></pre></div>
+<p>This starts PostgreSQL (and runs <code>setup.sql</code> for you, so skip §4's first step), Redis, MongoDB, Kafka and Mailpit (inbox at <a href="http://localhost:8025">localhost:8025</a>). The default PostgreSQL superuser password in the compose file is <code>postgres</code>.</p>
+<h3>Option B: native</h3>
+<p>Install and start each with your OS package manager, on the default ports: PostgreSQL 5432, Redis 6379, MongoDB 27017, Kafka 9092, SMTP 1025. For Kafka without Docker (download the 3.9.x tarball from kafka.apache.org, then from its folder):</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>bin/kafka-storage.sh format -t "$(bin/kafka-storage.sh random-uuid)" -c config/kraft/server.properties
+bin/kafka-server-start.sh config/kraft/server.properties</code></pre></div>
+<h3>Create the Kafka topics now (do this before the read-service projector starts)</h3>
+<div class="pre"><button class="copy">Copy</button><pre><code>for t in employer.events policy.events endorsement.events cd-balance.updates tpa.events; do
+  kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic $t --partitions 1 --replication-factor 1
+done</code></pre></div>
+<p>(<code>kafka-topics.sh</code> is in Kafka's <code>bin/</code>; with the Docker image use <code>docker compose -f docker-compose.infra.yml exec kafka /opt/kafka/bin/kafka-topics.sh …</code>.) A consumer that starts before its topic exists logs <em>Unknown topic</em> and may not pick the topic up until restarted.</p>
+
+<h2 id="db">4. Database and keys</h2>
+<h3>4.1 Databases</h3>
+<div class="pre"><button class="copy">Copy</button><pre><code>psql -h localhost -U postgres -f setup.sql</code></pre></div>
+<p>Creates the login role <code>ensuretech</code> (password <code>ensuretech</code>) and eight UTF-8 databases, one per service. Safe to re-run. <strong>One database per service is required</strong>: each service creates an <code>outbox</code> schema with the same tables.</p>
+<h3>4.2 Identity signing keys (once)</h3>
+<p>identity-service signs tokens with a private key; every other component only needs the public half. The keys folder is git-ignored, so each machine creates its own.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>mkdir -p services/identity-service/keys
+openssl genrsa -out services/identity-service/keys/jwt-private.pem 2048
+openssl rsa -in services/identity-service/keys/jwt-private.pem -pubout -out services/identity-service/keys/jwt-public.pem</code></pre></div>
+<h3>4.3 Brokers (after organization-service has run once, §6.2)</h3>
+<div class="pre"><button class="copy">Copy</button><pre><code>psql -h localhost -U ensuretech -d ensuretech_org -f seed.sql</code></pre></div>
+<p>No API creates brokers. Without these rows, creating an employer fails with <em>409 Duplicate or invalid reference</em>.</p>
+
+<h2 id="env">5. Environment</h2>
+<p><code>local.env</code> holds every variable used below. In <strong>every terminal</strong> you start a component from, at the repository root:</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>set -a; source local.env; set +a</code></pre></div>
+<p>Spring services take <code>DATABASE_URL</code> as a JDBC URL and Django services as a <code>postgres://</code> URL, so <code>local.env</code> has one variable per service (<code>ORG_JDBC</code>, <code>IDENTITY_DB</code>, …) and each launch command below maps it. The four <code>*_CLIENT_*</code> values stay empty until §6.1 creates the service accounts.</p>
+<details><summary>Show local.env (the file in the repo is the source of truth)</summary>
+<div class="pre"><button class="copy">Copy</button><pre><code id="envcopy">Loading…</code></pre></div></details>
+<div class="warn">The secrets in <code>local.env</code> are generated for development. For anything shared or deployed, generate new ones (<code>php -r 'echo bin2hex(random_bytes(32));'</code>) and keep them out of git.</div>
+
+<h2>6. Start each component</h2>
+<p>Order matters the first time: identity → organization, policy, billing → engine → integration → read-service → notification → BFF. After that, any order works as long as Kafka, PostgreSQL and identity are up. Use one terminal per component. Keep a Python virtual environment per service (<code>python3.13 -m venv .venv</code> inside each service folder). The Python services are applications, not installable packages, so dependencies are installed with <code>python ../../scripts/install_python_deps.py</code> (add <code>--dev</code> for the test tools).</p>
+
+<h3 id="identity">6.1 identity-service <span class="tag">port 8000</span></h3>
+<p>Issues and refreshes tokens, and holds users. First start also creates the machine accounts the engine and integration-service use.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/identity-service
+python3.13 -m venv .venv && source .venv/bin/activate
+python ../../scripts/install_python_deps.py
+cd ../..; set -a; source local.env; set +a; cd services/identity-service
+DATABASE_URL="$IDENTITY_DB" python manage.py migrate</code></pre></div>
+<p>Create your first users. Roles: <code>BROKER_ADMIN</code>, <code>BROKER_NON_ADMIN</code>, <code>BROKER_SPECIALIZER</code>, <code>EMPLOYER_ADMIN</code>, <code>EMPLOYER_NON_ADMIN</code>. A broker user needs <code>broker_id</code> (a row from <code>seed.sql</code>); an employer user also needs <code>employer_id</code>, which you only know after creating the employer (§8), so create HR users through the portal/API then. Passwords need 10+ characters and must not be common or similar to the email.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>DATABASE_URL="$IDENTITY_DB" python manage.py shell -c "
+from django.contrib.auth import get_user_model
+U = get_user_model()
+U.objects.create_user(email='broker@x.test', first_name='Bro', last_name='Admin', password='Str0ng-Pass-123!', role='BROKER_ADMIN', broker_id=1)
+U.objects.create_user(email='other@x.test', first_name='Other', last_name='Broker', password='Str0ng-Pass-123!', role='BROKER_ADMIN', broker_id=2)"</code></pre></div>
+<p>Machine accounts (the secret is shown <strong>once</strong>; copy both lines into <code>local.env</code>):</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>DATABASE_URL="$IDENTITY_DB" python manage.py service_account create engine
+DATABASE_URL="$IDENTITY_DB" python manage.py service_account create integration
+# put the printed values into local.env as ENGINE_CLIENT_ID / ENGINE_CLIENT_SECRET and INTEGRATION_CLIENT_ID / INTEGRATION_CLIENT_SECRET,
+# then re-run: set -a; source ../../local.env; set +a</code></pre></div>
+<p>Run it:</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>DATABASE_URL="$IDENTITY_DB" JWT_PRIVATE_KEY_PATH=keys/jwt-private.pem JWT_PUBLIC_KEY_PATH=keys/jwt-public.pem \
+  python manage.py runserver 0.0.0.0:8000 --noreload</code></pre></div>
+<p>Check: <code>curl -s -o /dev/null -w "%{http_code}\n" localhost:8000/api/v1/auth/me/</code> prints <code>403</code> (the secret is required, which is correct).</p>
+
+<h3 id="org">6.2 organization-service <span class="tag">port 8081</span></h3>
+<p>Employers (with parent/child), branches, per-employer configuration. Publishes <code>employer.events</code>.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/organization-service
+mvn -DskipTests package
+DATABASE_URL="$ORG_JDBC" PORT=8081 java -jar target/organization-service-0.1.0.jar</code></pre></div>
+<p>Flyway creates the tables on first start. Then do §4.3 (<code>seed.sql</code>). Check: <code>curl -s localhost:8081/actuator/health</code> → <code>"status":"UP"</code>.</p>
+
+<h3 id="policy">6.3 policy-service <span class="tag">port 8082 · gRPC 9090</span></h3>
+<p>Policies, rate cards, family rules, premium rating, contribution/rounding/mid-term settings. The engine calls its gRPC port. Needs Redis.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/policy-service
+mvn -DskipTests package
+DATABASE_URL="$POLICY_JDBC" PORT=8082 GRPC_PORT=9090 java -jar target/policy-service-0.1.0.jar</code></pre></div>
+
+<h3 id="billing">6.4 billing-service <span class="tag">port 8084 · gRPC 9091</span></h3>
+<p>The CD (deposit) ledger: credits, reservations, debits, top-up requests, shared pools. Opens an account automatically when a policy goes live (from <code>policy.events</code>).</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/billing-service
+mvn -DskipTests package
+DATABASE_URL="$BILLING_JDBC" PORT=8084 GRPC_PORT=9091 java -jar target/billing-service-0.1.0.jar</code></pre></div>
+
+<h3 id="engine">6.5 endorsement engine <span class="tag">port 8083</span></h3>
+<p>Takes CSV/GUI endorsements through validation, premium calculation, deposit check and execution. Two processes: the web app and the outbox relay.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/endorsement-service
+python3.13 -m venv .venv && source .venv/bin/activate
+python ../../scripts/install_python_deps.py
+pip install uvicorn
+cd ../..; set -a; source local.env; set +a; cd services/endorsement-service
+export DATABASE_URL="$ENDORSEMENT_DB" SERVICE_CLIENT_ID="$ENGINE_CLIENT_ID" SERVICE_CLIENT_SECRET="$ENGINE_CLIENT_SECRET"
+python manage.py genproto          # gRPC stubs (git-ignored, must be generated once)
+python manage.py migrate
+uvicorn config.asgi:application --host 0.0.0.0 --port 8083</code></pre></div>
+<p>It must run under <strong>uvicorn (ASGI)</strong>, not <code>runserver</code>, or live progress streaming would block a worker. In a second terminal, with the same exports, publish its outbox to Kafka every 2 seconds (stand-in for the Celery beat schedule, since there is no RabbitMQ):</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/endorsement-service && source .venv/bin/activate
+cd ../..; set -a; source local.env; set +a; cd services/endorsement-service
+DATABASE_URL="$ENDORSEMENT_DB" SERVICE_CLIENT_ID="$ENGINE_CLIENT_ID" SERVICE_CLIENT_SECRET="$ENGINE_CLIENT_SECRET" python scripts/relay_loop.py</code></pre></div>
+<div class="note">With RabbitMQ you would instead set <code>CELERY_BROKER_URL</code>, drop <code>CELERY_TASK_ALWAYS_EAGER</code>, and run <code>celery -A config worker</code> and <code>celery -A config beat</code>. Not exercised here.</div>
+
+<h3 id="integration">6.6 integration-service <span class="tag">port 8085</span></h3>
+<p>TPA connections, push of endorsements to TPAs, reconciliation of TPA rosters. Calls the engine and policy-service. Scheduled reconciliation is off unless <code>RECONCILE_ENABLED=true</code>.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/integration-service
+mvn -DskipTests package
+DATABASE_URL="$INTEGRATION_JDBC" PORT=8085 SERVICE_CLIENT_ID="$INTEGRATION_CLIENT_ID" SERVICE_CLIENT_SECRET="$INTEGRATION_CLIENT_SECRET" \
+  java -jar target/integration-service-0.1.0.jar</code></pre></div>
+<p>It refuses TPA base URLs that are not <code>https</code> or that resolve to private addresses (SSRF guard). For a TPA on your own machine add <code>TPA_ALLOW_HTTP=true TPA_ALLOW_PRIVATE_HOSTS=true</code>, development only.</p>
+
+<h3 id="read">6.7 read-service <span class="tag">port 8087</span></h3>
+<p>Dashboards, activity lists, reports and the assistant (knowledge base search; free extractive answers by default). Two processes: the API and the projector that turns Kafka events into read models.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/read-service
+python3.13 -m venv .venv && source .venv/bin/activate
+python ../../scripts/install_python_deps.py
+cd ../..; set -a; source local.env; set +a; cd services/read-service
+python manage.py runserver 0.0.0.0:8087 --noreload</code></pre></div>
+<p>Second terminal (same activation and <code>source local.env</code>):</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>python manage.py run_projector</code></pre></div>
+<p>No MongoDB? Run FerretDB over PostgreSQL instead: create a UTF-8 database <code>ferretdb</code> (see the commented block in <code>setup.sql</code>), run <code>ferretdb --postgresql-url=postgres://ensuretech:ensuretech@localhost:5432/ferretdb --listen-addr=127.0.0.1:27017</code>, and leave <code>MONGO_URI</code> as is. A database not created as UTF-8 makes every read-service call fail with <em>client_encoding is SQL_ASCII</em>.</p>
+
+<h3 id="notif">6.8 notification-service <span class="tag">workers · optional</span></h3>
+<p>Turns events into emails. Skip it if you do not need mail; nothing else depends on it.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/notification-service
+python3.13 -m venv .venv && source .venv/bin/activate
+python ../../scripts/install_python_deps.py
+cd ../..; set -a; source local.env; set +a; cd services/notification-service
+export DATABASE_URL="$NOTIFICATION_DB"
+python manage.py migrate
+python manage.py run_consumer      # terminal 1: Kafka -> queued emails
+python manage.py run_sender        # terminal 2: queued emails -> SMTP (Mailpit shows them on :8025)</code></pre></div>
+<p>The consumer and sender loops are covered by tests with fakes but have not been run against a live broker.</p>
+
+<h3 id="sheet">6.9 sheet-generator-service <span class="tag">port 8086 · optional</span></h3>
+<p>Builds the employee-upload spreadsheet for a policy. The page at <code>/</code> also works offline.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/sheet-generator-service
+mvn -DskipTests package
+DATABASE_URL="$SHEETGEN_JDBC" PORT=8086 java -jar target/sheet-generator-service-0.1.0.jar
+# open http://localhost:8086/     (or just open src/main/resources/static/index.html in a browser: it needs no server)</code></pre></div>
+<p>It is not wired into the portal. The BFF only exposes it when <code>BFF_QA_TOOLS=true</code>.</p>
+
+<h3 id="bff">6.10 BFF and portal <span class="tag">port 8090</span></h3>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd services/bff
+composer install
+cp .env.example .env
+php artisan key:generate</code></pre></div>
+<p>Edit <code>services/bff/.env</code>: set <code>BFF_GATEWAY_SECRET</code> to the same value as <code>GATEWAY_SECRET</code> in <code>local.env</code>, and check the <code>UPSTREAM_*</code> ports (the defaults match this guide). Everything else can stay. Or skip editing and pass them from <code>local.env</code>:</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>cd ../..; set -a; source local.env; set +a; cd services/bff
+PHP_CLI_SERVER_WORKERS=4 php artisan serve --host 0.0.0.0 --port 8090</code></pre></div>
+<p>Open <a href="http://localhost:8090/login">http://localhost:8090/login</a>. <code>PHP_CLI_SERVER_WORKERS=4</code> matters: a live-progress stream holds one worker while it is open. <code>php artisan serve</code> is for development; put nginx + PHP-FPM in front for anything real.</p>
+<p>The BFF also exposes a JSON API under <code>/api/v1/{broker|employer}/…</code> for other frontends; <code>services/bff/README.md</code> lists it.</p>
+
+<h2 id="secret">7. The gateway secret (why a direct call returns 403)</h2>
+<p><code>GATEWAY_SECRET</code> in every core service and <code>BFF_GATEWAY_SECRET</code> in the BFF must be the <strong>same value</strong>. The BFF sends it on every call together with a session key (an HMAC of a session id). A service refuses its browser-facing paths without both, even when the user's token is valid. Check it:</p>
+<div class="pre"><button class="copy">Copy</button><pre><code># should print 403 for every one of these (direct to the service, no secret):
+for p in 8081/api/v1/broker/employers 8082/api/v1/broker/policies 8084/api/v1/broker/cd/accounts 8085/api/v1/broker/integration/status 8083/api/v1/broker/endorsements/ 8087/api/v1/broker/read/dashboard/; do
+  curl -s -o /dev/null -w "$p -> %{http_code}\n" localhost:$p; done</code></pre></div>
+<p>If a service is started without the variable, it still runs but logs <em>GATEWAY_SECRET is not set</em> and does <strong>not</strong> protect itself. If the BFF and a service have different values, every portal page backed by that service fails with 403/502.</p>
+
+<h2 id="smoke">8. First run walkthrough</h2>
+<ol>
+<li>Open <code>http://localhost:8090/login</code>, sign in as <code>broker@x.test</code> / <code>Str0ng-Pass-123!</code>.</li>
+<li><strong>Employers</strong> → add one (code <code>ACME</code>). Note its id from the API below (first one is usually 1).</li>
+<li>Create the HR user for that employer (replace <code>EMPLOYER_ID</code>). The portal has no user screen; use the API:
+<div class="pre"><button class="copy">Copy</button><pre><code>B=http://localhost:8090/api/v1
+TOKEN=$(curl -s $B/auth/login -H 'Content-Type: application/json' -d '{"email":"broker@x.test","password":"Str0ng-Pass-123!"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
+curl -s $B/broker/employers -H "Authorization: Bearer $TOKEN"                       # find the employer id
+curl -s $B/broker/users -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"hr@acme.test","first_name":"Hr","last_name":"Acme","role":"EMPLOYER_ADMIN","employer_id":EMPLOYER_ID,"password":"Str0ng-Pass-123!"}'</code></pre></div></li>
+<li>Create and configure a policy (API; the portal shows and approves policies but does not edit their configuration). <code>premium_type_id 1</code> is FLAT; relation ids <code>2,5,9</code> are Spouse, Son, Daughter:
+<div class="pre"><button class="copy">Copy</button><pre><code>H="Authorization: Bearer $TOKEN"; J='Content-Type: application/json'
+curl -s $B/broker/policies -H "$H" -H "$J" -d '{"employer_id":EMPLOYER_ID,"policy_number":"POL-001","insurer_id":1,"policy_type":"GMC","premium_type_id":1,"suminsured_subtype_id":1,"rater_type_id":1,"start_date":"2026-04-01","end_date":"2027-03-31","pro_rata_type":"DAILY"}'
+# use the returned id as POLICY_ID:
+curl -s -X PUT $B/broker/policies/POLICY_ID/rate-card -H "$H" -H "$J" -d '{"effective_from":"2026-04-01","tax_rate":18,"rate_table":{"flat":1000}}'
+curl -s -X PUT $B/broker/policies/POLICY_ID/family-construct -H "$H" -H "$J" -d '{"allowed_relations":[2,5,9],"max_members":6,"max_children":2}'</code></pre></div>
+Then in the portal: <strong>Policies → POL-001 → Approve and go live</strong>. Within a few seconds <strong>CD balance</strong> shows an account for it (created from the policy event).</li>
+<li><strong>CD balance</strong> → record a deposit of 50000 (broker). Sign in as <code>hr@acme.test</code> in a private window to see the employer's view and request a top-up (the broker approves it via the API: <code>POST /api/v1/broker/cd/accounts/POLICY_ID/replenishments/ID/approve</code>).</li>
+<li><strong>Endorsements</strong> → upload this file (policy POL-001, operation ADD, any effective date inside the policy period):
+<div class="pre"><button class="copy">Copy</button><pre><code>Emp Code,Relationship,Member Name,DOB,Gender,Sum Insured,Effective Date,PAN
+1001,Self,Asha Rao,17/05/1985,F,500000,,ABCDE1234F
+1001,Spouse,Ravi Rao,02-Feb-1983,M,500000,,
+1001,SON,Kid Rao,01/01/2015,M,500000,,
+1002,Self,Meera Nair,1990-03-03,F,300000,,PQRST5678K</code></pre></div>
+The job page shows progress live and ends at <code>ENDORSED</code>; CD balance drops by the premium. With no deposit it stops at <code>CD_INSUFFICIENT</code>; deposit, then press <em>Retry</em>. A file with bad dates/PAN/relations stops at <code>VALIDATION_PARTIAL</code> with a line-by-line list of problems.</li>
+<li><strong>Dashboard</strong> now shows job and deposit counts (from Kafka → read-service). <strong>Assistant</strong> answers from knowledge you add: <code>POST /api/v1/broker/assistant/knowledge</code> with <code>{"title":"…","text":"…"}</code>.</li>
+</ol>
+
+<h2 id="tests">9. Tests</h2>
+<p>Each suite is self-contained (real PostgreSQL for the Spring and engine suites, fake brokers). Run with <code>setup.sql</code> already applied and Redis up. Never run tests against a database you care about: they truncate tables. Python suites need the test tools: <code>python ../../scripts/install_python_deps.py --dev</code>.</p>
+<table>
+<tr><th>Component</th><th>Command (from the service folder)</th><th>Expected</th></tr>
+<tr><td>BFF</td><td><code>php artisan test</code></td><td>64 passed</td></tr>
+<tr><td>identity</td><td><code>DATABASE_URL="$IDENTITY_DB" pytest -q</code></td><td>34 passed</td></tr>
+<tr><td>endorsement engine</td><td><code>DATABASE_URL="$ENDORSEMENT_DB" pytest -q</code></td><td>259 passed</td></tr>
+<tr><td>read-service</td><td><code>TEST_MONGO_URI=$MONGO_URI pytest -q</code></td><td>61 passed</td></tr>
+<tr><td>notification</td><td><code>DATABASE_URL="$NOTIFICATION_DB" pytest -q</code></td><td>needs PostgreSQL</td></tr>
+<tr><td>organization</td><td><code>DATABASE_URL="$ORG_JDBC" mvn test</code></td><td>26</td></tr>
+<tr><td>policy</td><td><code>DATABASE_URL="$POLICY_JDBC" mvn test</code> (Redis up)</td><td>63</td></tr>
+<tr><td>billing</td><td><code>DATABASE_URL="$BILLING_JDBC" mvn test</code></td><td>42</td></tr>
+<tr><td>integration</td><td><code>DATABASE_URL="$INTEGRATION_JDBC" mvn test</code></td><td>28</td></tr>
+<tr><td>sheet generator</td><td><code>DATABASE_URL="$SHEETGEN_JDBC" mvn test</code>, then see <code>qa/README.md</code> for the browser checks</td><td>-</td></tr>
+</table>
+<div class="note">Use the Spring suites' DATABASE_USER/PASSWORD from <code>local.env</code>. The tests share the same databases as a running service: stop the service (or use a separate database) first, because the tests wipe its tables.</div>
+
+<h2 id="trouble">10. Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Cause and fix</th></tr>
+<tr><td>Creating an employer: <em>409 Duplicate or invalid reference</em></td><td>No row in <code>organization.brokers</code> for the broker in your token. Run <code>seed.sql</code> (§4.3).</td></tr>
+<tr><td>Creating a policy: <em>Employer not found</em></td><td>policy-service has not received the employer event. Kafka must be up and organization-service's relay running; wait a few seconds and retry.</td></tr>
+<tr><td>CD balance page empty after approving a policy</td><td>billing-service did not get <code>policy.events</code>. Check Kafka and billing's log.</td></tr>
+<tr><td>Dashboards empty, or <em>Unknown topic</em> in the projector log</td><td>Create the topics (§3) and restart <code>run_projector</code>. Also check the engine <code>relay_loop.py</code> is running.</td></tr>
+<tr><td>read-service: 500 / 502, <em>client_encoding is SQL_ASCII</em></td><td>The FerretDB database was not created UTF-8. Drop and recreate it with <code>ENCODING 'UTF8' TEMPLATE template0</code>.</td></tr>
+<tr><td>Portal shows 403 or 502 for a section</td><td>Gateway secret differs between the BFF and that service, or the service is down. Compare <code>GATEWAY_SECRET</code> values; <code>curl localhost:PORT/actuator/health</code> for Spring services.</td></tr>
+<tr><td>Login says too many attempts</td><td>Rate limit protecting login; wait a minute.</td></tr>
+<tr><td>Endorsement stuck at <code>CD_INSUFFICIENT</code></td><td>Not enough deposit. Credit the account, then <em>Retry</em>.</td></tr>
+<tr><td>Engine: <em>cannot import policy_validation_pb2</em></td><td>Run <code>python manage.py genproto</code> (stubs are not committed).</td></tr>
+<tr><td>Engine/integration log <em>service token</em> or 401 errors calling policy/billing</td><td>The <code>*_CLIENT_ID/SECRET</code> in <code>local.env</code> are empty or stale. Recreate the account (§6.1) or rotate: <code>manage.py service_account rotate engine</code>.</td></tr>
+<tr><td>Spring service: <em>Connection refused 5432</em> / Flyway error</td><td>PostgreSQL down, or the database does not exist. Re-run <code>setup.sql</code>.</td></tr>
+<tr><td>Spring service fails on gRPC port in use</td><td>policy uses 9090 and billing 9091; make sure two copies are not running.</td></tr>
+<tr><td>Killed your own shell with <code>pkill -f name</code></td><td>The pattern matches your own command line. Stop by port: <code>kill $(lsof -ti:8083)</code>.</td></tr>
+<tr><td>Real TPA / insurer / SMS / payments</td><td>Not implemented; they need contracts and credentials. See <code>docs/runtime-dependencies.md</code>.</td></tr>
+</table>
+
+<h2 id="stop">11. Stopping and resetting</h2>
+<div class="pre"><button class="copy">Copy</button><pre><code># stop a component: Ctrl-C in its terminal, or by port
+for p in 8090 8087 8085 8084 8083 8082 8081 8086 8000; do kill $(lsof -ti:$p) 2>/dev/null; done
+
+# wipe all data and start clean (destroys everything)
+for d in identity org policy billing endorsement integration sheetgen notification; do dropdb -h localhost -U postgres --if-exists ensuretech_$d; done
+psql -h localhost -U postgres -f setup.sql
+# also delete the Kafka topics/data and the MongoDB database ensuretech_read, or the read models will be inconsistent with the new database</code></pre></div>
+
+<p style="margin-top:3rem;color:var(--mut);font-size:.9rem">Deeper reading: <code>docs/full-stack-local.md</code> (what a full run found), <code>docs/runtime-dependencies.md</code> (free vs paid), each service's own <code>README.md</code>, <code>services/bff/README.md</code> (public API).</p>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var t = b.parentElement.querySelector('pre').innerText;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); },
+      function () { var r = document.createRange(); r.selectNodeContents(b.parentElement.querySelector('pre')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selected: press Ctrl+C'; });
+  });
+});
+// show local.env when the page is opened next to it (file:// or served from the repo root); otherwise point at the file
+fetch('local.env').then(function (r) { return r.ok ? r.text() : Promise.reject(); }).then(function (t) { document.getElementById('envcopy').textContent = t; })
+  .catch(function () { document.getElementById('envcopy').textContent = '# Open local.env in the repository root: it is the file to use.\n# (This page could not load it, which happens when the page is opened straight from disk in some browsers.)'; });
+</script>
+</body>
+</html>
