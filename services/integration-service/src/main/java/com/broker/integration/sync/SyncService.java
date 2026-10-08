@@ -125,6 +125,7 @@ public class SyncService {
         TpaConfig cfg = configs.findByBrokerIdAndTpaId(job.getBrokerId(), tpaId).filter(TpaConfig::isEnabled)
                 .orElseThrow(() -> new TpaAdapter.TpaException("no enabled TPA configuration for tpa " + tpaId, false));
 
+        report(job.getEndorsementJobId(), "TPA_SYNC_QUEUED");
         long cursor = job.getCursorId();
         while (true) {
             EngineClient.Page page = engine.members(job.getEndorsementJobId(), cursor, cfg.getBatchSize());
@@ -151,6 +152,13 @@ public class SyncService {
             if (page.nextAfter() == null) break;
         }
         finish(id, j -> { j.setStatus(SyncJob.Status.SUCCEEDED); j.setLastError(null); j.setCompletedAt(Instant.now()); }, "TpaSyncCompleted");
+        report(job.getEndorsementJobId(), "TPA_SYNC_COMPLETED");
+    }
+
+    /** Best-effort: the engine's lifecycle is informational for the sync, so a refusal (409) or an outage must not fail or retry the TPA work. */
+    private void report(UUID endorsementJobId, String state) {
+        try { engine.reportLifecycle(endorsementJobId, state, null); }
+        catch (EngineException e) { log.warn("could not report {} for endorsement {}: {}", state, endorsementJobId, e.getMessage()); }
     }
 
     private void finish(UUID id, java.util.function.Consumer<SyncJob> change, String event) {
@@ -163,6 +171,7 @@ public class SyncService {
     }
 
     private void fail(UUID id, String error, boolean retryable) {
+        java.util.concurrent.atomic.AtomicReference<UUID> dead = new java.util.concurrent.atomic.AtomicReference<>();
         tx.executeWithoutResult(s -> {
             SyncJob j = jobs.findById(id).orElseThrow();
             j.setAttempts(j.getAttempts() + 1);
@@ -172,12 +181,14 @@ public class SyncService {
                 j.setStatus(SyncJob.Status.DEAD);
                 j.setCompletedAt(Instant.now());
                 emit("TpaSyncFailed", j, error);
+                dead.set(j.getEndorsementJobId());
                 log.warn("sync job {} dead-lettered after {} attempt(s): {}", id, j.getAttempts(), error);
             } else {
                 j.setStatus(SyncJob.Status.PENDING);
                 j.setNextAttemptAt(Instant.now().plus(backoff(j.getAttempts())));
             }
         });
+        if (dead.get() != null) report(dead.get(), "TPA_SYNC_FAILED");
     }
 
     private void reschedule(UUID id, String why, long seconds, boolean countAttempt) {

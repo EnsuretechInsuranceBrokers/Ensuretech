@@ -67,6 +67,18 @@ class State(Enum):
     TPA_SYNC_COMPLETED = StateDef(610, Phase.INTEGRATION, Category.SUCCESS)
     TPA_SYNC_FAILED = StateDef(690, Phase.INTEGRATION, Category.ERROR)
 
+    # Legacy post-"done" lifecycle (EndorsementQueueStatus): an endorsement is not finished when the roster is updated;
+    # it must reach the insurer, be confirmed by the TPA and yield an endorsement copy and e-cards.
+    SENT_TO_INSURER = StateDef(620, Phase.INTEGRATION, Category.WAITING)
+    AWAITING_TPA_CONFIRMATION = StateDef(630, Phase.INTEGRATION, Category.WAITING)
+    TPA_CONFIRMATION_RECEIVED = StateDef(640, Phase.INTEGRATION, Category.SUCCESS)
+    AWAITING_ENDORSEMENT_COPY = StateDef(650, Phase.INTEGRATION, Category.WAITING)
+    ECARDS_AWAITED_FROM_TPA = StateDef(660, Phase.INTEGRATION, Category.WAITING)
+    IC_REPORT_APPROVAL_PENDING = StateDef(670, Phase.INTEGRATION, Category.WAITING)
+    IC_REPORT_UNDER_PROCESS = StateDef(671, Phase.INTEGRATION, Category.WAITING)
+    IC_REPORT_DISCREPANCY_RAISED = StateDef(672, Phase.INTEGRATION, Category.BLOCKED)
+    REUPLOAD_IN_PROGRESS = StateDef(680, Phase.INTEGRATION, Category.PROCESSING)
+
     COMPLETED = StateDef(900, Phase.FINAL, Category.SUCCESS, terminal=True)
     CANCELLED_BY_HR = StateDef(950, Phase.FINAL, Category.CANCELLED, terminal=True)
     MANUAL_INTERVENTION_REQUIRED = StateDef(960, Phase.ERROR, Category.ERROR)
@@ -111,14 +123,31 @@ TRANSITIONS: dict[State, frozenset[State]] = {
     S.ENDORSEMENT_QUEUED: frozenset({S.ENDORSEMENT_IN_PROGRESS}),          # no cancel once execution is queued
     S.ENDORSEMENT_IN_PROGRESS: frozenset({S.ENDORSED, S.ENDORSEMENT_FAILED}),
     S.ENDORSEMENT_FAILED: frozenset({S.ENDORSEMENT_QUEUED, _MANUAL}),
-    S.ENDORSED: frozenset({S.TPA_SYNC_QUEUED, S.COMPLETED}),
+    # After the roster is updated the steps below can be skipped when an insurer/TPA does not take part, but never reordered.
+    S.ENDORSED: frozenset({S.TPA_SYNC_QUEUED, S.SENT_TO_INSURER, S.COMPLETED}),
     S.TPA_SYNC_QUEUED: frozenset({S.TPA_SYNC_COMPLETED, S.TPA_SYNC_FAILED}),
     S.TPA_SYNC_FAILED: frozenset({S.TPA_SYNC_QUEUED, _MANUAL}),
-    S.TPA_SYNC_COMPLETED: frozenset({S.COMPLETED}),
+    S.TPA_SYNC_COMPLETED: frozenset({S.SENT_TO_INSURER, S.AWAITING_TPA_CONFIRMATION, S.COMPLETED}),
+    S.SENT_TO_INSURER: frozenset({S.AWAITING_TPA_CONFIRMATION, S.IC_REPORT_APPROVAL_PENDING, S.AWAITING_ENDORSEMENT_COPY,
+                                  S.ECARDS_AWAITED_FROM_TPA, S.COMPLETED, _MANUAL}),
+    S.AWAITING_TPA_CONFIRMATION: frozenset({S.TPA_CONFIRMATION_RECEIVED, _MANUAL}),
+    S.TPA_CONFIRMATION_RECEIVED: frozenset({S.AWAITING_ENDORSEMENT_COPY, S.ECARDS_AWAITED_FROM_TPA, S.COMPLETED}),
+    S.AWAITING_ENDORSEMENT_COPY: frozenset({S.ECARDS_AWAITED_FROM_TPA, S.COMPLETED, _MANUAL}),
+    S.ECARDS_AWAITED_FROM_TPA: frozenset({S.COMPLETED, _MANUAL}),
+    S.IC_REPORT_APPROVAL_PENDING: frozenset({S.IC_REPORT_UNDER_PROCESS, S.IC_REPORT_DISCREPANCY_RAISED, S.AWAITING_TPA_CONFIRMATION,
+                                             S.AWAITING_ENDORSEMENT_COPY, S.ECARDS_AWAITED_FROM_TPA, S.COMPLETED, _MANUAL}),
+    S.IC_REPORT_UNDER_PROCESS: frozenset({S.IC_REPORT_DISCREPANCY_RAISED, S.AWAITING_TPA_CONFIRMATION, S.AWAITING_ENDORSEMENT_COPY,
+                                          S.ECARDS_AWAITED_FROM_TPA, S.COMPLETED, _MANUAL}),
+    S.IC_REPORT_DISCREPANCY_RAISED: frozenset({S.REUPLOAD_IN_PROGRESS, _MANUAL}),
+    S.REUPLOAD_IN_PROGRESS: frozenset({S.SENT_TO_INSURER, _MANUAL}),
     S.COMPLETED: frozenset(),
     _CANCEL: frozenset(),
-    _MANUAL: frozenset({S.PREMIUM_CALC_QUEUED, S.CD_CHECK_INITIATED, S.ENDORSEMENT_QUEUED, S.TPA_SYNC_QUEUED, _CANCEL}),
+    _MANUAL: frozenset({S.PREMIUM_CALC_QUEUED, S.CD_CHECK_INITIATED, S.ENDORSEMENT_QUEUED, S.TPA_SYNC_QUEUED, S.SENT_TO_INSURER,
+                    S.AWAITING_TPA_CONFIRMATION, S.AWAITING_ENDORSEMENT_COPY, S.ECARDS_AWAITED_FROM_TPA, _CANCEL}),
 }
 
 # Every state must be a key, and terminal states must have no exits (enforced by tests too).
 assert set(TRANSITIONS) == set(State)
+
+# States the integration-service may drive through the internal lifecycle endpoint (everything after the roster update).
+LIFECYCLE_STATES = frozenset(s for s in State if s.phase == Phase.INTEGRATION or s == State.COMPLETED)

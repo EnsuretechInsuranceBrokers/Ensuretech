@@ -36,6 +36,7 @@ final class FakeWorld {
     final Map<UUID, List<Long>> rosters = new ConcurrentHashMap<>();
     final Map<Long, String> tpaIdsRecorded = new ConcurrentHashMap<>();
     volatile int engineStatus = 200;
+    final List<String> lifecycle = Collections.synchronizedList(new ArrayList<>());
     final AtomicInteger engineMemberCalls = new AtomicInteger();
     // identity
     final AtomicInteger tokenCalls = new AtomicInteger();
@@ -56,7 +57,7 @@ final class FakeWorld {
 
     void reset() {
         tpaCalls.clear(); tpaStatus = 200; failFromCall = Integer.MAX_VALUE; rejectRefs.clear();
-        rosters.clear(); tpaIdsRecorded.clear(); engineStatus = 200; engineMemberCalls.set(0);
+        rosters.clear(); tpaIdsRecorded.clear(); lifecycle.clear(); engineStatus = 200; engineMemberCalls.set(0);
         tokenCalls.set(0); identityStatus = 200;
     }
 
@@ -110,9 +111,15 @@ final class FakeWorld {
         if (!("Bearer " + TOKEN).equals(x.getRequestHeaders().getFirst("Authorization"))) { reply(x, 401, "{}"); return; }
         if (engineStatus != 200) { reply(x, engineStatus, "{}"); return; }
         String path = x.getRequestURI().getPath();
-        Matcher m = Pattern.compile("/api/v1/internal/endorsements/([0-9a-f-]+)/(members|tpa-member-ids)/").matcher(path);
+        Matcher m = Pattern.compile("/api/v1/internal/endorsements/([0-9a-f-]+)/(members|tpa-member-ids|lifecycle)/").matcher(path);
         if (!m.matches()) { reply(x, 404, "{}"); return; }
         UUID job = UUID.fromString(m.group(1));
+        if (m.group(2).equals("lifecycle")) {
+            Matcher st = Pattern.compile("\"state\":\"([A-Z_]+)\"").matcher(read(x));
+            if (st.find()) lifecycle.add(st.group(1));
+            reply(x, 200, "{}");
+            return;
+        }
         if (m.group(2).equals("tpa-member-ids")) {
             Matcher ids = Pattern.compile("\"id\":(\\d+),\"tpa_member_id\":\"([^\"]+)\"").matcher(read(x));
             while (ids.find()) tpaIdsRecorded.put(Long.parseLong(ids.group(1)), ids.group(2));

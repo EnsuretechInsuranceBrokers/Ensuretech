@@ -27,6 +27,7 @@ class SyncFlowTest extends IntegrationTestBase {
         assertThat(worker.drain()).isEqualTo(1);
 
         assertThat(stateOf(sync)).isEqualTo("SUCCEEDED");
+        assertThat(world.lifecycle).as("the endorsement is told where it stands").contains("TPA_SYNC_QUEUED").endsWith("TPA_SYNC_COMPLETED");
         assertThat(intCol(sync, "synced_count")).isEqualTo(25);
         assertThat(intCol(sync, "cursor_id")).isEqualTo(124);
         assertThat(world.tpaCalls).hasSize(3);                                              // 10 + 10 + 5
@@ -91,6 +92,7 @@ class SyncFlowTest extends IntegrationTestBase {
         makeDue(sync); worker.drain();
         makeDue(sync); worker.drain();                                                       // third attempt hits max-attempts=3
         assertThat(stateOf(sync)).isEqualTo("DEAD");
+        assertThat(world.lifecycle).endsWith("TPA_SYNC_FAILED");
         assertThat(outbox("TpaSyncFailed")).isEqualTo(1);
         var failed = jdbc.sql("SELECT payload::text FROM outbox.outbox_events WHERE event_type='TpaSyncFailed'").query(String.class).single();
         assertThat(failed).contains("\"attempts\": 3").contains("503");

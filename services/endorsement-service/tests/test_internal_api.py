@@ -54,3 +54,47 @@ def test_tpa_ids_written_back_only_within_the_jobs_policy(make_job):
     assert EndorsementMember.objects.get(pk=foreign[0].id).tpa_member_id is None
     for bad in ({"members": []}, {"members": [{"id": "x", "tpa_member_id": "a"}]}, {"members": [{"id": 1, "tpa_member_id": " "}]}, {}):
         assert c.post(f"{BASE}{job.id}/tpa-member-ids/", bad, format="json").status_code == 400
+
+
+def _walk(job, *states):
+    from apps.jobs.machine import transition
+    from apps.jobs.states import State
+    for s in states:
+        job = transition(job.id, State[s], actor="t")
+    return job
+
+
+HAPPY = ["FILE_STREAMED", "VALIDATION_QUEUED", "VALIDATION_IN_PROGRESS", "VALIDATION_PASSED", "PREMIUM_CALC_QUEUED", "PREMIUM_CALCULATED",
+         "CD_CHECK_INITIATED", "CD_SUFFICIENT", "ENDORSEMENT_QUEUED", "ENDORSEMENT_IN_PROGRESS", "ENDORSED"]
+
+
+def test_lifecycle_drives_the_post_endorsement_states_and_audits_the_reference(make_job):
+    from apps.jobs.models import AuditTransition
+    job = _walk(make_job(), *HAPPY)
+    c = client_for("SYSTEM", None)
+    for state in ("SENT_TO_INSURER", "AWAITING_TPA_CONFIRMATION", "TPA_CONFIRMATION_RECEIVED", "AWAITING_ENDORSEMENT_COPY",
+                  "ECARDS_AWAITED_FROM_TPA", "COMPLETED"):
+        r = c.post(f"{BASE}{job.id}/lifecycle/", {"state": state, "reference": "INS-77"}, format="json")
+        assert r.status_code == 200 and r.json()["state"] == state, r.content
+    assert r.json()["is_terminal"] is True
+    row = AuditTransition.objects.get(job=job, to_state="SENT_TO_INSURER")
+    assert row.actor == "integration-service" and row.metadata == {"reference": "INS-77"}
+
+
+def test_lifecycle_rejects_illegal_moves_unknown_states_and_states_the_engine_owns(make_job):
+    job = _walk(make_job(), *HAPPY)
+    c = client_for("SYSTEM", None)
+    assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": "ECARDS_AWAITED_FROM_TPA"}, format="json").status_code == 409      # not from ENDORSED
+    assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": "TPA_CONFIRMATION_RECEIVED"}, format="json").status_code == 409
+    for bad in ("NOPE", "", "VALIDATION_PASSED", "CANCELLED_BY_HR", "ENDORSED"):
+        assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": bad}, format="json").status_code == 400, bad
+    assert c.post(f"{BASE}00000000-0000-4000-8000-000000000000/lifecycle/", {"state": "COMPLETED"}, format="json").status_code == 404
+    assert client_for("BROKER_ADMIN", 1).post(f"{BASE}{job.id}/lifecycle/", {"state": "COMPLETED"}, format="json").status_code == 403
+
+
+def test_insurer_report_discrepancy_loops_back_through_reupload(make_job):
+    job = _walk(make_job(), *HAPPY, "SENT_TO_INSURER", "IC_REPORT_APPROVAL_PENDING", "IC_REPORT_DISCREPANCY_RAISED")
+    c = client_for("SYSTEM", None)
+    assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": "COMPLETED"}, format="json").status_code == 409     # must be fixed first
+    for s in ("REUPLOAD_IN_PROGRESS", "SENT_TO_INSURER", "COMPLETED"):
+        assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": s}, format="json").status_code == 200

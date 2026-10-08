@@ -2,6 +2,7 @@
 
 GET  /api/v1/internal/endorsements/<job>/members/?after=<id>&limit=<n>   keyset-paged roster rows last changed by that job
 POST /api/v1/internal/endorsements/<job>/tpa-member-ids/                  {"members":[{"id":1,"tpa_member_id":"X"}]}
+POST /api/v1/internal/endorsements/<job>/lifecycle/                       {"state":"SENT_TO_INSURER","reference":"INS-1","note":""}  post-endorsement milestones
 Rows are those whose `job` is still this job; a later endorsement that touches the same person supersedes them (documented gap)."""
 from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
@@ -9,7 +10,9 @@ from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .machine import InvalidTransition, StaleTransition, transition
 from .models import EndorsementJob, EndorsementMember
+from .states import LIFECYCLE_STATES, State
 
 MAX_LIMIT = 1000
 
@@ -64,3 +67,22 @@ class TpaMemberIdsView(APIView):
             updated += EndorsementMember.objects.filter(id=it["id"], policy_id=job.policy_id).update(
                 tpa_member_id=str(it["tpa_member_id"])[:60])
         return Response({"updated": updated, "ignored": len(items) - updated})
+
+
+class LifecycleView(APIView):
+    """integration-service reports where an endorsement is after the roster update: sent to the insurer, awaiting/received TPA
+    confirmation, endorsement copy and e-cards, insurer-report approval. The state machine decides what is legal."""
+    permission_classes = [IsSystem]
+
+    def post(self, request, job_id):
+        job = _job(job_id)
+        name = str(request.data.get("state", "")).strip().upper()
+        if name not in State.__members__ or State[name] not in LIFECYCLE_STATES:
+            raise ValidationError({"state": "must be one of " + ", ".join(sorted(s.name for s in LIFECYCLE_STATES)) + "."})
+        meta = {k: str(request.data[k])[:200] for k in ("reference", "note") if request.data.get(k)}
+        try:
+            job = transition(job.id, State[name], actor="integration-service", metadata=meta)
+        except (InvalidTransition, StaleTransition) as e:
+            return Response({"detail": str(e)}, status=409)
+        return Response({"job_id": str(job.id), "state": job.status, "status_code": job.status_code, "phase": job.phase,
+                         "category": job.category, "is_terminal": job.is_terminal})

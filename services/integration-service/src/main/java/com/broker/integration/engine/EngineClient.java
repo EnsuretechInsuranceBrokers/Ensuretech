@@ -55,6 +55,15 @@ public class EngineClient {
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(Map.of("members", items)))));
     }
 
+    /** Reports where an endorsement stands after the roster update (SENT_TO_INSURER, TPA_SYNC_COMPLETED, ...). The engine's state machine decides legality (409). */
+    public void reportLifecycle(UUID jobId, String state, String reference) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("state", state);
+        if (reference != null && !reference.isBlank()) body.put("reference", reference);
+        send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/endorsements/" + jobId + "/lifecycle/"))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))));
+    }
+
     private JsonNode send(HttpRequest.Builder rb) {
         String token = tokens.get();
         try {

@@ -29,7 +29,7 @@ SETTLED_HERE = {State.ENDORSED}      # later states belong to integration-servic
 def payload(job: EndorsementJob) -> dict:
     units = job.chunks_completed + job.chunks_priced + job.chunks_endorsed
     total = 3 * job.chunk_count
-    pct = 100 if State[job.status] in SETTLED_HERE or job.is_terminal and job.category == "SUCCESS" else (
+    pct = 100 if State[job.status] in SETTLED_HERE or job.phase == "INTEGRATION" or job.is_terminal and job.category == "SUCCESS" else (
         min(99, int(100 * units / total)) if total else 0)
     return {"job_id": str(job.id), "state": job.status, "status_code": job.status_code, "phase": job.phase,
             "category": job.category, "percent": pct, "total_rows": job.total_rows, "failed_rows": job.failed_rows,
