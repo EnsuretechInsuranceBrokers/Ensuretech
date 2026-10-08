@@ -6,6 +6,9 @@ $ratio = ['type' => 'string', 'enum' => ['DAILY', 'MONTHLY', 'NONE']];
 $policyEndpoint = fn (string $path, string $method, array $extra) => ['methods' => [$method], 'path' => "policies/{id}/$path", 'gateways' => ['broker'], 'service' => 'policy',
     'upstream' => "/api/v1/broker/policies/{id}/$path", 'where' => ['id' => $ID]] + $extra;
 
+$win = fn (string $tail, string $method, array $extra, array $where = []) => ['methods' => [$method], 'path' => "policies/{id}/enrollment-window$tail", 'gateways' => ['broker'], 'service' => 'policy',
+    'upstream' => "/api/v1/broker/policies/{id}/enrollment-window$tail", 'where' => ['id' => $ID] + $where] + $extra;
+
 return [
     'schemas' => [
         'issues' => ['valid' => 'valid', 'issues' => ['as' => 'issues', 'list' => 'issue']],
@@ -20,6 +23,12 @@ return [
         'midterm' => ['basis' => 'basis'],
         'midterm_dependants' => ['rules' => ['as' => 'rules', 'raw' => true, 'obj' => true, 'keys' => 'snake']],
         'quote' => ['members' => ['as' => 'members', 'list' => 'quote_member'], 'subtotal' => 'subtotal', 'taxRate' => 'tax_rate', 'tax' => 'tax', 'total' => 'total'],
+        'enrollment_settings' => ['enabled' => 'enabled', 'startDate' => 'start_date', 'endDate' => 'end_date', 'midtermDays' => 'midterm_days', 'allowAfterExpiry' => 'allow_after_expiry', 'daysAfterExpiry' => 'days_after_expiry'],
+        'enrollment_employee' => ['employeeRef' => 'employee_ref', 'enabled' => 'enabled', 'startDate' => 'start_date', 'endDate' => 'end_date', 'closeDate' => 'close_date'],
+        'enrollment_result' => ['status' => 'status', 'startDate' => 'start_date', 'endDate' => 'end_date', 'confirmedAt' => 'confirmed_at', 'windowSet' => 'window_set', 'midtermWindowSet' => 'midterm_window_set',
+            'endtermWindowSet' => 'endterm_window_set', 'customWindowSet' => 'custom_window_set', 'closeDate' => 'close_date'],
+        'enrollment_audit' => ['id' => 'id', 'scope' => 'scope', 'employees' => ['as' => 'employees', 'raw' => true], 'oldValue' => ['as' => 'old_value', 'raw' => true], 'newValue' => ['as' => 'new_value', 'raw' => true],
+            'modifiedBy' => 'modified_by', 'at' => 'at'],
         'quote_member' => ['memberRef' => 'ref', 'premium' => 'premium'],
     ],
     'inputs' => [
@@ -48,6 +57,14 @@ return [
         'rounding_put' => ['type' => ['type' => 'string', 'required' => true, 'enum' => ['NONE', 'FLOOR', 'CEIL', 'ROUND']], 'unit' => ['type' => 'int', 'min' => 1, 'max' => 100000]],
         'midterm_put' => ['basis' => ['type' => 'string', 'required' => true, 'enum' => ['DATE_OF_JOINING', 'DATE_OF_UPLOAD', 'NO_MIDTERM']]],
         'midterm_dependants_put' => ['rules' => ['type' => 'map', 'required' => true, 'keys' => 'camel']],
+        'enrollment_settings_put' => ['enabled' => ['type' => 'bool', 'required' => true], 'start_date' => ['to' => 'startDate', 'type' => 'date'], 'end_date' => ['to' => 'endDate', 'type' => 'date'],
+            'midterm_days' => ['to' => 'midtermDays', 'type' => 'int', 'min' => 1, 'max' => 365], 'allow_after_expiry' => ['to' => 'allowAfterExpiry', 'type' => 'bool'],
+            'days_after_expiry' => ['to' => 'daysAfterExpiry', 'type' => 'int', 'min' => 0, 'max' => 365]],
+        'enrollment_employee_in' => ['employee_ref' => ['to' => 'employeeRef', 'type' => 'string', 'required' => true, 'max' => 60], 'enabled' => ['type' => 'bool'],
+            'start_date' => ['to' => 'startDate', 'type' => 'date', 'required' => true], 'end_date' => ['to' => 'endDate', 'type' => 'date', 'required' => true], 'close_date' => ['to' => 'closeDate', 'type' => 'date']],
+        'enrollment_employees_put' => ['employees' => ['type' => 'list', 'of' => 'input:enrollment_employee_in', 'required' => true, 'max' => 5000]],
+        'enrollment_facts' => ['employee_ref' => ['to' => 'employeeRef', 'type' => 'string', 'required' => true, 'max' => 60], 'date_of_joining' => ['to' => 'dateOfJoining', 'type' => 'date'],
+            'date_of_upload' => ['to' => 'dateOfUpload', 'type' => 'date'], 'has_members' => ['to' => 'hasMembers', 'type' => 'bool'], 'inception' => ['type' => 'bool'], 'as_of' => ['to' => 'asOf', 'type' => 'date']],
         'person' => ['relation_code' => ['to' => 'relationCode', 'type' => 'string', 'required' => true, 'max' => 40], 'age' => ['type' => 'int', 'required' => true, 'min' => 0, 'max' => 130],
             'dob' => ['type' => 'date']],
         'family_validate' => ['members' => ['type' => 'list', 'of' => 'input:person', 'required' => true, 'max' => 40]],
@@ -57,6 +74,16 @@ return [
         'quote_request' => ['members' => ['type' => 'list', 'of' => 'input:quote_member_in', 'required' => true, 'max' => 40]],
     ],
     'endpoints' => [
+        // Enrollment windows: when an employee may join a policy (legacy EnrollmentWindowService)
+        'policies.enrollment_window' => $win('', 'GET', ['response' => 'enrollment_settings']),
+        'policies.enrollment_window_put' => $win('', 'PUT', ['input' => 'enrollment_settings_put', 'response' => 'enrollment_settings']),
+        'policies.enrollment_employees' => $win('/employees', 'GET', ['response' => ['list' => 'enrollment_employee']]),
+        'policies.enrollment_employees_put' => $win('/employees', 'PUT', ['input' => 'enrollment_employees_put', 'response' => ['list' => 'enrollment_employee']]),
+        'policies.enrollment_employee_delete' => $win('/employees/{ref}', 'DELETE', ['response' => 'none'], ['ref' => '[A-Za-z0-9_.\\-]{1,60}']),
+        'policies.enrollment_evaluate' => $win('/evaluate', 'POST', ['input' => 'enrollment_facts', 'response' => 'enrollment_result']),
+        'policies.enrollment_confirm' => $win('/confirm', 'POST', ['input' => 'enrollment_facts', 'response' => 'enrollment_result']),
+        'policies.enrollment_unconfirm' => $win('/confirm/{ref}', 'DELETE', ['response' => 'none'], ['ref' => '[A-Za-z0-9_.\\-]{1,60}']),
+        'policies.enrollment_audit' => $win('/audit', 'GET', ['response' => ['list' => 'enrollment_audit'], 'query' => ['limit' => 'limit']]),
         'policies.create' => ['methods' => ['POST'], 'path' => 'policies', 'gateways' => ['broker'], 'service' => 'policy', 'upstream' => '/api/v1/broker/policies',
             'input' => 'policy_create', 'response' => 'policy'],
         'policies.approve' => $policyEndpoint('approve', 'POST', ['response' => 'policy']),

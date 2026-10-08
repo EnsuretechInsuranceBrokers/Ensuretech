@@ -62,6 +62,7 @@ class ApiExceptionHandler {
 
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     ProblemDetail unreadable(org.springframework.http.converter.HttpMessageNotReadableException e) {
+        org.slf4j.LoggerFactory.getLogger(ApiExceptionHandler.class).warn("Unreadable request body: {}", e.getMostSpecificCause().getMessage());   // for operators; the client only gets a generic message
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed or unreadable request body");
     }
 }

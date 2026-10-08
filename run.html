@@ -252,6 +252,7 @@ Then in the portal: <strong>Policies → POL-001 → Approve and go live</strong
 1001,SON,Kid Rao,01/01/2015,M,500000,,
 1002,Self,Meera Nair,1990-03-03,F,300000,,PQRST5678K</code></pre></div>
 The job page shows progress live and ends at <code>ENDORSED</code>; CD balance drops by the premium. With no deposit it stops at <code>CD_INSUFFICIENT</code>; deposit, then press <em>Retry</em>. A file with bad dates/PAN/relations stops at <code>VALIDATION_PARTIAL</code> with a line-by-line list of problems.</li>
+<li><strong>Policies → POL-001</strong> has an <em>Enrollment window</em> card: set when employees may join, extend it for one employee, and check whether a given employee can join today. <strong>Announcements</strong> lets the broker publish a banner or notice to all employers or one; the employer's dashboard shows it.</li>
 <li><strong>Dashboard</strong> now shows job and deposit counts (from Kafka → read-service). <strong>Assistant</strong> answers from knowledge you add: <code>POST /api/v1/broker/assistant/knowledge</code> with <code>{"title":"…","text":"…"}</code>.</li>
 </ol>
 
@@ -259,13 +260,13 @@ The job page shows progress live and ends at <code>ENDORSED</code>; CD balance d
 <p>Each suite is self-contained (real PostgreSQL for the Spring and engine suites, fake brokers). Run with <code>setup.sql</code> already applied and Redis up. Never run tests against a database you care about: they truncate tables. Python suites need the test tools: <code>python ../../scripts/install_python_deps.py --dev</code>.</p>
 <table>
 <tr><th>Component</th><th>Command (from the service folder)</th><th>Expected</th></tr>
-<tr><td>BFF</td><td><code>php artisan test</code></td><td>64 passed</td></tr>
+<tr><td>BFF</td><td><code>php artisan test</code></td><td>70 passed</td></tr>
 <tr><td>identity</td><td><code>DATABASE_URL="$IDENTITY_DB" pytest -q</code></td><td>34 passed</td></tr>
 <tr><td>endorsement engine</td><td><code>DATABASE_URL="$ENDORSEMENT_DB" pytest -q</code></td><td>259 passed</td></tr>
 <tr><td>read-service</td><td><code>TEST_MONGO_URI=$MONGO_URI pytest -q</code></td><td>61 passed</td></tr>
 <tr><td>notification</td><td><code>DATABASE_URL="$NOTIFICATION_DB" pytest -q</code></td><td>needs PostgreSQL</td></tr>
-<tr><td>organization</td><td><code>DATABASE_URL="$ORG_JDBC" mvn test</code></td><td>26</td></tr>
-<tr><td>policy</td><td><code>DATABASE_URL="$POLICY_JDBC" mvn test</code> (Redis up)</td><td>63</td></tr>
+<tr><td>organization</td><td><code>DATABASE_URL="$ORG_JDBC" mvn test</code></td><td>29</td></tr>
+<tr><td>policy</td><td><code>DATABASE_URL="$POLICY_JDBC" mvn test</code> (Redis up)</td><td>84</td></tr>
 <tr><td>billing</td><td><code>DATABASE_URL="$BILLING_JDBC" mvn test</code></td><td>42</td></tr>
 <tr><td>integration</td><td><code>DATABASE_URL="$INTEGRATION_JDBC" mvn test</code></td><td>28</td></tr>
 <tr><td>sheet generator</td><td><code>DATABASE_URL="$SHEETGEN_JDBC" mvn test</code>, then see <code>qa/README.md</code> for the browser checks</td><td>-</td></tr>

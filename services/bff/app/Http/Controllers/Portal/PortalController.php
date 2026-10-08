@@ -101,7 +101,10 @@ class PortalController extends Controller
         [$jobs] = $this->get($r, '/endorsements', ['page_size' => 5]);
         [$pols] = $this->get($r, '/policies', ['page_size' => 5]);
 
-        return $this->view($r, 'dashboard', ['dash' => $dash, 'flags' => $flags, 'jobs' => $jobs['items'] ?? [], 'policies' => $pols['items'] ?? []]);
+        [$ann] = $this->get($r, '/announcements');
+
+        return $this->view($r, 'dashboard', ['dash' => $dash, 'flags' => $flags, 'jobs' => $jobs['items'] ?? [], 'policies' => $pols['items'] ?? [],
+            'announcements' => array_values(array_filter(is_array($ann) && array_is_list($ann) ? $ann : [], fn ($a) => $a['live'] ?? false))]);
     }
 
     public function employers(Request $r)
@@ -132,7 +135,12 @@ class PortalController extends Controller
         $ready = $this->gw($r) === 'broker' ? $this->get($r, "/policies/$id/readiness")[0] : null;
         [$cd] = $this->get($r, "/cd/accounts/$id");
 
-        return $this->view($r, 'policy', ['p' => $p, 'ready' => $ready, 'cd' => $cd]);
+        $broker = $this->gw($r) === 'broker';
+
+        return $this->view($r, 'policy', ['p' => $p, 'ready' => $ready, 'cd' => $cd,
+            'window' => $broker ? $this->get($r, "/policies/$id/enrollment-window")[0] : null,
+            'overrides' => $broker ? ($this->get($r, "/policies/$id/enrollment-window/employees")[0] ?: []) : [],
+            'windowAudit' => $broker ? ($this->get($r, "/policies/$id/enrollment-window/audit", ['limit' => 10])[0] ?: []) : []]);
     }
 
     public function policyApprove(Request $r, int $id)
@@ -218,5 +226,56 @@ class PortalController extends Controller
         }
 
         return $this->view($r, 'assistant', ['answer' => $answer, 'question' => $r->input('question')]);
+    }
+
+    public function windowSave(Request $r, int $id)
+    {
+        $d = $r->validate(['start_date' => 'nullable|date', 'end_date' => 'nullable|date', 'midterm_days' => 'nullable|integer|min:1|max:365', 'days_after_expiry' => 'nullable|integer|min:0|max:365']);
+        $body = ['enabled' => $r->boolean('enabled'), 'allow_after_expiry' => $r->boolean('allow_after_expiry')] + array_filter($d, fn ($v) => $v !== null && $v !== '');
+
+        return $this->back($r, "/app/policies/$id", $this->api->call($r, 'PUT', "/broker/policies/$id/enrollment-window", $body), 'Enrollment window saved.');
+    }
+
+    public function windowCheck(Request $r, int $id)
+    {
+        $d = $r->validate(['employee_ref' => 'required|string|max:60', 'date_of_joining' => 'nullable|date', 'as_of' => 'nullable|date']);
+        $res = $this->api->call($r, 'POST', "/broker/policies/$id/enrollment-window/evaluate", array_filter($d, fn ($v) => $v !== null && $v !== ''));
+        if ($res['status'] >= 300) {
+            return redirect("/app/policies/$id")->withInput()->with('err', self::problem($res['json'], $res['status']));
+        }
+
+        return redirect("/app/policies/$id")->withInput()->with('window_result', $res['json']);
+    }
+
+    public function windowEmployee(Request $r, int $id)
+    {
+        $d = $r->validate(['employee_ref' => 'required|string|max:60', 'start_date' => 'required|date', 'end_date' => 'required|date', 'close_date' => 'nullable|date']);
+        $body = ['employees' => [array_filter($d, fn ($v) => $v !== null && $v !== '')]];
+
+        return $this->back($r, "/app/policies/$id", $this->api->call($r, 'PUT', "/broker/policies/$id/enrollment-window/employees", $body), 'Custom window saved.');
+    }
+
+    public function announcements(Request $r)
+    {
+        [$items] = $this->get($r, '/announcements');
+        $employers = $this->gw($r) === 'broker' ? ($this->get($r, '/employers', ['page_size' => 100])[0]['items'] ?? []) : [];
+
+        return $this->view($r, 'announcements', ['items' => is_array($items) && array_is_list($items) ? $items : [], 'employers' => $employers]);
+    }
+
+    public function announcementCreate(Request $r)
+    {
+        $d = $r->validate(['kind' => 'required|in:BANNER,CAROUSEL,NOTICE', 'title' => 'required|string|max:200', 'content' => 'required|string|max:5000', 'link' => 'nullable|url|max:500',
+            'starts_on' => 'nullable|date', 'ttl_days' => 'nullable|integer|min:1|max:3650', 'sequence' => 'nullable|integer|min:0|max:10000', 'audience' => 'required|string']);
+        $audience = $d['audience'];
+        unset($d['audience']);
+        $body = array_filter($d, fn ($v) => $v !== null && $v !== '') + ($audience === 'all' ? ['all_employers' => true] : ['all_employers' => false, 'employer_ids' => [(int) $audience]]);
+
+        return $this->back($r, '/app/announcements', $this->api->call($r, 'POST', '/broker/announcements', $body), 'Announcement published.');
+    }
+
+    public function announcementRetire(Request $r, int $id)
+    {
+        return $this->back($r, '/app/announcements', $this->api->call($r, 'DELETE', "/broker/announcements/$id"), 'Announcement retired.');
     }
 }

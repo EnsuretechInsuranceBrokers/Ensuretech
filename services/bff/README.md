@@ -56,3 +56,6 @@ Request bodies are validated and renamed by `App\Bff\Binder` from the contract's
 - **Gateway secret**: set `BFF_GATEWAY_SECRET` here and `GATEWAY_SECRET` in every core service. Every upstream call carries `X-Gateway-Secret`, `X-Session-Id` and
   `X-Session-Key` (HMAC-SHA256 of the session id with the secret); the services refuse browser-facing paths without them, so nothing but the BFF can use them,
   even with a valid user token. Generate: `php -r 'echo bin2hex(random_bytes(32));'`. See `docs/full-stack-local.md` for a full local run.
+
+## Portal pages
+Dashboard (with announcements), Employers (broker), Announcements, Policies and a policy page (readiness, approval, enrollment window, per-employee windows, window audit), Endorsements (upload, live progress, problems, history), CD balance, Assistant. Styling is `public/portal.css` (light and dark, responsive); the page policy is `style-src 'self'` so no inline stylesheet is needed.

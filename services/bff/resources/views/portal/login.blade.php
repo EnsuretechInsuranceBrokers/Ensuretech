@@ -1,12 +1,14 @@
 @extends('portal.layout')
 @section('title', 'Sign in')
 @section('body')
-<div class="card" style="max-width:380px;margin:4rem auto">
-  <h1>Sign in</h1>
-  <form method="post" action="/login" style="display:grid;gap:.7rem">@csrf
-    <input name="email" type="email" placeholder="Email" value="{{ old('email') }}" required autofocus autocomplete="username">
-    <input name="password" type="password" placeholder="Password" required autocomplete="current-password">
+<div class="auth"><div class="box">
+  <div class="brand"><span class="logo">E</span> Ensuretech</div>
+  <p class="sub">Sign in to manage policies, endorsements and deposits.</p>
+  @if(session('err'))<div class="flash err" role="alert">{{ session('err') }}</div>@endif
+  <form method="post" action="/login">@csrf
+    <label>Email<input name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="username"></label>
+    <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
     <button>Sign in</button>
   </form>
-</div>
+</div></div>
 @endsection

@@ -16,6 +16,12 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
     Route::get('/policies', [P::class, 'policies']);
     Route::get('/policies/{id}', [P::class, 'policy'])->whereNumber('id');
     Route::post('/policies/{id}/approve', [P::class, 'policyApprove'])->whereNumber('id');
+    Route::post('/policies/{id}/window', [P::class, 'windowSave'])->whereNumber('id');
+    Route::post('/policies/{id}/window/check', [P::class, 'windowCheck'])->whereNumber('id');
+    Route::post('/policies/{id}/window/employee', [P::class, 'windowEmployee'])->whereNumber('id');
+    Route::get('/announcements', [P::class, 'announcements']);
+    Route::post('/announcements', [P::class, 'announcementCreate']);
+    Route::post('/announcements/{id}/retire', [P::class, 'announcementRetire'])->whereNumber('id');
     Route::get('/endorsements', [P::class, 'endorsements']);
     Route::post('/endorsements/upload', [P::class, 'upload']);
     Route::get('/endorsements/{id}', [P::class, 'job']);

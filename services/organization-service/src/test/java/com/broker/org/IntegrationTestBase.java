@@ -34,7 +34,7 @@ abstract class IntegrationTestBase {
 
     @BeforeEach
     void resetDb() {
-        jdbc.sql("TRUNCATE organization.employer_configs, organization.employers, organization.broker_branches, "
+        jdbc.sql("TRUNCATE organization.announcement_employers, organization.announcements, organization.employer_configs, organization.employers, organization.broker_branches, "
                 + "organization.brokers RESTART IDENTITY CASCADE").update();
         jdbc.sql("DELETE FROM outbox.outbox_events").update();
         sender.sent.clear();
