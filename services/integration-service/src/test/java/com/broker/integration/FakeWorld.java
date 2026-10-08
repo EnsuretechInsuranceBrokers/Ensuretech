@@ -36,6 +36,9 @@ final class FakeWorld {
     final Map<UUID, List<Long>> rosters = new ConcurrentHashMap<>();
     final Map<Long, String> tpaIdsRecorded = new ConcurrentHashMap<>();
     volatile int engineStatus = 200;
+    volatile String activeLivesJson = "{\"members\":[]}";          // what the fake TPA answers to GET /active-lives
+    final Map<Long, List<String>> policyRoster = new ConcurrentHashMap<>();   // policy -> roster member JSON objects
+    final Map<Long, String> policyNumbers = new ConcurrentHashMap<>();
     final List<String> lifecycle = Collections.synchronizedList(new ArrayList<>());
     final AtomicInteger engineMemberCalls = new AtomicInteger();
     // identity
@@ -57,8 +60,13 @@ final class FakeWorld {
 
     void reset() {
         tpaCalls.clear(); tpaStatus = 200; failFromCall = Integer.MAX_VALUE; rejectRefs.clear();
-        rosters.clear(); tpaIdsRecorded.clear(); lifecycle.clear(); engineStatus = 200; engineMemberCalls.set(0);
+        rosters.clear(); tpaIdsRecorded.clear(); lifecycle.clear(); policyRoster.clear(); policyNumbers.clear(); activeLivesJson = "{\"members\":[]}"; engineStatus = 200; engineMemberCalls.set(0);
         tokenCalls.set(0); identityStatus = 200;
+    }
+
+    static String member(long id, String code, String rel, String first, String last) {
+        return "{\"id\":" + id + ",\"employee_code\":\"" + code + "\",\"relation_code\":\"" + rel + "\",\"first_name\":\"" + first + "\",\"last_name\":\"" + last
+                + "\",\"date_of_birth\":\"1990-01-01\",\"gender\":null,\"email\":null,\"mobile\":null,\"sum_insured\":\"500000.00\",\"effective_date\":\"2030-04-01\",\"end_date\":null,\"is_active\":true,\"tpa_member_id\":null}";
     }
 
     List<Long> roster(UUID job, int n, long firstId) {
@@ -90,7 +98,8 @@ final class FakeWorld {
         String body = read(x);
         Map<String, String> h = new ConcurrentHashMap<>();
         x.getRequestHeaders().forEach((k, v) -> h.put(k.toLowerCase(), v.getFirst()));
-        tpaCalls.add(new Call(x.getRequestURI().getPath(), h, body));
+        tpaCalls.add(new Call(x.getRequestURI().getPath() + (x.getRequestURI().getRawQuery() == null ? "" : "?" + x.getRequestURI().getRawQuery()), h, body));
+        if (x.getRequestURI().getPath().endsWith("/active-lives") && tpaStatus == 200) { reply(x, 200, activeLivesJson); return; }
         int n = tpaCalls.size();
         if (tpaStatus != 200) { reply(x, tpaStatus, "{}"); return; }
         if (n >= failFromCall) { reply(x, 503, "{}"); return; }
@@ -111,6 +120,20 @@ final class FakeWorld {
         if (!("Bearer " + TOKEN).equals(x.getRequestHeaders().getFirst("Authorization"))) { reply(x, 401, "{}"); return; }
         if (engineStatus != 200) { reply(x, engineStatus, "{}"); return; }
         String path = x.getRequestURI().getPath();
+        Matcher pm = Pattern.compile("/api/v1/internal/policies/(\\d+)/(members|tpa-member-ids)/").matcher(path);
+        if (pm.matches()) {
+            long policy = Long.parseLong(pm.group(1));
+            if (pm.group(2).equals("tpa-member-ids")) {
+                Matcher ids = Pattern.compile("\"id\":(\\d+),\"tpa_member_id\":\"([^\"]+)\"").matcher(read(x));
+                while (ids.find()) tpaIdsRecorded.put(Long.parseLong(ids.group(1)), ids.group(2));
+                reply(x, 200, "{\"updated\":1,\"ignored\":0}");
+                return;
+            }
+            List<String> members = policyRoster.getOrDefault(policy, List.of());
+            String pn = policyNumbers.get(policy);
+            reply(x, 200, "{\"policy_id\":" + policy + ",\"policy_number\":" + (pn == null ? "null" : "\"" + pn + "\"") + ",\"members\":[" + String.join(",", members) + "],\"next_after\":null}");
+            return;
+        }
         Matcher m = Pattern.compile("/api/v1/internal/endorsements/([0-9a-f-]+)/(members|tpa-member-ids|lifecycle)/").matcher(path);
         if (!m.matches()) { reply(x, 404, "{}"); return; }
         UUID job = UUID.fromString(m.group(1));

@@ -3,6 +3,8 @@
 GET  /api/v1/internal/endorsements/<job>/members/?after=<id>&limit=<n>   keyset-paged roster rows last changed by that job
 POST /api/v1/internal/endorsements/<job>/tpa-member-ids/                  {"members":[{"id":1,"tpa_member_id":"X"}]}
 POST /api/v1/internal/endorsements/<job>/lifecycle/                       {"state":"SENT_TO_INSURER","reference":"INS-1","note":""}  post-endorsement milestones
+GET  /api/v1/internal/policies/<policy>/members/?after=<id>&limit=<n>      keyset-paged ACTIVE roster of a policy (+ its policy_number, for TPA look-ups)
+POST /api/v1/internal/policies/<policy>/tpa-member-ids/                    {"members":[{"id":1,"tpa_member_id":"X"}]}  (TPA reconciliation)
 Rows are those whose `job` is still this job; a later endorsement that touches the same person supersedes them (documented gap)."""
 from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
@@ -86,3 +88,36 @@ class LifecycleView(APIView):
             return Response({"detail": str(e)}, status=409)
         return Response({"job_id": str(job.id), "state": job.status, "status_code": job.status_code, "phase": job.phase,
                          "category": job.category, "is_terminal": job.is_terminal})
+
+
+class PolicyMembersView(APIView):
+    """The policy's whole active roster, for reconciling it against what a TPA says it covers."""
+    permission_classes = [IsSystem]
+
+    def get(self, request, policy_id):
+        try:
+            after = int(request.query_params.get("after", 0))
+            limit = min(max(int(request.query_params.get("limit", 500)), 1), MAX_LIMIT)
+        except ValueError:
+            raise ValidationError("after and limit must be integers.")
+        rows = list(EndorsementMember.objects.filter(policy_id=policy_id, is_active=True, id__gt=after).order_by("id")[:limit])
+        latest = EndorsementJob.objects.filter(policy_id=policy_id).order_by("-created_at").first()
+        facts = (latest.metadata or {}).get("policy", {}) if latest else {}
+        return Response({"policy_id": policy_id, "broker_id": latest.broker_id if latest else None, "policy_number": facts.get("policy_number"),
+                         "members": [_member(m) for m in rows], "next_after": rows[-1].id if len(rows) == limit else None})
+
+
+class PolicyTpaMemberIdsView(APIView):
+    permission_classes = [IsSystem]
+
+    @transaction.atomic
+    def post(self, request, policy_id):
+        items = request.data.get("members")
+        if not isinstance(items, list) or not 0 < len(items) <= MAX_LIMIT:
+            raise ValidationError(f"members must be a list of 1..{MAX_LIMIT} items.")
+        updated = 0
+        for it in items:
+            if not isinstance(it, dict) or not isinstance(it.get("id"), int) or not str(it.get("tpa_member_id", "")).strip():
+                raise ValidationError("each item needs an integer id and a non-empty tpa_member_id.")
+            updated += EndorsementMember.objects.filter(id=it["id"], policy_id=policy_id).update(tpa_member_id=str(it["tpa_member_id"])[:60])
+        return Response({"updated": updated, "ignored": len(items) - updated})

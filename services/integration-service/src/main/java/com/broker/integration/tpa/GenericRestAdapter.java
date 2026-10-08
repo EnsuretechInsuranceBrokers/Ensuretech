@@ -78,6 +78,57 @@ public class GenericRestAdapter implements TpaAdapter {
         return parse(r.body(), batch);
     }
 
+    /**
+     * GET {baseUrl}/active-lives?policy_number=P
+     * 200 { "members": [ {"employee_code": "E1", "relation": "Self", "member_id": "T1", "member_name": "Asha Rao",
+     *                     "dependents": [ {"relation": "Wife", "member_id": "T2", "member_name": "Meera Rao"} ]} ] }
+     */
+    @Override
+    public List<Reconciler.ActiveLife> activeLives(TpaConfig cfg, Credentials creds, String policyNumber) {
+        URI base;
+        try {
+            base = guard.check(cfg.getBaseUrl());
+        } catch (IllegalArgumentException e) {
+            throw new TpaException("TPA base URL rejected: " + e.getMessage(), false);
+        }
+        HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create(base.toString().replaceAll("/+$", "") + "/active-lives?policy_number="
+                        + java.net.URLEncoder.encode(policyNumber, StandardCharsets.UTF_8)))
+                .timeout(Duration.ofMillis(cfg.getTimeoutMs())).header("Accept", "application/json").GET();
+        switch (cfg.getAuthType()) {
+            case BASIC -> rb.header("Authorization", "Basic " + Base64.getEncoder().encodeToString((creds.username() + ":" + creds.password()).getBytes(StandardCharsets.UTF_8)));
+            case BEARER -> rb.header("Authorization", "Bearer " + creds.token());
+            case NONE -> { }
+        }
+        HttpResponse<String> r;
+        try {
+            r = http.send(rb.build(), HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new TpaException("interrupted", true, e);
+        } catch (IOException e) {
+            throw new TpaException("TPA unreachable or timed out: " + e.getClass().getSimpleName(), true, e);
+        }
+        int s = r.statusCode();
+        if (s == 408 || s == 429 || s >= 500) throw new TpaException("TPA answered HTTP " + s, true);
+        if (s < 200 || s >= 300) throw new TpaException("TPA refused the request with HTTP " + s, false);
+        try {
+            JsonNode members = mapper.readTree(r.body()).path("members");
+            if (!members.isArray()) throw new TpaException("TPA response has no members array", false);
+            List<Reconciler.ActiveLife> out = new ArrayList<>();
+            for (JsonNode n : members) {
+                List<Reconciler.ActiveLife> deps = new ArrayList<>();
+                for (JsonNode d : n.path("dependents")) deps.add(new Reconciler.ActiveLife(null, d.path("relation").asString(""), d.path("member_id").asString(""), d.path("member_name").asString("")));
+                out.add(new Reconciler.ActiveLife(n.path("employee_code").asString(""), n.path("relation").asString(""), n.path("member_id").asString(""),
+                        n.path("member_name").asString(""), deps));
+            }
+            return out;
+        } catch (TpaException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new TpaException("TPA response was not valid JSON", false, e);
+        }
+    }
+
     private String body(SyncBatch batch) {
         List<Map<String, Object>> members = new ArrayList<>();
         for (RosterMember m : batch.members()) {

@@ -10,6 +10,11 @@ public interface TpaAdapter {
     /** Send one batch. Must be idempotent on {@code batch.idempotencyKey()} at the TPA, because retries resend the same key. */
     List<MemberResult> enroll(TpaConfig cfg, Credentials creds, SyncBatch batch) throws TpaException;
 
+    /** Pull: the members the TPA says are covered under a policy. Adapters that cannot pull keep the default. */
+    default List<Reconciler.ActiveLife> activeLives(TpaConfig cfg, Credentials creds, String policyNumber) throws TpaException {
+        throw new TpaException("this adapter cannot list a policy's active lives", false);
+    }
+
     record Credentials(String username, String password, String token) {
         public static final Credentials NONE = new Credentials(null, null, null);
     }

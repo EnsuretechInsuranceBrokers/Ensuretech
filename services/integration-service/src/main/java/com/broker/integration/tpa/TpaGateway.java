@@ -65,6 +65,22 @@ public class TpaGateway {
         return Retry.decorateSupplier(retry, CircuitBreaker.decorateSupplier(cb, () -> adapter.enroll(cfg, creds, batch))).get();
     }
 
+    /** Pull a policy's active lives from the TPA, through the same guard, breaker and retry as enrolments. */
+    public List<Reconciler.ActiveLife> activeLives(TpaConfig cfg, String policyNumber) {
+        TpaAdapter adapter = adapters.get(cfg.getAdapter());
+        if (adapter == null) throw new TpaAdapter.TpaException("no adapter for " + cfg.getAdapter(), false);
+        try {
+            guard.check(cfg.getBaseUrl());
+        } catch (IllegalArgumentException e) {
+            throw new TpaAdapter.TpaException("TPA base URL rejected: " + e.getMessage(), false);
+        }
+        TpaAdapter.Credentials creds = credentials(cfg);
+        Retry retry = Retry.of("tpa-pull-" + cfg.getId(), RetryConfig.custom()
+                .maxAttempts(Math.max(1, callRetries)).intervalFunction(n -> retryBaseMs * (1L << (n - 1)))
+                .retryOnException(e -> e instanceof TpaAdapter.TpaException t && t.isRetryable()).build());
+        return Retry.decorateSupplier(retry, CircuitBreaker.decorateSupplier(breaker(cfg), () -> adapter.activeLives(cfg, creds, policyNumber))).get();
+    }
+
     private TpaAdapter.Credentials credentials(TpaConfig cfg) {
         String ref = cfg.getSecretRef();
         return switch (cfg.getAuthType()) {

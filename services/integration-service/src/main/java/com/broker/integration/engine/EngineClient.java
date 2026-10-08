@@ -64,6 +64,31 @@ public class EngineClient {
                 .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))));
     }
 
+    public record PolicyPage(String policyNumber, List<RosterMember> members, Long nextAfter) {}
+
+    /** One page of the policy's whole ACTIVE roster (not just what one job changed). */
+    public PolicyPage policyMembers(long policyId, long after, int limit) {
+        JsonNode n = send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/policies/" + policyId + "/members/?after=" + after + "&limit=" + limit)).GET());
+        List<RosterMember> out = new ArrayList<>();
+        for (JsonNode m : n.path("members")) {
+            out.add(new RosterMember(m.path("id").asLong(), m.path("employee_code").asString(""), m.path("relation_code").asString(""),
+                    m.path("first_name").asString(""), m.path("last_name").asString(""), m.path("date_of_birth").asString(""),
+                    nullable(m, "gender"), nullable(m, "email"), nullable(m, "mobile"), m.path("sum_insured").asString(""),
+                    m.path("effective_date").asString(""), nullable(m, "end_date"), m.path("is_active").asBoolean(true)));
+        }
+        JsonNode next = n.path("next_after"), pn = n.path("policy_number");
+        return new PolicyPage(pn.isNull() || pn.isMissingNode() ? null : pn.asString(), out, next.isNull() || next.isMissingNode() ? null : next.asLong());
+    }
+
+    public void recordPolicyTpaIds(long policyId, Map<Long, String> tpaIdsByMember) {
+        if (tpaIdsByMember.isEmpty()) return;
+        List<Map<String, Object>> items = new ArrayList<>();
+        tpaIdsByMember.forEach((id, tpa) -> { Map<String, Object> m = new LinkedHashMap<>(); m.put("id", id); m.put("tpa_member_id", tpa); items.add(m); });
+        send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/policies/" + policyId + "/tpa-member-ids/"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(Map.of("members", items)))));
+    }
+
     private JsonNode send(HttpRequest.Builder rb) {
         String token = tokens.get();
         try {

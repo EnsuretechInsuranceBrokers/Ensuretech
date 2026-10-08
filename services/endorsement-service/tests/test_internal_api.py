@@ -98,3 +98,26 @@ def test_insurer_report_discrepancy_loops_back_through_reupload(make_job):
     assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": "COMPLETED"}, format="json").status_code == 409     # must be fixed first
     for s in ("REUPLOAD_IN_PROGRESS", "SENT_TO_INSURER", "COMPLETED"):
         assert c.post(f"{BASE}{job.id}/lifecycle/", {"state": s}, format="json").status_code == 200
+
+
+def test_policy_roster_and_tpa_ids_are_system_only_active_only_and_policy_scoped(make_job):
+    job, other = make_job(), make_job(policy_id=101)
+    gone = roster(job, 1)[0]
+    type(gone).objects.filter(pk=gone.pk).update(is_active=False)
+    mine = roster(job, 3)
+    gone = None
+    foreign = roster(other, 1)
+    c = client_for("SYSTEM", None)
+    page = c.get(f"/api/v1/internal/policies/{job.policy_id}/members/?limit=2").json()
+    assert [m["id"] for m in page["members"]] == [mine[0].id, mine[1].id] and page["next_after"] == mine[1].id
+    rest = c.get(f"/api/v1/internal/policies/{job.policy_id}/members/?after={page['next_after']}").json()
+    assert [m["id"] for m in rest["members"]] == [mine[2].id] and rest["next_after"] is None        # the inactive one is not listed
+    assert page["broker_id"] == job.broker_id and "policy_number" in page
+    r = c.post(f"/api/v1/internal/policies/{job.policy_id}/tpa-member-ids/",
+               {"members": [{"id": mine[0].id, "tpa_member_id": "T-9"}, {"id": foreign[0].id, "tpa_member_id": "X"}]}, format="json").json()
+    assert r == {"updated": 1, "ignored": 1}
+    mine[0].refresh_from_db(); foreign[0].refresh_from_db()
+    assert mine[0].tpa_member_id == "T-9" and not foreign[0].tpa_member_id
+    assert c.get(f"/api/v1/internal/policies/{job.policy_id}/members/?limit=x").status_code == 400
+    for role, bid in (("BROKER_ADMIN", 1), ("TPA_USER", None)):
+        assert client_for(role, bid).get(f"/api/v1/internal/policies/{job.policy_id}/members/").status_code == 403

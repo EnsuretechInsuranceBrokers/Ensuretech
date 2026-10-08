@@ -40,3 +40,11 @@ Also run once for real: Java worker → identity token → Django internal API �
 - A TPA-side change to a policy after approval is not tracked (no policy-updated event consumed); the route comes from `PolicyApproved` only.
 - Roster rows are fetched by "last job to touch them": a later endorsement changing the same person supersedes the earlier job's row.
 - Only ADD/UPDATE/REMOVE pass-through; TPA-specific operation mapping belongs in the adapters.
+
+## Pull and reconcile (legacy GetEnrolmentData / assignTpaMemberId)
+`POST /api/v1/broker/integration/policies/{policyId}/reconcile` (BROKER_ADMIN) reads the policy's whole active roster from the engine, asks the policy's TPA which members it covers
+(`GET {baseUrl}/active-lives?policy_number=P` on the generic adapter), matches them (`tpa/Reconciler`) and writes each TPA member id back to the engine. Matching: employee code
+trimmed and case-insensitive (optionally ignoring leading zeros, per TPA), the TPA's relation label translated through a per-TPA mapping (built-in defaults + overrides), spouse covers
+husband/wife, children must also match by name (full name, or first name as a whole word), one TPA record claims one member and vice versa. Anything unplaceable is a stored miss with a reason
+(`GET /reconcile-runs/{id}`), never skipped silently. `PUT /tpa-configs/{id}/reconciliation` sets `stripLeadingZeros` and `relationLabels`. Runs are synchronous, capped at 200,000 members.
+Not done: the real Care/MediAssist/FHPL/Paramount response formats (only our generic JSON shape), a scheduler (the legacy system pulls on cron), the ICICI deleted/added status flags, and the nested "dependentList" variants beyond the generic `dependents` array.
