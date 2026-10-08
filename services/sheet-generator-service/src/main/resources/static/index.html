@@ -502,21 +502,37 @@ footer a{color:var(--ink-soft);}
             <div class="field">
               <label>Sum-insured definition sheet <span class="hint">.xlsx or .csv; one row per rate row</span></label>
               <input type="file" id="rm-siFile" accept=".xlsx,.xls,.csv">
-              <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;"><button class="btn small" id="rm-siSample" type="button">Use built-in sample rates</button><button class="btn small" id="rm-siDownload" type="button">Download sample sheet</button></div>
+              <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;"><button class="btn small" id="rm-siSample" type="button">Use built-in sample rates</button><button class="btn small" id="rm-siDownload" type="button">Download the legacy sample sheet</button></div>
               <div class="note" id="rm-siStatus" hidden></div>
+              <div class="subpanel" id="rm-siForm" hidden>
+                <p class="sub" style="margin:0 0 8px;">This subtype has no upload sheet in the legacy app: its rates are typed in a form. Do the same here.</p>
+                <div class="field-row" style="margin-bottom:0;">
+                  <div class="field" id="rm-siFormValues"><label for="rm-fValues">Sum insured values <span class="hint">comma separated</span></label><input type="text" id="rm-fValues" value="300000, 500000, 1000000"></div>
+                  <div class="field" id="rm-siFormMult"><label for="rm-fMult">Number of times (multiples) <span class="hint">comma separated</span></label><input type="text" id="rm-fMult" value="1, 2, 3"></div>
+                  <div class="field" id="rm-siFormPct"><label for="rm-fPct">Percentage of the base policy SI</label><input type="number" id="rm-fPct" value="50" min="0"></div>
+                  <div class="field" id="rm-siFormLimits"><label>Minimum / maximum SI</label><div style="display:flex; gap:6px;"><input type="number" id="rm-fMin" value="100000" min="0"><input type="number" id="rm-fMax" value="5000000" min="0"></div></div>
+                  <div class="field" id="rm-siFormRound"><label>Rounding</label><div style="display:flex; gap:6px;"><select id="rm-fRoundType"><option value="">None</option><option value="2" selected>Nearest</option><option value="1">Up</option><option value="0">Down</option></select><input type="number" id="rm-fRoundUnit" value="1000" min="1"></div></div>
+                </div>
+              </div>
             </div>
             <div class="field">
               <label>Premium definition sheet <span class="hint">.xlsx or .csv</span></label>
               <input type="file" id="rm-premFile" accept=".xlsx,.xls,.csv">
-              <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;"><button class="btn small" id="rm-premSample" type="button">Use built-in sample rates</button><button class="btn small" id="rm-premDownload" type="button">Download sample sheet</button></div>
+              <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;"><button class="btn small" id="rm-premSample" type="button">Use built-in sample rates</button><button class="btn small" id="rm-premDownload" type="button">Download the legacy sample sheet</button></div>
               <div class="note" id="rm-premStatus" hidden></div>
+              <div class="subpanel" id="rm-premForm" hidden>
+                <p class="sub" style="margin:0 0 8px;">No upload sheet for this premium type in the legacy app (a form). One line per sum insured: <code>sum insured, premium</code>.</p>
+                <textarea id="rm-fPairs" style="min-height:70px;">300000, 4000&#10;500000, 6000&#10;1000000, 9000</textarea>
+              </div>
             </div>
           </div>
 
           <div class="toggle-row"><div class="switch"><input type="checkbox" id="rm-calcPrem"><div class="track"><div class="knob"></div></div></div>
             <label for="rm-calcPrem">Include premium &mdash; calculated from the premium definition (fills Employee / Employer Premium)</label></div>
           <div class="field-row" id="rm-premOpts" hidden>
-            <div class="field"><label for="rm-contrib">Employee contribution % <span class="hint">used where the rate rows carry no contribution of their own</span></label><input type="number" id="rm-contrib" value="0" min="0" max="100"></div>
+            <div class="field"><label for="rm-tax">Premium tax % <span class="hint">the legacy upload adds it to every premium cell</span></label><input type="number" id="rm-tax" value="18" min="0" max="100" step="0.5"></div>
+            <div class="field"><label for="rm-contribMode">Contribution is given</label><select id="rm-contribMode"><option value="PERCENT">By percentage</option><option value="VALUE">By value</option></select></div>
+            <div class="field"><label for="rm-contrib">Default employee contribution <span class="hint">used where the rate rows carry none (% or amount, as chosen)</span></label><input type="number" id="rm-contrib" value="0" min="0"></div>
           </div>
           <div class="field-row" id="rm-noRuleOpts" hidden>
             <div class="field"><label for="rm-nrEmp">Employee premium <span class="hint">NO_RULE: taken straight from the sheet</span></label><input type="number" id="rm-nrEmp" value="5000" min="0"></div>
@@ -749,15 +765,17 @@ footer a{color:var(--ink-soft);}
       </div>
       <div class="field-row">
         <div class="field"><label for="ch-layout">Output layout</label>
-          <select id="ch-layout"><option value="auto">Use my template from Section 1 (recommended)</option><option value="builtin">Built-in layout (labels are a best guess)</option></select></div>
+          <select id="ch-layout"><option value="auto">My template from Section 1 when I uploaded one, else the legacy layout</option><option value="builtin">The legacy sheet layout (all columns)</option></select></div>
         <div class="field"><label for="ch-count" id="ch-countLabel">Members / families to touch</label><input type="number" id="ch-count" value="10" min="1"></div>
         <div class="field" id="ch-modeBox"><label for="ch-mode">Remove</label><select id="ch-mode"><option value="MIX">Whole families and single members</option><option value="FAMILY">Whole families</option><option value="MEMBER">Single dependants</option></select></div>
         <div class="field"><label for="ch-date">Effective / leaving date <span class="hint">dd-mm-yyyy; blank = today</span></label><input type="text" id="ch-date"></div>
-        <div class="field" id="ch-corrBox" hidden><label for="ch-corr">Type of correction <span class="hint">legacy values not known to this tool: type yours</span></label><input type="text" id="ch-corr" value="Correction"></div>
+        <div class="field"><label for="ch-ident">Identify members by</label><select id="ch-ident"><option value="auto">Endorsement Number when the report has it, else code + relationship</option><option value="number">Endorsement Number only</option><option value="code">Employee code + relationship</option></select></div>
       </div>
       <div class="field-row" id="ch-updBox" hidden>
-        <div class="field"><label>What to change</label>
-          <div class="radiogroup" id="ch-whatChips"><label class="chip active"><input type="checkbox" value="first_name" checked>First name</label><label class="chip"><input type="checkbox" value="mobile">Mobile</label><label class="chip"><input type="checkbox" value="email">Email</label><label class="chip"><input type="checkbox" value="grade">Grade</label><label class="chip"><input type="checkbox" value="designation">Designation</label></div></div>
+        <div class="field" style="grid-column:1/-1;"><label>Type of correction <span class="hint">the six legacy values; each generated row gets one of the ticked types and fills what that correction changes</span></label>
+          <div class="radiogroup" id="ch-whatChips"><label class="chip active"><input type="checkbox" value="Insured member details correction" checked>Insured member details</label><label class="chip"><input type="checkbox" value="SI Correction">SI correction</label><label class="chip"><input type="checkbox" value="DOB Correction">DOB correction</label><label class="chip"><input type="checkbox" value="Employee Designation/Grade Correction">Designation / grade</label><label class="chip"><input type="checkbox" value="Nominee Details Correction">Nominee details</label></div></div>
+        <div class="field"><label for="ch-newSi">New sum insured <span class="hint">SI correction</span></label><input type="number" id="ch-newSi" value="500000" min="1"></div>
+        <div class="field"><label for="ch-newGrade">Grade / designation <span class="hint">designation-grade correction; must exist on the policy</span></label><input type="text" id="ch-newGrade" placeholder="e.g. Grade A"></div>
       </div>
       <div style="display:flex; gap:10px; align-items:center;"><button class="btn accent" id="ch-go" type="button" disabled>Generate</button><label for="ch-format" class="note" style="margin:0; border:none; background:none; padding:0;">Download as</label><select id="ch-format" style="width:auto;"><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option></select></div>
       <div id="ch-results" hidden>
@@ -2157,6 +2175,7 @@ const BUILTIN_TEMPLATES = {
       updateNextCodeBadge();
 
       renderStats(result);
+      if (window.RaterUI) window.RaterUI.afterRun(state.headers, result);
       $("previewEditBtn").textContent = "✏️ Edit";
       $("editingNote").hidden = true;
       renderPreview(state.headers, result.rows);
@@ -3224,6 +3243,7 @@ const BUILTIN_TEMPLATES = {
     if (k === "FATHER_IN_LAW" || k === "MOTHER_IN_LAW") return count > 1 ? "double_parent_in_law" : "single_parent_in_law";
     return "others";
   }
+  function relPrefixOf(k) { return k === "SELF" ? "self" : k === "SPOUSE" ? "spouse" : k === "PARTNER" ? "partner" : isKid(k) ? "kids" : (k === "FATHER" || k === "MOTHER") ? "single_parent" : (k === "FATHER_IN_LAW" || k === "MOTHER_IN_LAW") ? "single_parent_in_law" : "others"; }
   function contribCol(prefix) { return prefix === "kids" ? "per_kid_employee_contribution" : prefix + "_employee_contribution"; }
   function memberPrefix(fam, i) {              // legacy: a pair of parents is priced on the FIRST parent (the second gets 0)
     var m = fam[i], k = m.rel;
@@ -3270,7 +3290,10 @@ const BUILTIN_TEMPLATES = {
       return { si: out, total: out[0] };
     }
     if (k === "member") {
-      for (var m = 0; m < n; m++) { var cand = rows.filter(function (x) { return relMatches(x.relation, fam[m].rel) && x.relation_sum_insured !== undefined; }); r = cand.filter(function (x) { return sheetSi != null && x.relation_sum_insured === sheetSi; })[0] || cand[0]; if (!r) return fail("no member row for " + fam[m].rel); out.push(r.relation_sum_insured); }
+      for (var m = 0; m < n; m++) {                // each member names its own SI on the sheet: one of the options its relation offers
+        var cand = rows.filter(function (x) { return relMatches(x.relation, fam[m].rel) && x.relation_sum_insured !== undefined; });
+        r = cand.filter(function (x) { return sheetSi != null && x.relation_sum_insured === sheetSi; })[0] || (cand.length && opt && opt.rnd ? cand[Math.floor(opt.rnd() * cand.length)] : cand[0]);
+        if (!r) return fail("no member row for " + fam[m].rel); out.push(r.relation_sum_insured); }
       return { si: out, total: out[0] };
     }
     if (k === "memberCount") {
@@ -3296,13 +3319,20 @@ const BUILTIN_TEMPLATES = {
     return fail("unsupported SI subtype " + t.id);
   }
 
+  function groupMatches(group, c) {       // 'E,S,2C' = employee + spouse + two children: only the counts are compared
+    var a = 0, k = 0; String(group).toUpperCase().split(",").forEach(function (t) { var m = /^(\d)?(PIL|PR|SB|E|S|C|P)$/.exec(t.trim()); if (!m) return; var n = m[1] ? +m[1] : 1; if (m[2] === "C") k += n; else a += n; });
+    return (a === 0 && k === 0) || (a === c.adults && k === c.children);
+  }
   function gdacRow(rows, fam, emp, c, totalCover, premium) {
     var cand = rows.filter(function (x) { return premium ? x.is_premium_rate !== false : true; });
     var dims = [["grade", function (x) { return eq(x.grade, emp.grade); }], ["designation", function (x) { return eq(x.designation, emp.designation); }],
       ["employee_age", function (x) { return inBand(x, "employee_age", emp.age); }]];
     dims.forEach(function (d) { if (cand.some(function (x) { return x[d[0]] !== undefined; })) { var f = cand.filter(function (x) { return x[d[0]] === undefined || d[1](x); }); cand = f; } });
     if (cand.some(function (x) { return x.age !== undefined; })) { var maxAge = Math.max.apply(null, fam.map(function (m) { return m.age; })); cand = cand.filter(function (x) { return x.age === undefined || inBand(x, "age", maxAge); }); }
-    if (cand.some(function (x) { return x.no_of_adult !== undefined; })) { var ex = cand.filter(function (x) { return x.no_of_adult === c.adults && x.no_of_children === c.children; }); cand = ex.length ? ex : cand.filter(function (x) { return x.no_of_adult >= c.adults && x.no_of_children >= c.children; }); }
+    if (cand.some(function (x) { return x.family_group !== undefined; })) { var tok = fam.map(function (m) { return m.rel; }); cand = cand.filter(function (x) { return x.family_group === undefined || groupMatches(x.family_group, c); }); }
+    if (cand.some(function (x) { return x.no_of_adult !== undefined; })) {      // rows that do not state a construct match any family
+      var ex = cand.filter(function (x) { return x.no_of_adult === undefined || (x.no_of_adult === c.adults && x.no_of_children === c.children); });
+      cand = ex.length ? ex : cand.filter(function (x) { return x.no_of_adult >= c.adults && x.no_of_children >= c.children; }); }
     if (totalCover != null) { var tc = cand.filter(function (x) { return x.total_cover === totalCover; }); if (tc.length) cand = tc; }
     return cand[0] || null;
   }
@@ -3350,8 +3380,15 @@ const BUILTIN_TEMPLATES = {
     if (k === "familyPct") { for (var f = 0; f < n; f++) { var cf = rows.filter(function (x) { return inBand(x, "age", fam[f].age) && x.total_premium !== undefined; }); r = cf.filter(function (x) { return x.relation === undefined; })[0] || cf.filter(function (x) { return relMatches(x.relation, fam[f].rel); })[0] || cf[0]; if (!r) return fail("no family-percentage row"); out.push(r.total_premium); } return { premium: out }; }
     if (k === "gradeBase") { r = rows.filter(function (x) { return eq(x.grade, emp.grade) && (x.top_up_suminsured === undefined || x.top_up_suminsured === s0); })[0]; if (!r) return fail("no grade/base row"); return all2(r.total_premium); }
     if (k === "ageRelation") {
-      for (var w = 0; w < n; w++) { var a2 = fam[w].age; var cr2 = rows.filter(function (x) { return inBand(x, "age", a2) && relMatches(x.relation || fam[w].rel, fam[w].rel) && (!t.gral || ((x.location === undefined || eq(x.location, emp.location)) && (x.employee_gender === undefined || eq(x.employee_gender, fam[w].gender)))); }); r = cr2[0]; if (!r) return fail("no age+relation row"); out.push(r.total_premium); }
-      return { premium: out };
+      var contribution = [];
+      for (var w = 0; w < n; w++) {
+        var a2 = fam[w].age;
+        var cr2 = rows.filter(function (x) { return inBand(x, "age", a2) && relMatches(x.relation || fam[w].rel, fam[w].rel) && (x.relation_sum_insured === undefined || x.relation_sum_insured === si[w]) && (!t.gral || (x.employee_gender === undefined || eq(x.employee_gender, fam[w].gender))); });
+        if (t.gral) { var byLoc = cr2.filter(function (x) { return x.location === undefined || eq(x.location, emp.location); }); if (byLoc.length) cr2 = byLoc; }      // location is the employee's work location; a row for another location is used only when none matches
+        r = cr2[0]; if (!r) return fail("no age+relation row"); out.push(r.total_premium);
+        contribution.push(r[contribCol(relPrefixOf(fam[w].rel))]);
+      }
+      return { premium: out, contribution: contribution };
     }
     return fail("unsupported premium type " + t.id);
   }
@@ -3384,7 +3421,7 @@ const BUILTIN_TEMPLATES = {
       else if (k === "salary" || k === "salaryRelation") { var r2 = pickRow(rows, function (x) { return x.no_of_times_of_salary !== undefined && (si.by !== "grade" || x.grade !== undefined); }); if (r2) { sc.multiple = r2.no_of_times_of_salary; if (r2.grade !== undefined) sc.grade = r2.grade; } sc.salary = cfg.salary.min + Math.floor(cfg.rnd() * (cfg.salary.max - cfg.salary.min + 1)); }
       else if (k === "pctSalary") { var r3 = pickRow(rows, function (x) { return x.percentage !== undefined; }); if (r3) sc.percentage = r3.percentage; sc.salary = cfg.salary.min + Math.floor(cfg.rnd() * (cfg.salary.max - cfg.salary.min + 1)); }
       else if (k === "construct" || k === "gdac") {
-        var r4 = pickRow(rows, function (x) { return x.no_of_adult !== undefined && x.no_of_children !== undefined && x.total_cover !== undefined; });
+        var r4 = pickRow(rows, function (x) { return x.no_of_adult !== undefined && x.no_of_children !== undefined && x.total_cover !== undefined && x.no_of_adult <= 4; });   // a generated family has at most self, spouse and two parents as adults
         if (r4) { sc.shape = { adults: r4.no_of_adult, children: r4.no_of_children }; sc.sheetSi = r4.total_cover; if (r4.grade !== undefined) sc.grade = r4.grade; if (r4.designation !== undefined) sc.designation = r4.designation; if (r4.employee_age !== undefined) sc.employeeAgeBand = band(r4.employee_age); }
         else if (k === "gdac") { var r5 = pickRow(rows, function () { return true; }); if (r5) { if (r5.grade !== undefined) sc.grade = r5.grade; if (r5.designation !== undefined) sc.designation = r5.designation; sc.sheetSi = r5.total_cover; } }
       }
@@ -3403,15 +3440,36 @@ const BUILTIN_TEMPLATES = {
       if (pk === "permilly" && pr.by === "designation" && sc.designation === undefined) sc.designation = pickFrom(prows, "designation");
       if (pk === "construct" && pr.by === "grade" && sc.grade === undefined) sc.grade = pickFrom(prows, "grade");
       if (pk === "construct" && pr.by === "designation" && sc.designation === undefined) sc.designation = pickFrom(prows, "designation");
-      if ((pk === "construct" || pk === "ageConstruct" || pk === "gdac") && !sc.shape) { var rs = pickRow(prows, function (x) { return x.no_of_adult !== undefined && x.no_of_children !== undefined; }); if (rs) { sc.shape = { adults: rs.no_of_adult, children: rs.no_of_children }; if (sc.sheetSi == null && rs.total_cover !== undefined) sc.sheetSi = rs.total_cover; if (rs.grade !== undefined && sc.grade === undefined) sc.grade = rs.grade; } }
+      if ((pk === "construct" || pk === "ageConstruct" || pk === "gdac") && !sc.shape) { var rs = pickRow(prows, function (x) { return x.no_of_adult !== undefined && x.no_of_children !== undefined && x.no_of_adult <= 4; }); if (rs) { sc.shape = { adults: rs.no_of_adult, children: rs.no_of_children }; if (sc.sheetSi == null && rs.total_cover !== undefined) sc.sheetSi = rs.total_cover; if (rs.grade !== undefined && sc.grade === undefined) sc.grade = rs.grade; } }
       if (pk === "ageRelation" && pr.gral) { sc.location = pickFrom(prows, "location"); }
+      if ((pk === "gdac" || si.kind === "gdac") && !sc.employeeAgeBand) { var rg2 = pickRow(prows.concat(siRows), function (x) { return x.age !== undefined; }); if (rg2) sc.employeeAgeBand = band(rg2.age); }      // GDAC age bands: the family's oldest member must land in one
+      if (pk === "lolAge" || (pk === "ageConstruct" && pr.basis === "employee") || (pk === "age" && pr.basis === "employee" && (si.kind === "flat" || si.kind === "sheet"))) {
+        var ra = pickRow(prows, function (x) { return x.age !== undefined; });
+        if (ra) { sc.employeeAgeBand = band(ra.age); if (ra.total_cover !== undefined && (si.kind === "flat" || si.kind === "sheet")) sc.sheetSi = ra.total_cover; }
+      }
       if (sc.state === undefined && si.kind === "state") sc.state = sc.state;
       return sc;
     };
 
+    /** Relations the rate rows can price (null = any): a family member whose relation has no row would have no sum insured / premium. */
+    m.allowedRelations = function () {
+      var keys = {}, any = false;
+      [[si.kind, siRows], [pr.kind, premRows]].forEach(function (p) {
+        if (["member", "memberCount", "salaryRelation", "ageRelation"].indexOf(p[0]) < 0) return;
+        any = true; p[1].forEach(function (x) { if (x.relation !== undefined) { var k = relKey(x.relation); keys[k] = 1; if (k === "KID") { keys.SON = 1; keys.DAUGHTER = 1; } } });
+      });
+      return any ? Object.keys(keys) : null;
+    };
+    m.filterFamily = function (fam) {
+      var ok = m.allowedRelations(); if (!ok) return fam;
+      var kept = fam.filter(function (x, i) { return i === 0 || ok.indexOf(x.rel) >= 0 || (isKid(x.rel) && ok.indexOf("KID") >= 0); });
+      m.stats.droppedMembers += fam.length - kept.length; return kept;
+    };
+
     /** Age bands the employee/members must fall in so a row can be found (null = unconstrained). */
-    m.ageBands = function () {
+    m.ageBands = function (rel) {
       var rows = (si.kind === "age" ? siRows : []).concat(pr.kind === "age" || pr.kind === "ageConstruct" || pr.kind === "permilly" && pr.by === "age" || pr.kind === "ageRelation" || pr.kind === "familyPct" || pr.kind === "lolAge" ? premRows : []);
+      if (rel && pr.kind === "ageRelation") rows = rows.filter(function (x) { return x.relation === undefined || relMatches(x.relation, rel); });       // age + relation rows: each relation has its own bands
       var bs = rows.filter(function (x) { return x.age !== undefined; }).map(function (x) { return band(x.age); }).filter(Boolean);
       return bs.length ? bs : null;
     };
@@ -3427,6 +3485,15 @@ const BUILTIN_TEMPLATES = {
       var emp = { grade: sc.grade, designation: sc.designation, state: sc.state, salary: sc.salary, multiple: sc.multiple, age: members[0].age, gender: empGender, location: sc.location, timesSi: sc.timesSi, percentage: sc.percentage };
       if (si.kind === "salaryRelation") members.forEach(function (x, i) { x.multiple = i === 0 ? sc.multiple : sc.multiple; });
       var res = computeSI(si, siRows, members, emp, sc.sheetSi, cfg);
+      var driven = null;
+      if (pr.kind === "ageRelation" && si.kind === "member" && cfg.calcPremium) {          // the premium sheet names, per age band and relation, which sum insured exist: pick from those
+        driven = members.map(function (mb) {
+          var c = premRows.filter(function (x) { return inBand(x, "age", mb.age) && relMatches(x.relation || mb.rel, mb.rel) && (!pr.gral || (x.employee_gender === undefined || eq(x.employee_gender, mb.gender))); });
+          if (pr.gral) { var bl = c.filter(function (x) { return x.location === undefined || eq(x.location, emp.location); }); if (bl.length) c = bl; }
+          return c.length ? c[Math.floor(cfg.rnd() * c.length)] : null;
+        });
+        if (driven.every(Boolean)) { res = { si: driven.map(function (x) { return x.relation_sum_insured; }), total: driven[0].relation_sum_insured }; }
+      }
       var sis = res.si;
       if (res.error) note("siErrors", "SI: " + res.error);
       // premium
@@ -3456,11 +3523,13 @@ const BUILTIN_TEMPLATES = {
       if (prem && prem.noRule) {
         fam.forEach(function (x) { x.values.employee_premium = cfg.noRule.emp; x.values.employer_premium = cfg.noRule.er; });
       } else if (prem) {
-        var cp = cfg.contributionPct || 0;
+        var cp = cfg.contributionPct || 0, byValue = cfg.contributionMode === "VALUE";
         fam.forEach(function (x, i) {
           var p = prem.premium[i]; if (p == null) return;
-          var pct = prem.contribution && prem.contribution[i] != null ? prem.contribution[i] : cp;
-          var emp$ = money(p * pct / 100);
+          if (pr.kind === "gdac" && cfg.tax) p = p * (1 + cfg.tax / 100);                   // GDAC sheets hold raw cells; the legacy rater adds the tax
+          var c = prem.contribution && prem.contribution[i] != null ? prem.contribution[i] : null;
+          var emp$ = c != null && byValue ? Math.min(p, c) : money(p * (c != null ? c : cp) / 100);          // by value: the employee pays that amount (at most the premium); by percentage: that share
+          emp$ = money(emp$);
           x.values.employee_premium = emp$; x.values.employer_premium = money(p - emp$);
         });
       }
@@ -3559,6 +3628,229 @@ const BUILTIN_TEMPLATES = {
   root.RaterModel = { SI_TYPES: SI_TYPES, PREMIUM_TYPES: PREMIUM_TYPES, COVERAGE: COVERAGE, parseTable: parseTable, createModel: createModel, sampleSi: sampleSi, samplePremium: samplePremium, toAoa: toAoa, relKey: relKey, ageAt: ageAt,
     computeSI: computeSI, computePremium: computePremium, band: band, roundTo: roundTo, siNeeds: siNeeds };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
+
+/* ============================================================
+   Readers for the LEGACY rate-definition sheets (public/SampleFormat/*.xlsx of the legacy app), so the real files can be uploaded as they are.
+   Layouts and rules: docs/legacy/si-rater-sheets.md and premium-rater-sheets.md. Output rows use RaterModel's rate-row columns.
+   ============================================================ */
+(function (root) {
+  "use strict";
+  var R = root.RaterModel;
+  function slug(h) { return String(h == null ? "" : h).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""); }   // Laravel Str::slug($h, '_')
+  function str(v) { return v == null ? "" : String(v).trim(); }
+  function num(v) { if (v === null || v === undefined || str(v) === "") return null; var n = Number(String(v).replace(/[₹,\s]/g, "")); return isFinite(n) ? n : null; }
+  function yes(v) { var s = str(v).toLowerCase(); return s === "yes" || s === "y" || s === "1" || s === "true"; }
+  function ageBand(v) { var t = str(v).replace(/\s+/g, ""); if (!t) return ""; if (t[0] === ">") return t.slice(1) + "-120"; if (t[0] === "<") return "0-" + t.slice(1); if (/^\d+$/.test(t)) return t + "-" + t; return t; }
+  function construct(v) {            // getConstructCount: '2A + 2C' -> adults 2, children 2 (a single digit; bare A / C = 1)
+    var out = { adults: 0, children: 0 }, parts = str(v).replace(/\s+/g, "").split("+");
+    parts.forEach(function (p) {
+      var m = /^(\d)?([ACac])$/.exec(p); if (!m) return;
+      var n = m[1] ? +m[1] : 1; if (m[2].toUpperCase() === "A") out.adults = n; else out.children = n;
+    });
+    return out;
+  }
+  function familyTokens(v) {         // E,S,C,P,PIL,PR,SB with an optional single-digit count, e.g. 'E,S,2C' -> adults / children
+    var out = { adults: 0, children: 0 }; str(v).toUpperCase().split(",").forEach(function (t) {
+      t = t.trim(); var m = /^(\d)?(PIL|PR|SB|E|S|C|P)$/.exec(t); if (!m) return; var n = m[1] ? +m[1] : 1;
+      if (m[2] === "C") out.children += n; else out.adults += n;      // P / PIL / SB with a digit prefix are that many people
+    });
+    return out;
+  }
+  var REL_NAME = { self: "Self", spouse: "Spouse", partner: "Partner", son: "Son", daughter: "Daughter", child: "Child", father: "Father", mother: "Mother", "father-in-law": "Father-in-law", "mother-in-law": "Mother-in-law" };
+  function relCanon(v) { var t = str(v).toLowerCase(); return REL_NAME[t] || str(v); }
+  function tax(cell, t) { return t ? Math.round(cell * (1 + t / 100) * 100) / 100 : cell; }
+
+  // relation columns of the construct-style sheets (heading slug -> rate-row column prefix)
+  var REL_COLS = { self: "self", spouse: "spouse", partner: "partner", per_kid: "kids", per_kids: "kids", per_parent: "single_parent", per_parents: "single_parent", per_parent_in_law: "single_parent_in_law", per_parents_in_law: "single_parent_in_law",
+    set_of_parents: "double_parent", set_of_parent_in_laws: "double_parent_in_law", set_of_parents_in_law: "double_parent_in_law", per_siblings: "others", others: "others" };
+  function relCol(s) {               // 'self' / 'self_premium' / 'per_kid_employee_contribution' ...
+    var m = /^(.*?)(?:_(premium|employee_contribution|employee_cont))?$/.exec(s), base = m[1];
+    if (!(base in REL_COLS)) return null; return { prefix: REL_COLS[base], kind: m[2] ? (m[2] === "premium" ? "premium" : "contribution") : "value" };
+  }
+  function contribCol(prefix) { return prefix === "kids" ? "per_kid_employee_contribution" : prefix + "_employee_contribution"; }
+
+  var SI_SLUG_COL = { 2: "age_suminsured", 25: "age_suminsured", 3: "grade_suminsured", 23: "grade_suminsured", 4: "des_suminsured" };
+  var SI_PLAIN = { 2: 1, 3: 1, 4: 1, 6: 1, 7: 1, 9: 1, 13: 1, 14: 1, 15: 1, 18: 1, 20: 1, 22: 1, 23: 1, 25: 1, 26: 1, 27: 1, 31: 1 };
+  var SI_MATRIX = { 17: 1, 8: 1, 30: 1 };
+  var SI_FORM = { 1: 1, 5: 1, 16: 1, 24: 1, 28: 1, 29: 1 };
+  var PREM_HEADING = { 13: 1, 15: 1, 16: 1, 19: 1, 21: 1, 22: 1, 23: 1, 24: 1, 26: 1, 27: 1, 32: 1 };
+  var PREM_MATRIX = { 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1, 17: 1, 20: 1, 28: 1, 29: 1, 30: 1, 31: 1 };
+  var PREM_FORM = { 1: 1, 18: 1, 25: 1 };
+
+  /** @returns 'heading' | 'matrix' | 'form' */
+  function layoutOf(side, id) {
+    if (side === "SI") return SI_FORM[id] ? "form" : SI_MATRIX[id] ? "matrix" : "heading";
+    return PREM_FORM[id] ? "form" : PREM_MATRIX[id] ? "matrix" : "heading";
+  }
+
+  // ── heading-row sheets ───────────────────────────────────────────────────────────────────────────────────
+  function headingRows(side, id, aoa, o) {
+    if (aoa.length < 2) throw new Error("The sheet needs a header row and at least one data row.");
+    var head = aoa[0].map(slug), rows = [], unmapped = [], premiumSide = side === "PREM", t = o.tax || 0;
+    var rawCells = id === 22 || id === 27 || id === 32;                 // GDAC premium: cells are copied raw, tax is applied later by the rater
+    var pctOfCover = o.contributionByPercentage && (id === 23 || id === 24 || id === 26) && premiumSide;
+    head.forEach(function (h, i) { if (h && !known(h, id, side)) unmapped.push(String(aoa[0][i])); });
+    for (var r = 1; r < aoa.length; r++) {
+      var row = {}, any = false, line = aoa[r], cover = null;
+      head.forEach(function (h, i) {
+        var v = line[i]; if (!h || str(v) === "") return;
+        var rc = relCol(h);
+        if (h === "age" || h === "age_band") row.age = ageBand(v);
+        else if (h === "employee_age_band" || h === "employee_age") row.employee_age = str(v);
+        else if (h === "grade") row.grade = str(v);
+        else if (h === "designation") row.designation = str(v);
+        else if (h === "state") row.state = str(v);
+        else if (h === "relation" || h === "relationship") {
+          if (id === 20) { var m = /^(\S+)(?:\s+(\d+))?$/.exec(str(v)); if (m) { row.relation = relCanon(m[1].toLowerCase()); if (m[2]) row.count = +m[2]; } }
+          else row.relation = relCanon(v);
+        }
+        else if (h === "family_construct" || h === "construct") { var c = construct(v); row.no_of_adult = c.adults; row.no_of_children = c.children; }
+        else if (h === "family_group") { row.family_group = str(v); var f = familyTokens(v); if (row.no_of_adult === undefined) { row.no_of_adult = f.adults; row.no_of_children = f.children; } }
+        else if (h === "family_relation") { var fr = familyTokens(v); if (row.no_of_adult === undefined || row.no_of_adult === 0) { row.no_of_adult = fr.adults; row.no_of_children = fr.children; } }
+        else if (h === "total_cover") { row.total_cover = num(v); if (id === 26 && side === "SI") row.grade_suminsured = num(v); }
+        else if (h === "total_si") row.grade_suminsured = num(v);
+        else if (h === "claim_rate") row.is_claim_rate = yes(v);
+        else if (h === "no_of_time_salary" || h === "no_of_times_of_salary") row.no_of_times_of_salary = num(v);
+        else if (h === "min_si_limit") row.min_si_limit = num(v);
+        else if (h === "max_si_limit") row.max_si_limit = num(v);
+        else if (h === "percentage") row.percentage = num(v);
+        else if (h === "base_suminsured") row.base_suminsured = num(v);
+        else if (h === "total_premium") { var tp = num(v); if (tp !== null) row.total_premium = id === 22 || id === 27 || id === 32 ? 0 : (id === 16 ? tp : tax(tp, t)); }
+        else if (h === "sum_insured" || h === "suminsured") {
+          if (side === "SI") { var col = SI_SLUG_COL[id] || (id === 6 || id === 20 ? "relation_sum_insured" : id === 7 ? "state_suminsured" : null); if (col) row[col] = num(v); }
+        }
+        else if (rc) {
+          var val = num(v); if (val === null) return;
+          if (side === "SI") { if (rc.kind === "value") row[rc.prefix + "_suminsured"] = val; }
+          else if (rc.kind === "premium" || rc.kind === "value") row[rc.prefix + "_premium"] = rawCells ? val : pctOfCover ? null : tax(val, t);
+          else if (rc.kind === "contribution") row[contribCol(rc.prefix)] = val;
+        }
+        any = true;
+      });
+      if (any) rows.push(row);
+    }
+    if (premiumSide && (id === 23)) {   // 23: total premium = cover x cell / 100 (+tax)
+      rows.forEach(function (row) { if (row.total_premium !== undefined && row.total_cover) row.total_premium = Math.round((row.total_cover * (row.total_premium / (1 + (t || 0) / 100)) / 100) * (1 + t / 100)); });
+    }
+    if (pctOfCover && (id === 24 || id === 26)) {
+      var idx = {}; head.forEach(function (h, i) { var rc = relCol(h); if (rc && rc.kind !== "contribution" && !idx[rc.prefix]) idx[rc.prefix] = i; });
+      var out = []; for (var q = 1; q < aoa.length; q++) { var rr = rows[q - 1]; if (!rr) continue;
+        Object.keys(idx).forEach(function (p) { var cell = num(aoa[q][idx[p]]); if (cell !== null && rr.total_cover) rr[p + "_premium"] = Math.round(rr.total_cover * cell / 100 * (1 + t / 100)); }); }
+    }
+    rows.forEach(function (row) { if (row.is_premium_rate === undefined && premiumSide) row.is_premium_rate = true; });
+    if (!rows.length) throw new Error("No usable rows were found. Check the header row against the sample sheet for this rater type.");
+    return { rows: rows, unmapped: unmapped, mapped: head.filter(Boolean).length - unmapped.length };
+  }
+  var BASE_KNOWN = ["age", "age_band", "employee_age_band", "employee_age", "grade", "designation", "state", "relation", "relationship", "family_construct", "construct", "family_group", "family_relation", "is_family_relation_max_capping",
+    "total_cover", "total_si", "claim_rate", "can_add_parent", "can_add_parent_in_laws", "copayment_rate", "copayment_percentage", "no_of_time_salary", "no_of_times_of_salary", "min_si_limit", "max_si_limit", "percentage",
+    "base_suminsured", "total_premium", "sum_insured", "suminsured"];
+  function known(h, id, side) { return BASE_KNOWN.indexOf(h) >= 0 || !!relCol(h) || /^(all|cross)_parent/.test(h); }
+
+  // ── matrix sheets: row 1 = sum-insured values, row 2 = headers, data from row 3 ─────────────────────────────
+  var KEY_HEADERS = { age: "age", designation: "designation", grade: "grade", state: "state", relation: "relation", relationship: "relation", base_si: "base_suminsured", employee_gender: "employee_gender", gender: "employee_gender", location: "location" };
+  function matrixRows(side, id, aoa, o) {
+    if (aoa.length < 3) throw new Error("This sheet has two header rows (sum-insured values, then column names) and at least one data row.");
+    var top = aoa[0], head = aoa[1].map(function (h) { return str(h); }), rows = [], t = o.tax || 0, unmapped = [];
+    var valueCols = [], keyCols = {};
+    head.forEach(function (h, i) {
+      var s = slug(h);
+      if (s === "premium" || s === "permilli" || s === "permille" || s === "permilly" || s === "family_premium" || /^family_premium/.test(s) || /^member_premium/.test(s) || s === "suminsured") valueCols.push(i);
+      else if (s === "employee_contribution") { /* belongs to the Premium column on its left */ }
+      else if (KEY_HEADERS[s] && valueCols.length === 0) keyCols[KEY_HEADERS[s]] = i;
+      else if (s && s !== "can_add_parents" && s !== "can_add_parents_in_law") unmapped.push(h);
+    });
+    if (id === 20) { keyCols.relation = 0; }
+    var keyIdx = Object.keys(keyCols);
+    if (!keyIdx.length) keyCols.relation = 0, keyCols[id === 2 || id === 8 ? "age" : id === 3 ? "designation" : id === 4 ? "grade" : id === 10 ? "state" : "relation"] = 0, delete keyCols.relation;
+    var colFor = { 2: ["age", "age_suminsured", "age_premium"], 8: ["age", "age_suminsured", "age_premium"], 3: ["designation", "des_suminsured", "des_premium"], 4: ["grade", "grade_suminsured", "grade_premium"], 9: ["relation", "relation_sum_insured", "relation_premium"],
+      10: ["state", "state_suminsured", "state_premium"], 20: ["relation", "relation_sum_insured", "relation_premium"], 29: ["grade", "top_up_suminsured", "grade_premium"] };
+    var perm = { 5: ["age", "age_suminsured", "age_permilly"], 6: ["grade", "grade_suminsured", "grade_permilly"], 7: ["designation", "des_suminsured", "des_permilly"] };
+    for (var r = 2; r < aoa.length; r++) {
+      var line = aoa[r]; if (str(line[0]) === "") continue;
+      var base = {}; Object.keys(keyCols).forEach(function (k) { var v = line[keyCols[k]]; if (str(v) === "") return; base[k] = k === "age" ? ageBand(v) : k === "relation" ? relCanon(v) : k === "base_suminsured" ? num(v) : str(v); });
+      if (id === 20 && base.relation) { var m = /^(\S+)(?:\s+(\d+))?$/.exec(str(line[0])); if (m) { base.relation = relCanon(m[1].toLowerCase()); if (m[2]) base.count = +m[2]; } }
+      valueCols.forEach(function (c) {
+        var cell = num(line[c]), siv = num(top[c]); if (cell === null) return;
+        var row = {}; Object.keys(base).forEach(function (k) { row[k] = base[k]; });
+        var s = slug(head[c]);
+        if (perm[id]) { row[perm[id][1]] = siv; row[perm[id][2]] = cell; row.total_premium = 0; if (t) row.tax = t; }
+        else if (id === 17) { row.no_of_times_of_salary = siv; row.relation_permilly = cell; if (t) row.tax = t; }
+        else if (id === 28) { row.flat_suminsured = siv; row.total_premium = cell; if (/^family/.test(s)) row.is_family_premium = true; else row.is_member_premium = true; }
+        else if (id === 30 || id === 31) {
+          var rel = (base.relation || "Self"), pre = relPrefix(rel); row.relation_sum_insured = siv; row.total_premium = tax(cell, t);
+          var nxt = slug(head[c + 1] || ""); if (nxt === "employee_contribution") { var ec = num(line[c + 1]); if (ec !== null) row[contribCol(pre)] = ec; }
+          row[pre + "_premium"] = row.total_premium; row.is_premium_rate = true;
+        }
+        else if (colFor[id]) {
+          var cf = colFor[id]; row[cf[1]] = siv; row[cf[2]] = cell; row.total_premium = tax(cell, t); if (t) row.tax = t;
+          if (id === 2 || id === 8) if (/m/i.test(String(base.age || ""))) row.is_month_wise_age = true;
+        }
+        if (id === 20 || id === 9) row.relation_sum_insured = siv;
+        rows.push(row);
+      });
+    }
+    if (!rows.length) throw new Error("No usable rows were found. Row 1 must hold the sum-insured values and row 2 the column names (Premium / Permilli).");
+    return { rows: rows, unmapped: unmapped, mapped: head.length - unmapped.length };
+  }
+  function relPrefix(rel) { var k = R.relKey(rel); return k === "SELF" ? "self" : k === "SPOUSE" ? "spouse" : k === "PARTNER" ? "partner" : (k === "SON" || k === "DAUGHTER" || k === "KID") ? "kids" : k === "FATHER" || k === "MOTHER" ? "single_parent" : k === "FATHER_IN_LAW" || k === "MOTHER_IN_LAW" ? "single_parent_in_law" : "others"; }
+
+  // SI 17: Relationship + several 'suminsured' columns; SI 30/8 top-up matrix
+  function memberMatrixSi(aoa) {
+    if (aoa.length < 2) throw new Error("The sheet needs a header row and at least one data row.");
+    var head = aoa[0].map(slug), rows = []; var ri = head.indexOf("relationship"); if (ri < 0) ri = head.indexOf("relation"); if (ri < 0) ri = 0;
+    for (var r = 1; r < aoa.length; r++) {
+      var rel = str(aoa[r][ri]).toLowerCase(); if (!rel) continue;
+      var rels = rel === "parents" ? ["Father", "Mother"] : rel === "parents-in-law" ? ["Father-in-law", "Mother-in-law"] : [relCanon(rel)];
+      head.forEach(function (h, c) { if (h !== "suminsured" && h !== "sum_insured") return; var v = num(aoa[r][c]); if (v === null) return; rels.forEach(function (x) { rows.push({ relation: x, relation_sum_insured: v }); }); });
+    }
+    if (!rows.length) throw new Error("No sum insured found: this sheet needs a 'Relationship' column and several 'suminsured' columns.");
+    return { rows: rows, unmapped: [], mapped: head.length };
+  }
+  function topUpMatrix(aoa, o) {
+    // row 1: [blank, 'Top-up Factor', 'Top-up Suminsured']; row 2: ['Base SI / Deductible', factor, topUpSI...]; data: [baseSI, factor, premium...]
+    if (aoa.length < 3) throw new Error("The top-up sheet needs two header rows and data rows.");
+    var topUps = aoa[1].slice(2).map(num), rows = [], t = o.tax || 0;
+    for (var r = 2; r < aoa.length; r++) { var base = num(aoa[r][0]); if (base === null) continue; topUps.forEach(function (tu, i) { var p = num(aoa[r][2 + i]); if (tu === null || p === null) return; rows.push({ base_suminsured: base, top_up_suminsured: tu, flat_suminsured: tu, age: str(aoa[r][1]) && /\d+-\d+/.test(str(aoa[r][1])) ? str(aoa[r][1]) : undefined, total_premium: tax(p, t) }); }); }
+    rows.forEach(function (x) { if (x.age === undefined) delete x.age; });
+    if (!rows.length) throw new Error("No top-up rows found.");
+    return { rows: rows, unmapped: [], mapped: aoa[1].length };
+  }
+
+  // ── sheet-less raters: defined by a small form ──────────────────────────────────────────────────────────────
+  function fromForm(side, id, f) {
+    var list = function (s) { return str(s).split(/[,\s;]+/).map(num).filter(function (x) { return x !== null; }); };
+    if (side === "SI") {
+      if (id === 1 || id === 24) return list(f.values).map(function (v) { return { flat_suminsured: v }; });
+      if (id === 5) { var out = []; list(f.multiples).forEach(function (m) { var r = { no_of_times_of_salary: m }; if (f.min != null) r.min_si_limit = f.min; if (f.max != null) r.max_si_limit = f.max; if (f.roundingType != null && f.roundingType !== "") { r.rounding_type = +f.roundingType; r.rounding_unit = +f.roundingUnit || 10; } out.push(r); }); return out; }
+      if (id === 28) { var o2 = []; list(f.values).forEach(function (v) { list(f.multiples).forEach(function (m) { o2.push({ flat_suminsured: v, no_of_time_suminsured: m }); }); }); return o2; }
+      if (id === 29) { var r2 = { si_calculation_percentage: +f.percentage || 0 }; if (f.min != null) r2.min_si_limit = f.min; if (f.max != null) r2.max_si_limit = f.max; if (f.roundingType != null && f.roundingType !== "") { r2.rounding_type = +f.roundingType; r2.rounding_unit = +f.roundingUnit || 10; } return [r2]; }
+      return [];
+    }
+    if (id === 1 || id === 25) { var t = f.tax || 0; return str(f.pairs).split(/\r?\n|;/).map(function (ln) { var p = ln.split(/[,\s]+/).map(num).filter(function (x) { return x !== null; }); return p.length >= 2 ? { flat_suminsured: p[0], flat_premium: p[1], tax: t || undefined, total_premium: tax(p[1], t) } : null; }).filter(Boolean); }
+    return [];
+  }
+
+  /**
+   * Reads an uploaded legacy sheet for the chosen rater type. If the header row looks like RaterModel's own flat table (flat_suminsured, grade_suminsured ...), that reader is used instead.
+   * o = {tax: percent, contributionByPercentage: bool}
+   */
+  function parse(side, id, aoa, o) {
+    o = o || {};
+    var l = layoutOf(side, id);
+    if (l === "form") throw new Error("This " + (side === "SI" ? "sum-insured subtype" : "premium type") + " has no upload sheet in the legacy app: define it in the form.");
+    var ownCols = (aoa[0] || []).filter(function (h) { return /^(flat|age|grade|des|state|relation)_(suminsured|sum_insured|premium|permilly)$/.test(slug(h)) || slug(h) === "total_premium" && (aoa[0] || []).some(function (x) { return /_suminsured$/.test(slug(x)); }); });
+    if (ownCols.length >= 2) return R.parseTable(aoa);
+    if (l === "matrix") {
+      if (side === "SI") return id === 17 ? memberMatrixSi(aoa) : topUpMatrix(aoa, o);
+      return matrixRows(side, id, aoa, o);
+    }
+    return headingRows(side, id, aoa, o);
+  }
+  R.legacy = { parse: parse, layoutOf: layoutOf, fromForm: fromForm, slug: slug, ageBand: ageBand, construct: construct, familyTokens: familyTokens, SI_FORM: SI_FORM, PREM_FORM: PREM_FORM };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+RaterModel.LEGACY_SAMPLES = {"SI": {"2": {"file": "age_wise_si_5.xlsx", "aoa": [["Age", "Sum Insured"], ["0-18", 3000], ["18-25", 4000], ["25-40", 5000], ["40-65", 6000]]}, "3": {"file": "grade_wise_si_6.xlsx", "aoa": [["Grade", "Sum Insured"], ["A", 3000], ["B", 4000], ["C", 5000], ["D", 6000]]}, "4": {"file": "designation_wise_si_7.xlsx", "aoa": [["Designation", "Sum Insured"], ["VP", 3000], ["Tech Lead", 4000], ["Team Lead", 5000], ["Project Manager", 6000]]}, "6": {"file": "ipd_member_suminsured_sample_48.xlsx", "aoa": [["relation", "suminsured "], ["Self", 100000], ["Self", 200000], ["Spouse", 100000], ["Spouse", 200000], ["Son", 300000], ["Son", 400000], ["Mother", 300000], ["Mother", 400000], ["Father", 300000], ["Father", 400000], ["Mother-in-law", 300000], ["Mother-in-law", 400000], ["Father-in-law", 300000], ["Father-in-law", 400000], ["Self", 5000], ["Spouse", 10000], ["Son", 1000], ["Partner", 10000]]}, "7": {"file": "state_wise_si_51.xlsx", "aoa": [["State", "Suminsured"], ["Telangana", 10000], ["Delhi", 20000], ["Gujrat", 30000], ["Karnataka", 40000], ["Maharashtra", 50000], ["Tamil Nadu", 60000], ["West Bengal", 70000], ["Andaman Nicobar", 80000], ["Andhra Pradesh", 90000], ["Arunachal Pradesh ", 100000], ["Assam", 110000], ["Bihar", 120000], ["Chandigarh", 130000], ["Chhattisgarh", 140000], ["Dadra and Nagar Haveli", 150000], ["Daman and Diu", 160000], ["Goa", 170000], ["Gujarat", 180000], ["Haryana", 190000], ["Himachal Pradesh", 200000], ["Jammu and Kashmir", 210000], ["Jharkhand", 220000], ["Kerala", 230000], ["Lakshadweep", 240000], ["Madhya Pradesh", 250000], ["Manipur", 260000], ["Meghalaya", 270000], ["Mizoram", 280000], ["Nagaland", 290000], ["Odisha", 300000], ["Orissa", 310000], ["Puducherry", 320000], ["Punjab", 330000], ["Rajasthan", 340000], ["Sikkim", 350000], ["Tripura", 360000], ["Uttarakhand", 370000], ["Uttar Pradesh", 380000], ["Uttaranchal", 390000]]}, "9": {"file": "family_construct_si_sample_59.xlsx", "aoa": [["Family Construct", "Total Cover", "Self", "Spouse", "Per Kid", "Per Parent", "Set of Parents", "Per Parent In Law", "Set of Parent In Laws", "Partner"], ["1A", 300000, 300000, "", "", "", "", "", "", ""], ["1A", 500000, 500000, "", "", "", "", "", "", ""], ["2A", 500000, 300000, 200000, "", "", "", "", "", ""], ["4A", 1000000, 300000, 200000, "", 250000, 500000, 250000, 500000, ""], ["2A + 2C", 700000, 300000, 200000, 100000, "", "", "", "", ""], ["4A + 2C", 1000000, 200000, 200000, 100000, 150000, 300000, 150000, 300000, ""]]}, "13": {"file": "new_grade_with_family_construct_si_68.xlsx", "aoa": [["Grade", "Family Construct", "Is Family Relation Max Capping", "Family Relation", "Total Cover", "Self", "Spouse", "Per Kid", "Per Parent", "Set of Parents", "Per Parent In Law", "Set of Parent In Laws", "Partner"], ["A", "1A", "", "", 300000, 300000, "", "", "", "", "", "", ""], ["A", "2A", "", "", 500000, 300000, 200000, "", "", "", "", "", ""], ["A", "4A", "", "", 1000000, 300000, 200000, "", 250000, 500000, 250000, 500000, ""], ["A", "2A + 2C", "", "", 700000, 300000, 200000, 100000, "", "", "", "", ""], ["A", "4A + 2C", "", "", 1000000, 200000, 200000, 100000, 150000, 300000, 150000, 300000, ""]]}, "14": {"file": "designation_with_family_construct_si_70.xlsx", "aoa": [["Designation", "Family Construct", "Total Cover", "Self", "Spouse", "Per Kid", "Per Parent", "Set of Parents", "Per Parent In Law", "Set of Parent In Laws", "Partner"], ["Developer", "1A", 300000, 300000, "", "", "", "", "", "", ""], ["TL", "2A", 500000, 300000, 200000, "", "", "", "", "", ""], ["Manager", "4A", 1000000, 300000, 200000, "", 250000, 500000, 250000, 500000, ""], ["Tech Lead", "2A + 2C", 700000, 300000, 200000, 100000, "", "", "", "", ""], ["VP", "4A + 2C", 1000000, 200000, 200000, 100000, 150000, 300000, 150000, 300000, ""]]}, "15": {"file": "relation_wise_number_of_salary_72.xlsx", "aoa": [["Relation", "No of Time Salary", "Min SI Limit", "Max SI Limit"], ["Self", 2, 100000, 1000000], ["Self", 3, 100000, 1000000], ["Spouse", 2, 100000, 1000000], ["Son", 1, 100000, 1000000], ["Daughter", 1, 100000, 1000000], ["Father", 3, 100000, 1000000], ["Mother", 3, 100000, 1000000], ["Father-In-Law", 3, 100000, 1000000], ["Mother-In-Law", 3, 100000, 1000000], ["Siblings", 2, 100000, 1000000], ["Partner", 2, 100000, 1000000]]}, "17": {"file": "member_wise_different_si.xlsx", "aoa": [["Relationship", "suminsured", "suminsured"], ["Self", 1000000, 2000000], ["Spouse", "", ""], ["Daughter", 100000, 200000], ["Son", "", ""], ["Parents", 300000, 400000]]}, "18": {"file": "grade_wise_number_of_time_salary_sample_78.xlsx", "aoa": [["Grade", "No of Time Salary", "Min SI Limit", "Max SI Limit"], ["A", 2, 100000, 1000000], ["A", 3, 100000, 1000000], ["B", 2, 100000, 1000000], ["C", 1, 100000, 1000000], ["D", 1, 100000, 1000000], ["D", 3, 100000, 1000000]]}, "20": {"file": "member_count_wise_si_sample_76.xlsx", "aoa": [["Relation", "Suminsured"], ["Self", 100000], ["Spouse", 200000], ["Child", 300000], ["Parent", 400000], ["Parent-in-law", 500000], ["Partner", 200000]]}, "22": {"file": "gdac_suminsured_80.xlsx", "aoa": [["Construct", "Grade", "Designation", "Family Group", "Employee Age Band", "Total Cover", "Self", "Spouse", "Per Kid", "Per Parent", "Per Parent In Law", "Set of Parents", "Set of Parent In Laws", "Others", "Partner"], ["", "A", "", "E", "", 500000, 100000, "", "", "", "", "", "", "", ""], ["", "B", "", "E,S,C", "", 500000, 150000, "", "", "", "", "", "", "", ""], ["", "C", "", "E,S,2C", "", 500000, 200000, "", "", "", "", "", "", "", ""], ["", "D", "", "E,S,P,PIL", "", 500000, 250000, "", "", "", "", "", "", "", ""], ["", "E", "", "E,S,2P,2PIL", "", 500000, 300000, "", "", "", "", "", "", "", ""], ["", "F", "", "E,S,2P,2PIL,SB", "", 500000, 350000, "", "", "", "", "", "", "", ""]]}, "23": {"file": "only_grade_si_lol.xlsx", "aoa": [["Grade", "Sum Insured"], ["co-pilot", 100000], ["co-pilot", 200000], ["captain", 400000], ["captain", 600000], ["senior-captian", 1200000], ["senior-captian", 1500000], ["aviation-head", 2500000]]}, "25": {"file": "age_si_lol.xlsx", "aoa": [["Age", "Sum Insured"], ["0-18", 3000], ["18-25", 4000], ["25-40", 5000], ["40-65", 6000]]}, "26": {"file": "grade_with_construct_si_lol.xlsx", "aoa": [["Grade", "Family Construct", "Is Family Relation Max Capping", "Family Relation", "Total Cover", "Self", "Spouse", "Per Kid", "Per Parent", "Set of Parents", "Per Parent In Law", "Set of Parent In Laws", "Partner"], ["A", "1A", "", "", 300000, 300000, "", "", "", "", "", "", ""], ["A", "2A", "", "", 500000, 300000, 200000, "", "", "", "", "", ""], ["A", "4A", "", "", 1000000, 300000, 200000, "", 250000, 500000, 250000, 500000, ""], ["A", "2A + 2C", "", "", 700000, 300000, 200000, 100000, "", "", "", "", ""], ["A", "4A + 2C", "", "", 1000000, 200000, 200000, 100000, 150000, 300000, 150000, 300000, ""]]}, "27": {"file": "grade_wise_number_of_time_salary_si_lol.xlsx", "aoa": [["Grade", "No of Time Salary", "Min SI Limit", "Max SI Limit"], ["A", 2, 100000, 1000000], ["A", 3, 100000, 1000000], ["B", 2, 100000, 1000000], ["C", 1, 100000, 1000000], ["D", 1, 100000, 1000000], ["D", 3, 100000, 1000000]]}, "30": {"file": "base-on-base-si-and-premium-sample.xlsx", "aoa": [["", "Top-up Factor", "Top-up Suminsured", "", "", "", ""], ["Base SI / Deductible", "Age", 2000000, 3000000, "", "", ""], [200000, "18-40", 1788, 2347, "", "", ""], [300000, "18-40", 967, 1269, "", "", ""], [500000, "18-40", 696, 870, "", "", ""], [1000000, "18-40", 626, 783, "", "", ""], [200000, "41-60", 5561, 9037, "", "", ""], [300000, "41-60", 2878, 4137, "", "", ""], [500000, "41-60", 2228, 3146, "", "", ""], [1000000, "41-60", 2005, 2832, "", "", ""], [200000, "61-120", 14333, 20603, "", "", ""], [300000, "61-120", 8078, 12116, "", "", ""], [500000, "61-120", 6979, 10469, "", "", ""], [1000000, "61-120", 6281, 9422, "", "", ""]]}, "31": {"file": "percentage_of_salary_sample.xlsx", "aoa": [["Age", "Percentage", "Min Si Limit", "Max Si Limit"], ["18-25", 65, 20000, 50000]]}}, "PREM": {"2": {"file": "employee_age_wise_premium_8.xlsx", "aoa": [["Suminsured", 300000, 500000, 700000], ["Age", "Premium", "Premium", "Premium"], ["0-18", 1000, 3000, 5000], ["19-25", 2000, 4000, 6000], ["26-40", 3000, 5000, 7000], ["41-60", 4000, 6000, 8000]]}, "3": {"file": "designation_wise_si_premium_rater_9.xlsx", "aoa": [["Suminsured", 300000, 500000, 700000], ["Designation", "Premium", "Premium", "Premium"], ["VP", 1000, 3000, 5000], ["TL", 2000, 4000, 6000], ["Developer", 3000, 5000, 7000], ["CEO", 4000, 6000, 8000]]}, "4": {"file": "grade_wise_si_premium_rater_10.xlsx", "aoa": [["Suminsured", 300000, 500000, 700000], ["Grade", "Premium", "Premium", "Premium"], ["A", 1000, 3000, 5000], ["B", 2000, 4000, 6000], ["C", 3000, 5000, 7000], ["D", 4000, 6000, 8000]]}, "5": {"file": "permilli_age_wise_si_rater_11.xlsx", "aoa": [["Suminsured", "", 300000, 500000, 700000], ["Age", "Employee Gender", "Permilli", "Permilli", "Permilli"], ["0-25", "Male", 0.56, 0.66, 0.76], ["26-50", "Male", 0.56, 0.66, 0.76], ["51-75", "Male", 0.56, 0.66, 0.76], ["76-100", "Male", 0.56, 0.66, 0.76], ["0-25", "Female", 0.56, 0.66, 0.76], ["26-50", "Female", 0.56, 0.66, 0.76], ["51-75", "Female", 0.56, 0.66, 0.76], ["76-100", "Female", 0.56, 0.66, 0.76]]}, "6": {"file": "permilli_grade_wise_si_premium_rater_12.xlsx", "aoa": [["Suminsured", 300000, 500000, 700000], ["Grade", "Permilli", "Permilli", "Permilli"], ["A", 0.56, 0.66, 0.76], ["B", 0.56, 0.66, 0.76], ["C", 0.56, 0.66, 0.76], ["D", 0.56, 0.66, 0.76], ["E", 0.56, 0.66, 0.76], ["F", 0.56, 0.66, 0.76], ["G", 0.56, 0.66, 0.76]]}, "7": {"file": "permilli_designation_wise_si_premium_rater_13.xlsx", "aoa": [["Suminsured", 300000, 500000, 700000], ["Designation", "Permilli", "Permilli", "Permilli"], ["VP", 0.56, 0.66, 0.76], ["TL", 0.56, 0.66, 0.76], ["PL", 0.56, 0.66, 0.76], ["PM", 0.56, 0.66, 0.76], ["CEO", 0.56, 0.66, 0.76], ["MD", 0.56, 0.66, 0.76], ["HR", 0.56, 0.66, 0.76]]}, "9": {"file": "member_wise_si_premium_rater_35.xlsx", "aoa": [["Suminsured", 100000, 200000, 300000, 400000], ["Relation", "premium", "premium", "premium", "premium"], ["Self", 1000, 2000, 3000, 4000], ["Spouse", 1000, 2000, 3000, 4000], ["Son", 800, 1600, 2400, 3600], ["Daughter", 800, 1600, 2400, 3600], ["Mother", 2000, 3000, 4000, 5000], ["Father", 2000, 3000, 4000, 5000], ["Mother-in-law", 2000, 3000, 4000, 5000], ["Father-in-law", 2000, 3000, 4000, 5000], ["Partner", 2000, 3000, 4000, 5000]]}, "10": {"file": "state_wise_si_premium_rater_52.xlsx", "aoa": [["Suminsured", 300000, 500000, 700000], ["State", "Premium", "Premium", "Premium"], ["Telangana", 1000, 3000, 4000], ["Delhi", 2000, 4000, 5000], ["Gujrat", 3000, 5000, 6000], ["Karnataka", 4000, 6000, 7000], ["Maharashtra", 5000, 7000, 8000], ["Tamil Nadu", 6000, 8000, 9000], ["West Bengal", 7000, 9000, 10000], ["Andaman Nicobar", 8000, 10000, 11000], ["Andhra Pradesh", 9000, 11000, 12000], ["Arunachal Pradesh ", 10000, 12000, 13000], ["Assam", 11000, 13000, 14000], ["Bihar", 12000, 14000, 15000], ["Chandigarh", 13000, 15000, 16000], ["Chhattisgarh", 14000, 16000, 17000], ["Dadra and Nagar Haveli", 15000, 17000, 18000], ["Daman and Diu", 16000, 18000, 19000], ["Goa", 17000, 19000, 20000], ["Gujarat", 18000, 20000, 21000], ["Haryana", 19000, 21000, 22000], ["Himachal Pradesh", 20000, 22000, 23000], ["Jammu and Kashmir", 21000, 23000, 24000], ["Jharkhand", 22000, 24000, 25000], ["Kerala", 23000, 25000, 26000], ["Lakshadweep", 24000, 26000, 27000], ["Madhya Pradesh", 25000, 27000, 28000], ["Manipur", 26000, 28000, 29000], ["Meghalaya", 27000, 29000, 30000], ["Mizoram", 28000, 30000, 31000], ["Nagaland", 29000, 31000, 32000], ["Odisha", 30000, 32000, 33000], ["Orissa", 31000, 33000, 34000], ["Puducherry", 32000, 34000, 35000], ["Punjab", 33000, 35000, 36000], ["Rajasthan", 34000, 36000, 37000], ["Sikkim", 35000, 37000, 38000], ["Tripura", 36000, 38000, 39000], ["Uttarakhand", 37000, 39000, 40000], ["Uttar Pradesh", 38000, 40000, 41000], ["Uttaranchal", 39000, 41000, 42000]]}, "13": {"file": "family_construct_premium_sample_60.xlsx", "aoa": [["Family Construct", "Total Cover", "Total Premium", "Self", "Self Employee Contribution", "Spouse", "Spouse Employee Contribution", "Per Kid", "Per Kid Employee Contribution", "Per Parent", "Per Parent Employee Contribution", "Per Parents In Law", "Per Parent In Law Employee Contribution", "Set of Parents", "Set of Parents Employee Contribution", "Set of Parent in Laws", "Set of Parent in Laws Employee Contribution", "All Parent Premium", "All Parent Employee Contribution", "Partner", "Partner Employee Contribution"], ["1A", 400000, 12050, 12050, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 1C", 400000, 12050, 12050, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 2C", 400000, 12050, 12050, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 3C", 400000, 15050, 12050, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 4C", 400000, 15050, 12050, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["2A", 400000, 12050, 12050, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 1C", 400000, 12050, 12050, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 2C", 400000, 12050, 12050, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 3C", 400000, 15050, 12050, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 4C", 400000, 15050, 12050, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["1A", 600000, 18500, 18500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 1C", 600000, 18500, 18500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 2C", 600000, 18500, 18500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 3C", 600000, 21500, 18500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 4C", 600000, 21500, 18500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["2A", 600000, 18500, 18500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 1C", 600000, 18500, 18500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 2C", 600000, 18500, 18500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 3C", 600000, 21500, 18500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 4C", 600000, 21500, 18500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["1A", 700000, 21500, 21500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 1C", 700000, 21500, 21500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 2C", 700000, 21500, 21500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 3C", 700000, 24500, 21500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["1A + 4C", 700000, 24500, 21500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["2A", 700000, 21500, 21500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 1C", 700000, 21500, 21500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 2C", 700000, 21500, 21500, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 3C", 700000, 24500, 21500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""], ["2A + 4C", 700000, 24500, 21500, "", "", "", 3000, 3000, "", "", "", "", "", "", "", "", "", "", "", ""]]}, "15": {"file": "new_grade_with_family_construct_premium_69.xlsx", "aoa": [["Grade", "Family Construct", "Can Add Parent", "Can Add Parent In Laws", "Is Family Relation Max Capping", "Family Relation", "Total Cover", "Total Premium", "Self", "Self Employee Contribution", "Spouse", "Spouse Employee Contribution", "Per Kid", "Per Kid Employee Contribution", "Per Parent", "Per Parent Employee Contribution", "Per Parents In Law", "Per Parent In Law Employee Contribution", "Set of Parents", "Set of Parents Employee Contribution", "Set of Parent in Laws", "Set of Parent in Laws Employee Contribution", "Partner", "Partner Employee Contribution"], ["A", "1A", "Y", "Y", "", "", 300000, 10000, 10000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["A", "2A", "Y", "Y", "", "", 500000, 15000, 15000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["A", "4A", "Y", "Y", "", "", 1000000, 20000, 20000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["A", "2A + 2C", "Y", "Y", "", "", 700000, 25000, 20000, "", "", "", 2500, "", "", "", "", "", "", "", "", "", "", ""], ["A", "4A + 2C", "Y", "Y", "", "", 1000000, 30000, 20000, "", "", "", 2500, "", 2500, "", 2500, "", 5000, "", 500, "", "", ""], ["S", "1A", "N", "N", "", "", 300000, 10000, 10000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["S", "2A", "N", "N", "", "", 500000, 15000, 15000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["S", "2A + 2C", "N", "N", "", "", 1000000, 20000, 15000, "", "", "", 2500, "", "", "", "", "", "", "", "", "", "", ""]]}, "16": {"file": "designation_with_family_construct_premium_71.xlsx", "aoa": [["Designation", "Family Construct", "Can Add Parent", "Can Add Parent In Laws", "Total Cover", "Total Premium", "Self", "Self Employee Contribution", "Spouse", "Spouse Employee Contribution", "Per Kid", "Per Kid Employee Contribution", "Per Parent", "Per Parent Employee Contribution", "Per Parents In Law", "Per Parent In Law Employee Contribution", "Set of Parents", "Set of Parents Employee Contribution", "Set of Parent in Laws", "Set of Parent in Laws Employee Contribution", "Partner", "Partner Employee Contribution"], ["A", "1A", "Y", "Y", 300000, 10000, 10000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["A", "2A", "Y", "Y", 500000, 15000, 15000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["A", "4A", "Y", "Y", 1000000, 20000, 20000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["A", "2A + 2C", "Y", "Y", 700000, 25000, 20000, "", "", "", 2500, "", "", "", "", "", "", "", "", "", "", ""], ["A", "4A + 2C", "Y", "Y", 1000000, 30000, 20000, "", "", "", 2500, "", 2500, "", 2500, "", 5000, "", 500, "", "", ""], ["S", "1A", "N", "N", 300000, 10000, 10000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["S", "2A", "N", "N", 500000, 15000, 15000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["S", "2A + 2C", "N", "N", 1000000, 20000, 15000, "", "", "", 2500, "", "", "", "", "", "", "", "", "", "", ""]]}, "17": {"file": "relation_wise_number_of_time_permily_rate_73.xlsx", "aoa": [["No of Time Salary", 1, 2, 3], ["Relation", "Permilli", "Permilli", "Permilli"], ["Self", 0.2, 0.3, 0.4], ["Spouse", 0.1, 0.2, 0.3], ["Son", 0.1, 0.1, 0.1], ["Daughter", 0.2, 0.3, 0.2], ["Father", 0.3, 0.1, 0.4], ["Mother", 0.2, 0.3, 0.3], ["Father-In-Law", 0.2, 0.3, 0.1], ["Mother-In-Law", 0.1, 0.2, 0.2], ["Siblings", 0.3, 0.2, 0.1], ["Partner", 0.3, 0.2, 0.1]]}, "19": {"file": "age_band_with_family_construct.xlsx", "aoa": [["Age Band", "Total Cover", "Self", "Self Employee Contribution", "Spouse", "Spouse Employee Contribution", "Per Kid", "Per Kid Employee Contribution", "Per Parent", "Per Parent Employee Contribution", "Per Parents In Law", "Per Parent In Law Employee Contribution", "Set of Parents", "Set of Parents Employee Contribution", "Set of Parent in Laws", "Set of Parent in Laws Employee Contribution", "Partner", "Partner Employee Contribution"], ["0-16", 300000, "", "", "", "", 1000, 1000, 5000, 5000, 10000, 10000, 5000, 5000, 10000, 10000, "", ""], ["16-20", 300000, "", "", "", "", 2000, 2000, 6000, 6000, 11000, 11000, 6000, 6000, 11000, 11000, "", ""], ["21-25", 300000, "", "", "", "", 3000, 3000, 7000, 7000, 12000, 12000, 7000, 7000, 12000, 12000, "", ""], ["26-30", 300000, 8000, 8000, 8000, 8000, "", "", 8000, 8000, 13000, 13000, 8000, 8000, 13000, 13000, "", ""], ["31-35", 300000, 9000, 9000, 9000, 9000, "", "", 9000, 9000, 14000, 14000, 9000, 9000, 14000, 14000, "", ""], ["36-40", 300000, 10000, 10000, 10000, 10000, "", "", 10000, 10000, 15000, 15000, 10000, 10000, 15000, 15000, "", ""], ["41-45", 300000, 11000, 11000, 11000, 11000, "", "", 11074, 11074, 15645, 15645, 12955, 12955, 16834, 16834, "", ""], ["46-50", 300000, 12000, 12000, 12000, 12000, "", "", 11776, 11776, 16453, 16453, 12955, 12955, 18098, 18098, "", ""], ["51-55", 300000, 13000, 13000, 13000, 13000, "", "", 12960, 12960, 18279, 18279, 14256, 14256, 20108, 20108, "", ""], ["56-60", 300000, 14000, 14000, 14000, 14000, "", "", 16826, 16826, 20310, 20310, 18509, 18509, 22341, 22341, "", ""], ["61-65", 300000, 15000, 15000, 15000, 15000, "", "", 18598, 18598, 22967, 22967, 20457, 20457, 25264, 25264, "", ""], ["66-70", 300000, 16000, 16000, 16000, 16000, "", "", 23441, 23441, 25779, 25779, 25785, 25785, 28358, 28358, "", ""], ["71-75", 300000, 17000, 17000, 17000, 17000, "", "", 27154, 27154, 29726, 29726, 29871, 29871, 32698, 32698, "", ""], ["76-80", 300000, 18000, 18000, 18000, 18000, "", "", 34819, 34819, 55528, 55528, 38302, 38302, 61082, 61082, "", ""], ["0-16", 500000, "", "", "", "", 2000, 2000, 9000, 9000, 10000, 10000, 9000, 9000, 10000, 10000, "", ""], ["16-20", 500000, "", "", "", "", 3000, 3000, 10000, 10000, 11000, 11000, 10000, 10000, 11000, 11000, "", ""], ["21-25", 500000, "", "", "", "", 4000, 4000, 11000, 11000, 12000, 12000, 11000, 11000, 12000, 12000, "", ""], ["26-30", 500000, 12000, 12000, 12000, 12000, "", "", 12000, 12000, 13000, 13000, 12000, 12000, 13000, 13000, "", ""], ["31-35", 500000, 13000, 13000, 13000, 13000, "", "", 13000, 13000, 14000, 14000, 13000, 13000, 14000, 14000, "", ""], ["36-40", 500000, 14000, 14000, 14000, 14000, "", "", 14000, 14000, 15000, 15000, 14000, 14000, 15000, 15000, "", ""], ["41-45", 500000, 15000, 15000, 15000, 15000, "", "", 14160, 14160, 20495, 20495, 15578, 15578, 22545, 22545, "", ""], ["46-50", 500000, 16000, 16000, 16000, 16000, "", "", 16173, 16173, 23201, 23201, 17790, 17790, 25521, 25521, "", ""], ["51-55", 500000, 17000, 17000, 17000, 17000, "", "", 17817, 17817, 25779, 25779, 19598, 19598, 28357, 28357, "", ""], ["56-60", 500000, 18000, 18000, 18000, 18000, "", "", 24797, 24797, 28643, 28643, 27275, 27275, 31507, 31507, "", ""], ["61-65", 500000, 19000, 19000, 19000, 19000, "", "", 26964, 26964, 32941, 32941, 29661, 29661, 36234, 36234, "", ""], ["66-70", 500000, 20000, 20000, 20000, 20000, "", "", 33986, 33986, 37236, 37236, 37386, 37386, 40959, 40959, "", ""], ["71-75", 500000, 21000, 21000, 21000, 21000, "", "", 37579, 37579, 42937, 42937, 41338, 41338, 47231, 47231, "", ""], ["76-80", 500000, 22000, 22000, 22000, 22000, "", "", 44300, 44300, 72657, 72657, 48731, 48731, 79921, 79921, "", ""]]}, "20": {"file": "member_count_wise_premium_sample_77.xlsx", "aoa": [["Suminsured", 100000, 200000, 300000, 400000, 500000], ["Relation", "premium", "premium", "premium", "premium", "premium"], ["Self", 100, 0, 0, 0, 0], ["Spouse", 0, 200, 0, 0, 0], ["Child 1", 0, 0, 300, 0, 0], ["Child 2", 0, 0, 350, 0, 0], ["Parent", 0, 0, 0, 400, 0], ["Parent-in-law", 0, 0, 0, 0, 500], ["Partner", 0, 0, 0, 0, 500]]}, "21": {"file": "employee_age_band_with_construct_79.xlsx", "aoa": [["Age Band", "Total Cover", "Self", "Self Employee Contribution", "Spouse", "Spouse Employee Contribution", "Per Kid", "Per Kid Employee Contribution", "Per Parent", "Per Parent Employee Contribution", "Per Parents In Law", "Per Parent In Law Employee Contribution", "Set of Parents", "Set of Parents Employee Contribution", "Set of Parent in Laws", "Set of Parent in Laws Employee Contribution", "Partner", "Partner Employee Contribution"], ["0-16", 300000, "", "", "", "", 1000, 1000, 5000, 5000, 10000, 10000, 5000, 5000, 10000, 10000, "", ""], ["16-20", 300000, "", "", "", "", 2000, 2000, 6000, 6000, 11000, 11000, 6000, 6000, 11000, 11000, "", ""], ["21-25", 300000, "", "", "", "", 3000, 3000, 7000, 7000, 12000, 12000, 7000, 7000, 12000, 12000, "", ""], ["26-30", 300000, 8000, 8000, 8000, 8000, "", "", 8000, 8000, 13000, 13000, 8000, 8000, 13000, 13000, "", ""], ["31-35", 300000, 9000, 9000, 9000, 9000, "", "", 9000, 9000, 14000, 14000, 9000, 9000, 14000, 14000, "", ""], ["36-40", 300000, 10000, 10000, 10000, 10000, "", "", 10000, 10000, 15000, 15000, 10000, 10000, 15000, 15000, "", ""], ["41-45", 300000, 11000, 11000, 11000, 11000, "", "", 11074, 11074, 15645, 15645, 12955, 12955, 16834, 16834, "", ""], ["46-50", 300000, 12000, 12000, 12000, 12000, "", "", 11776, 11776, 16453, 16453, 12955, 12955, 18098, 18098, "", ""], ["51-55", 300000, 13000, 13000, 13000, 13000, "", "", 12960, 12960, 18279, 18279, 14256, 14256, 20108, 20108, "", ""], ["56-60", 300000, 14000, 14000, 14000, 14000, "", "", 16826, 16826, 20310, 20310, 18509, 18509, 22341, 22341, "", ""], ["61-65", 300000, 15000, 15000, 15000, 15000, "", "", 18598, 18598, 22967, 22967, 20457, 20457, 25264, 25264, "", ""], ["66-70", 300000, 16000, 16000, 16000, 16000, "", "", 23441, 23441, 25779, 25779, 25785, 25785, 28358, 28358, "", ""], ["71-75", 300000, 17000, 17000, 17000, 17000, "", "", 27154, 27154, 29726, 29726, 29871, 29871, 32698, 32698, "", ""], ["76-80", 300000, 18000, 18000, 18000, 18000, "", "", 34819, 34819, 55528, 55528, 38302, 38302, 61082, 61082, "", ""], ["0-16", 500000, "", "", "", "", 2000, 2000, 9000, 9000, 10000, 10000, 9000, 9000, 10000, 10000, "", ""], ["16-20", 500000, "", "", "", "", 3000, 3000, 10000, 10000, 11000, 11000, 10000, 10000, 11000, 11000, "", ""], ["21-25", 500000, "", "", "", "", 4000, 4000, 11000, 11000, 12000, 12000, 11000, 11000, 12000, 12000, "", ""], ["26-30", 500000, 12000, 12000, 12000, 12000, "", "", 12000, 12000, 13000, 13000, 12000, 12000, 13000, 13000, "", ""], ["31-35", 500000, 13000, 13000, 13000, 13000, "", "", 13000, 13000, 14000, 14000, 13000, 13000, 14000, 14000, "", ""], ["36-40", 500000, 14000, 14000, 14000, 14000, "", "", 14000, 14000, 15000, 15000, 14000, 14000, 15000, 15000, "", ""], ["41-45", 500000, 15000, 15000, 15000, 15000, "", "", 14160, 14160, 20495, 20495, 15578, 15578, 22545, 22545, "", ""], ["46-50", 500000, 16000, 16000, 16000, 16000, "", "", 16173, 16173, 23201, 23201, 17790, 17790, 25521, 25521, "", ""], ["51-55", 500000, 17000, 17000, 17000, 17000, "", "", 17817, 17817, 25779, 25779, 19598, 19598, 28357, 28357, "", ""], ["56-60", 500000, 18000, 18000, 18000, 18000, "", "", 24797, 24797, 28643, 28643, 27275, 27275, 31507, 31507, "", ""], ["61-65", 500000, 19000, 19000, 19000, 19000, "", "", 26964, 26964, 32941, 32941, 29661, 29661, 36234, 36234, "", ""], ["66-70", 500000, 20000, 20000, 20000, 20000, "", "", 33986, 33986, 37236, 37236, 37386, 37386, 40959, 40959, "", ""], ["71-75", 500000, 21000, 21000, 21000, 21000, "", "", 37579, 37579, 42937, 42937, 41338, 41338, 47231, 47231, "", ""], ["76-80", 500000, 22000, 22000, 22000, 22000, "", "", 44300, 44300, 72657, 72657, 48731, 48731, 79921, 79921, "", ""]]}, "22": {"file": "gdac_premium_81.xlsx", "aoa": [["Construct", "Grade", "Designation", "Family Group", "Employee Age Band", "Total Cover", "Self Premium", "Self Employee Contribution", "Spouse Premium", "Spouse Employee Contribution", "Per Kid Premium", "Per Kid Employee Contribution", "Per Parent Premium", "Per Parent Employee Contribution", "Per Parent In Law Premium", "Per Parent In Law Employee Contribution", "Set of Parents Premium", "Set of Parents Employee Contribution", "Set of Parent In Laws Premium", "Set of Parent In Laws Employee Contribution", "Others Premium", "Others Employee Contribution", "Partner Premium", "Partner Employee Contribution", "Cross Parent Premium", "Cross Parent Employee Contribution", "All Parent Premium", "All Parent Employee Contribution"], ["", "A", "", "E", "", 500000, 10000, 10000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "B", "", "E,S,C", "", 500000, 15000, 15000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "C", "", "E,S,2C", "", 500000, 20000, 20000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "D", "", "E,S,P,PIL", "", 500000, 25000, 25000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "E", "", "E,S,2P,2PIL", "", 500000, 30000, 30000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "F", "", "E,S,2P,2PIL,SB", "", 500000, 35000, 35000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]]}, "23": {"file": "perSiprem.xlsx", "aoa": [["Total Cover", "Total Premium"], [500000, 10], [600000, 11], [700000, 12]]}, "24": {"file": "grade_with_family_construct_premium_lol_1337.xlsx", "aoa": [["Grade", "Family Construct", "Can Add Parent", "Can Add Parent In Laws", "Is Family Relation Max Capping", "Family Relation", "Total Cover", "Total Premium", "Self", "Self Employee Contribution", "Spouse", "Spouse Employee Contribution", "Per Kid", "Per Kid Employee Contribution", "Per Parent", "Per Parent Employee Contribution", "Per Parents In Law", "Per Parent In Law Employee Contribution", "Set of Parents", "Set of Parents Employee Contribution", "Set of Parent in Laws", "Set of Parent in Laws Employee Contribution", "Partner", "Partner Employee Contribution"], ["genin", "1A", "N", "N", "N", "E", 100000, "", 10, 50, "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["genin", "2A", "Y", "Y", "N", "E,S", 100000, "", 10, 50, 2, 50, "", "", "", "", "", "", "", "", "", "", "", ""], ["genin", "4A", "Y", "Y", "N", "E,S,P,PIL", 200000, "", 10, "", 2, 50, "", "", "", "", "", "", "", "", "", "", "", ""], ["genin", "2A + 2C", "Y", "Y", "N", "E,S,C", 200000, "", 10, "", 2, 50, 2, 100, "", "", "", "", "", "", "", "", "", ""], ["genin", "4A + 2C", "Y", "Y", "N", "E,S,P,PIL,C", 200000, "", 10, "", 2, 50, 2, 100, "", "", "", "", "", "", "", "", "", ""], ["chunin", "1A", "N", "N", "N", "E", 400000, "", 8, "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["chunin", "4A + 2C", "Y", "Y", "N", "E,S,P,PIL,C", 600000, "", 7, "", 2, 50, 2, 100, 2, 80, "", "", "", "", "", "", "", ""], ["jounin", "2A+2C", "Y", "Y", "N", "E,S,C", 1200000, "", 8, "", 2, 50, 2, 100, "", "", "", "", "", "", "", "", "", ""], ["jounin", "4A+4C", "Y", "Y", "N", "E,S,P,PIL,C", 1500000, "", 7, "", 2, 50, 2, 100, "", "", "", "", 5, 90, 5, 90, "", ""], ["kage", "6A+4C", "Y", "Y", "N", "E,S,P,PIL,C", 2500000, "", 10, "", 2, 50, 2, 100, "", "", "", "", 5, 90, 5, 90, "", ""]]}, "26": {"file": "lol_age_premium.xlsx", "aoa": [["Age Band", "Total Cover", "Self", "Self Employee Contribution", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["0-50", 200000, 12000, 12000, "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["51-99", 400000, 20000, 20000, "", "", "", "", "", "", "", "", "", "", "", "", "", ""]]}, "27": {"file": "gdac_with_max_age_premium_89.xlsx", "aoa": [["Construct", "Grade", "Designation", "Age Band", "Family Group", "Total Cover", "Self Premium", "Self Employee Contribution", "Spouse Premium", "Spouse Employee Contribution", "Per Kid Premium", "Per Kid Employee Contribution", "Per Parent Premium", "Per Parent Employee Contribution", "Per Parent In Law Premium", "Per Parent In Law Employee Contribution", "Set of Parents Premium", "Set of Parents Employee Contribution", "Set of Parent In Laws Premium", "Set of Parent In Laws Employee Contribution", "Others Premium", "Others Employee Contribution", "Partner Premium", "Partner Employee Contribution", "Cross Parent Premium", "Cross Parent Employee Contribution", "All Parent Premium", "All Parent Employee Contribution"], ["", "", "", "35-55", "", 500000, 10000, 10000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "56-70", "", 500000, 15000, 15000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "71-120", "", 500000, 20000, 20000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "35-55", "", 500000, 25000, 25000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "56-70", "", 500000, 30000, 30000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "71-120", "", 500000, 35000, 35000, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]]}, "28": {"file": "family_percentage_premium_sample.xlsx", "aoa": [["Suminsured", "", 500000, 500000, "", ""], ["Relation", "Age", "Family Premium(%)", "Member Premium(%)", "", ""], ["Self", "0-100", 10, "", "", ""], ["Spouse", "0-100", 0, "", "", ""], ["Son", "0<29", 0, "", "", ""], ["Son", "30-100", "", 100, "", ""], ["Daughter", "0<29", 0, "", "", ""], ["Daughter", "30-100", "", 100, "", ""], ["Brother", "0-24", 10, "", "", ""], ["Brother", "25-100", "", 100, "", ""], ["Sister", "0-24", 10, "", "", ""], ["Sister", "25-100", "", 100, "", ""], ["Mother", "0-100", "", 50, "", ""], ["Father", "0-100", "", 50, "", ""], ["Mother-in-law", "0-100", "", 50, "", ""], ["Father-in-law", "0-100", "", 50, "", ""]]}, "29": {"file": "grade_with_base_si_premium_rater_sample_94.xlsx", "aoa": [["Suminsured", "", 100000, 200000, 300000, 400000, 500000], ["Base SI", "Grade", "Premium", "Premium", "Premium", "Premium", "Premium"], [300000, "AVP and Below", 5473, 7115, 9249, 12024, 15631], [500000, "AVP and Below", 4652, 6048, 7862, 10220, 13286], [700000, "AVP and Below", 3954, 5140, 6683, 8687, 11294], [1000000, "AVP and Below", 3361, 4369, 5680, 7384, 9599], [300000, "VP and Above", 5024, 6532, 8491, 11038, 14350], [500000, "VP and Above", 4271, 5552, 7217, 9383, 12197], [700000, "VP and Above", 3630, 4719, 6135, 7975, 10368], [1000000, "VP and Above", 3086, 4011, 5215, 6779, 8813]]}, "30": {"file": "age_plus_relation_wise_premium_rater_sample.xlsx", "aoa": [["Suminsured", "", 300000, "", 500000, "", 700000, ""], ["Relation", "Age", "Premium", "Employee Contribution", "Premium", "Employee Contribution", "Premium", "Employee Contribution"], ["Self", "0-25", 4355, 4355, 5000, 5000, 7000, 7000], ["Self", "26-30", 4530, 4530, "", "", "", ""], ["Spouse", "0-25", 4355, 4355, "", "", "", ""], ["Spouse", "26-30", 4530, 4530, "", "", "", ""], ["Son", "0-25", 4355, 4355, "", "", "", ""], ["Son", "26-80", 0, 0, "", "", "", ""], ["Daughter", "0-25", 4355, 4355, "", "", "", ""], ["Daughter", "26-80", 0, 0, "", "", "", ""], ["Father", "0-35", 0, 0, "", "", "", ""], ["Father", "36-40", 5676, 5676, "", "", "", ""], ["Mother", "0-35", 0, 0, "", "", "", ""], ["Mother", "36-40", 5676, 5676, "", "", "", ""], ["Father-in-law", "0-35", 0, 0, "", "", "", ""], ["Father-in-law", "36-40", 5676, 5676, "", "", "", ""], ["Mother-in-law", "0-35", 0, 0, "", "", "", ""], ["Mother-in-law", "36-40", 5676, 5676, "", "", "", ""]]}, "31": {"file": "gral_premium_rater_sample.xlsx", "aoa": [["Suminsured", "", "", "", 100000, "", 300000, ""], ["Relation", "Age", "Gender", "Location", "Premium", "Employee Contribution", "Premium", "Employee Contribution"], ["Self", "18-25", "Male", "Behrin", 5000, 5000, 10000, 10000], ["Self", "26-100", "Female", "Behrin", 5000, 5000, 10000, 10000], ["Spouse", "18-25", "Male", "India", 2000, 2000, 4000, 4000], ["Spouse", "26-100", "Female", "India", 2000, 2000, 4000, 4000], ["Father", "18-50", "Male", "Saudi Arabia", 2500, 2500, 5000, 5000], ["Mother", "51-100", "Female", "Saudi Arabia", 2500, 2500, 5000, 5000], ["Father-in-law", "18-50", "Male", "UAE", 2500, 2500, 5000, 5000], ["Mother-in-law", "51-100", "Female", "UAE", 2500, 2500, 5000, 5000], ["Daughter", "0-30", "Female", "", 1000, 1000, 2000, 2000], ["Son", "0-30", "Male", "", 1000, 1000, 2000, 2000], ["Brother", "0-30", "Male", "", 1500, 1500, 3000, 3000], ["Sister", "0-30", "Female", "", 1500, 1500, 3000, 3000], ["Partner", "18-25", "Male", "", 2000, 2000, 4000, 4000], ["Partner", "26-100", "Female", "", 2000, 2000, 4000, 4000]]}, "32": {"file": "gdac_with_sequence_premium_rater_sample.xlsx", "aoa": [["Grade", "Designation", "Family Group", "Employee Age Band", "Total Cover", "Self Premium", "Self Employee Contribution", "Spouse Premium", "Spouse Employee Contribution", "Per Kid Premium", "Per Kid Employee Contribution", "Per Parent Premium", "Per Parent Employee Contribution", "Per Parent In Law Premium", "Per Parent In Law Employee Contribution", "Set of Parents Premium", "Set of Parents Employee Contribution", "Set of Parent In Laws Premium", "Set of Parent In Laws Employee Contribution", "Others Premium", "Others Employee Contribution", "Partner Premium", "Partner Employee Contribution", "Cross Parent Premium", "Cross Parent Employee Contribution", "All Parent Premium", "All Parent Employee Contribution"], ["", "", "F", "", 200000, "", "", "", "", "", "", 500, 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "M", "", 200000, "", "", "", "", "", "", 500, 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "FIL", "", 200000, "", "", "", "", "", "", "", "", 500, 0, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "MIL", "", 200000, "", "", "", "", "", "", "", "", 500, 0, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "F, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "M, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "F, FIL", "", 200000, "", "", "", "", "", "", 500, 0, 500, 500, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "FIL, F", "", 200000, "", "", "", "", "", "", 500, 500, 500, 0, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "F, MIL", "", 200000, "", "", "", "", "", "", 500, 0, 500, 500, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "MIL, F", "", 200000, "", "", "", "", "", "", 500, 500, 500, 0, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "M, FIL", "", 200000, "", "", "", "", "", "", 500, 0, 500, 500, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "FIL, M", "", 200000, "", "", "", "", "", "", 500, 500, 500, 0, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "M, MIL", "", 200000, "", "", "", "", "", "", 500, 0, 500, 500, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "MIL, M", "", 200000, "", "", "", "", "", "", 500, 500, 500, 0, "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "FIL, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "F, M, FIL", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "F, FIL, M", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "M, F, FIL", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "M, FIL, F", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "FIL, F, M", "", 200000, "", "", "", "", "", "", "", "", 500, 0, 1000, 1000, "", "", "", "", "", "", "", "", "", ""], ["", "", "FIL, M, F", "", 200000, "", "", "", "", "", "", "", "", 500, 0, 1000, 1000, "", "", "", "", "", "", "", "", "", ""], ["", "", "F, M, MIL", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "F, MIL, M", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "M, F, MIL", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "M, MIL, F", "", 200000, "", "", "", "", "", "", "", "", 500, 500, 1000, 0, "", "", "", "", "", "", "", "", "", ""], ["", "", "MIL, F, M", "", 200000, "", "", "", "", "", "", "", "", 500, 0, 1000, 1000, "", "", "", "", "", "", "", "", "", ""], ["", "", "MIL, M, F", "", 200000, "", "", "", "", "", "", "", "", 500, 0, 1000, 1000, "", "", "", "", "", "", "", "", "", ""], ["", "", "F, FIL, MIL", "", 200000, "", "", "", "", "", "", 500, 0, "", "", "", "", 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "F, MIL, FIL", "", 200000, "", "", "", "", "", "", 500, 0, "", "", "", "", 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "FIL, F, MIL", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, MIL, F", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, F, FIL", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, FIL, F", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "M, FIL, MIL", "", 200000, "", "", "", "", "", "", 500, 0, "", "", "", "", 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, MIL, FIL", "", 200000, "", "", "", "", "", "", 500, 0, "", "", "", "", 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "FIL, M, MIL", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, MIL, M", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, M, FIL", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, FIL, M", "", 200000, "", "", "", "", "", "", 500, 500, "", "", "", "", 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "F, M, FIL, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "F, M, MIL, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "F, FIL, M, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "F, FIL, MIL, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "F, MIL, M, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "F, MIL, FIL, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, F, FIL, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, F, MIL, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, FIL, F, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, FIL, MIL, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, MIL, F, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "M, MIL, FIL, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 0, 1000, 1000, "", "", "", "", "", "", "", ""], ["", "", "FIL, F, M, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, F, MIL, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, M, F, MIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, M, MIL, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, MIL, F, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "FIL, MIL, M, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, F, M, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, F, FIL, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, M, F, FIL", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, M, FIL, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, FIL, F, M", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""], ["", "", "MIL, FIL, M, F", "", 200000, "", "", "", "", "", "", "", "", "", "", 1000, 1000, 1000, 0, "", "", "", "", "", "", "", ""]]}}};
 </script>
 <script id="rater-ui">
 (function () {
@@ -3687,35 +3979,53 @@ const BUILTIN_TEMPLATES = {
   function refreshRm() {
     var on = $("rm-enabled").checked; show("rm-panel", on);
     if (!on) return;
-    var t = selTypes();
+    var t = selTypes(), L = R.legacy, siForm = L.layoutOf("SI", t.si.id) === "form", premForm = L.layoutOf("PREM", t.pr.id) === "form" && t.pr.kind !== "noRule";
     $("rm-help").textContent = "Sum insured — " + (HELP[t.si.kind] || "") + "  Premium — " + (HELP[t.pr.kind] || "");
-    show("rm-noRuleOpts", t.pr.kind === "noRule"); show("rm-sheetSiOpts", t.si.kind === "sheet" || t.si.kind === "basePct" && false);
+    show("rm-noRuleOpts", t.pr.kind === "noRule"); show("rm-sheetSiOpts", t.si.kind === "sheet");
     show("rm-salaryOpts", ["salary", "salaryRelation", "pctSalary", "basePct"].indexOf(t.si.kind) >= 0);
     show("rm-premOpts", $("rm-calcPrem").checked && t.pr.kind !== "noRule");
+    show("rm-siForm", siForm); show("rm-premForm", premForm && $("rm-calcPrem").checked);
+    show("rm-siFormValues", [1, 24, 28].indexOf(t.si.id) >= 0); show("rm-siFormMult", [5, 28].indexOf(t.si.id) >= 0); show("rm-siFormPct", t.si.id === 29);
+    show("rm-siFormLimits", [5, 29].indexOf(t.si.id) >= 0); show("rm-siFormRound", [5, 29].indexOf(t.si.id) >= 0);
+    $("rm-siFile").disabled = siForm; $("rm-siSample").disabled = siForm && t.si.id === 16; $("rm-premFile").disabled = premForm || t.pr.kind === "noRule";
     $("rm-coverage").textContent = "Implemented as the legacy rater reads it, except: " + R.COVERAGE.approximated.join("; ") + ".";
-    var p = []; if (t.si.kind !== "sheet" && !rm.siRows) p.push("Choose a sum-insured definition sheet (or the built-in sample rates).");
-    if ($("rm-calcPrem").checked && t.pr.kind !== "noRule" && !rm.premRows && !rm.siRows) p.push("Choose a premium definition sheet (or the built-in sample rates).");
+    var p = [];
+    if (t.si.kind !== "sheet" && !siForm && !rm.siRows) p.push("Choose a sum-insured definition sheet (or the built-in sample rates).");
+    if ($("rm-calcPrem").checked && t.pr.kind !== "noRule" && !premForm && !rm.premRows && !rm.siRows) p.push("Choose a premium definition sheet (or the built-in sample rates).");
     $("rm-problems").textContent = p.join(" "); show("rm-problems", p.length > 0);
   }
-  function loadRows(kind, aoa, label) {
-    var res = R.parseTable(aoa), key = kind === "si" ? "siRows" : "premRows";
-    rm[key] = res.rows;
-    status(kind === "si" ? "rm-siStatus" : "rm-premStatus", label + ": " + res.rows.length + " rate rows, " + res.mapped + " columns recognised" + (res.unmapped.length ? "; ignored: " + res.unmapped.slice(0, 6).join(", ") + (res.unmapped.length > 6 ? "…" : "") : "") + ".", false);
+  function parseOpts() { return { tax: +$("rm-tax").value || 0, contributionByPercentage: $("rm-contribMode").value === "PERCENT" }; }
+  function loadAoa(kind, aoa, label) {
+    var t = selTypes(), id = kind === "si" ? t.si.id : t.pr.id, res = R.legacy.parse(kind === "si" ? "SI" : "PREM", id, aoa, parseOpts());
+    rm[kind === "si" ? "siRows" : "premRows"] = res.rows; rm[kind === "si" ? "siAoa" : "premAoa"] = aoa;
+    status(kind === "si" ? "rm-siStatus" : "rm-premStatus", label + ": " + res.rows.length + " rate rows" + (res.unmapped && res.unmapped.length ? "; columns not used by this rater: " + res.unmapped.slice(0, 6).join(", ") + (res.unmapped.length > 6 ? "…" : "") : "") + ".", false);
     refreshRm();
+  }
+  function formRows(side) {
+    var t = selTypes(), f = side === "SI" ? { values: $("rm-fValues").value, multiples: $("rm-fMult").value, percentage: $("rm-fPct").value, min: +$("rm-fMin").value || null, max: +$("rm-fMax").value || null, roundingType: $("rm-fRoundType").value, roundingUnit: $("rm-fRoundUnit").value }
+      : { pairs: $("rm-fPairs").value, tax: +$("rm-tax").value || 0 };
+    return R.legacy.fromForm(side, side === "SI" ? t.si.id : t.pr.id, f);
   }
   function wireRm() {
     fillSelects();
-    ["rm-enabled", "rm-si", "rm-prem", "rm-calcPrem"].forEach(function (id) { $(id).addEventListener("change", function () { if (id === "rm-si") { rm.siRows = null; status("rm-siStatus", ""); } if (id === "rm-prem") { rm.premRows = null; status("rm-premStatus", ""); } refreshRm(); }); });
+    ["rm-enabled", "rm-si", "rm-prem", "rm-calcPrem"].forEach(function (id) { $(id).addEventListener("change", function () { if (id === "rm-si") { rm.siRows = rm.siAoa = null; status("rm-siStatus", ""); } if (id === "rm-prem") { rm.premRows = rm.premAoa = null; status("rm-premStatus", ""); } refreshRm(); }); });
+    ["rm-tax", "rm-contribMode"].forEach(function (id) { $(id).addEventListener("change", function () { if (rm.siAoa) try { loadAoa("si", rm.siAoa, "Re-read"); } catch (e) { /* keep the old rows */ } if (rm.premAoa) try { loadAoa("prem", rm.premAoa, "Re-read"); } catch (e) { /* keep the old rows */ } }); });
     [["si", "rm-siFile"], ["prem", "rm-premFile"]].forEach(function (p) {
       $(p[1]).addEventListener("change", function () {
         var f = this.files[0]; if (!f) return;
-        readAoa(f).then(function (aoa) { loadRows(p[0], aoa, f.name); }).catch(function (e) { rm[p[0] === "si" ? "siRows" : "premRows"] = null; status(p[0] === "si" ? "rm-siStatus" : "rm-premStatus", e.message, true); refreshRm(); });
+        readAoa(f).then(function (aoa) { loadAoa(p[0], aoa, f.name); }).catch(function (e) { rm[p[0] === "si" ? "siRows" : "premRows"] = null; status(p[0] === "si" ? "rm-siStatus" : "rm-premStatus", e.message, true); refreshRm(); });
       });
     });
-    $("rm-siSample").addEventListener("click", function () { var t = selTypes(); var rows = R.sampleSi(t.si.id); if (!rows.length) { status("rm-siStatus", "This subtype needs no rate rows.", false); rm.siRows = []; } else loadRows("si", R.toAoa(rows), "Built-in sample"); });
-    $("rm-premSample").addEventListener("click", function () { var t = selTypes(); var rows = R.samplePremium(t.pr.id, t.si.id); if (!rows.length) { status("rm-premStatus", "This premium type needs no rate rows.", false); rm.premRows = []; } else loadRows("prem", R.toAoa(rows), "Built-in sample"); });
-    $("rm-siDownload").addEventListener("click", function () { var t = selTypes(); download("si-rates-" + t.si.id + ".csv", new Blob([csvOf(R.toAoa(R.sampleSi(t.si.id)))], { type: "text/csv" })); });
-    $("rm-premDownload").addEventListener("click", function () { var t = selTypes(); download("premium-rates-" + t.pr.id + ".csv", new Blob([csvOf(R.toAoa(R.samplePremium(t.pr.id, t.si.id)))], { type: "text/csv" })); });
+    $("rm-siSample").addEventListener("click", function () { var t = selTypes(); var rows = R.sampleSi(t.si.id); rm.siAoa = null; if (!rows.length) { status("rm-siStatus", "This subtype needs no rate rows.", false); rm.siRows = []; refreshRm(); } else { rm.siRows = rows; status("rm-siStatus", "Built-in sample: " + rows.length + " rate rows.", false); refreshRm(); } });
+    $("rm-premSample").addEventListener("click", function () { var t = selTypes(); var rows = R.samplePremium(t.pr.id, t.si.id); rm.premAoa = null; if (!rows.length) { status("rm-premStatus", "This premium type needs no rate rows.", false); rm.premRows = []; refreshRm(); } else { rm.premRows = rows; status("rm-premStatus", "Built-in sample: " + rows.length + " rate rows.", false); refreshRm(); } });
+    function legacySample(side, id, name) {
+      var s = R.LEGACY_SAMPLES[side][id];
+      if (!s) { status(side === "SI" ? "rm-siStatus" : "rm-premStatus", "The legacy app has no sample sheet for this one (it is a form).", false); return; }
+      download(s.file.replace(/\.xlsx$/, ".csv"), new Blob([csvOf(s.aoa)], { type: "text/csv" }));
+    }
+    $("rm-siDownload").addEventListener("click", function () { legacySample("SI", selTypes().si.id); });
+    $("rm-premDownload").addEventListener("click", function () { legacySample("PREM", selTypes().pr.id); });
+    ["rm-fValues", "rm-fMult", "rm-fPct", "rm-fMin", "rm-fMax", "rm-fRoundType", "rm-fRoundUnit", "rm-fPairs"].forEach(function (id) { $(id).addEventListener("change", refreshRm); });
     refreshRm();
   }
   function rnd() { return Math.random(); }
@@ -3723,29 +4033,108 @@ const BUILTIN_TEMPLATES = {
     /** called by the original generator for each run: null = use the simple raters unchanged */
     model: function () {
       if (!$("rm-enabled").checked) return null;
-      var t = selTypes();
-      var siRows = rm.siRows || [], premRows = rm.premRows && rm.premRows.length ? rm.premRows : siRows;
-      if (t.si.kind !== "sheet" && !siRows.length) throw new Error("Full rater model: choose a sum-insured definition sheet (or the built-in sample rates) in Section 3.");
+      var t = selTypes(), L = R.legacy, siForm = L.layoutOf("SI", t.si.id) === "form", premForm = L.layoutOf("PREM", t.pr.id) === "form" && t.pr.kind !== "noRule";
       var calc = $("rm-calcPrem").checked && t.pr.kind !== "noRule";
-      if (calc && !premRows.length) throw new Error("Full rater model: choose a premium definition sheet (or the built-in sample rates) in Section 3.");
-      var mdl = R.createModel({ siId: t.si.id, premiumId: t.pr.id, siRows: siRows, premRows: premRows, calcPremium: calc, contributionPct: +$("rm-contrib").value || 0,
+      var siRows = siForm ? formRows("SI") : (rm.siRows || []);
+      var premRows = premForm ? (calc ? formRows("PREM") : []) : (rm.premRows && rm.premRows.length ? rm.premRows : siRows);
+      if (t.si.kind !== "sheet" && !siRows.length) throw new Error("Full rater model: define the sum-insured rates in Section 3 (upload the sheet, use the built-in sample rates, or fill the form).");
+      if (calc && !premRows.length) throw new Error("Full rater model: define the premium rates in Section 3 (upload the sheet, use the built-in sample rates, or fill the form).");
+      var mdl = R.createModel({ siId: t.si.id, premiumId: t.pr.id, siRows: siRows, premRows: premRows, calcPremium: calc, contributionPct: +$("rm-contrib").value || 0, contributionMode: $("rm-contribMode").value, tax: +$("rm-tax").value || 0,
         noRule: { emp: +$("rm-nrEmp").value || 0, er: +$("rm-nrEr").value || 0 }, sheetSi: +$("rm-sheetSi").value || 500000, baseSi: +$("rm-baseSi").value || 500000,
         salary: { min: Math.min(+$("rm-salMin").value || 400000, +$("rm-salMax").value || 2000000), max: Math.max(+$("rm-salMin").value || 400000, +$("rm-salMax").value || 2000000) }, rnd: rnd });
       window.RaterUI.last = mdl; return mdl;
     }
   };
 
+
+  // ── what the legacy endorsement validator would say about the generated ADD sheet (rules of EndorsementAdditionValidation) ──────────────────
+  var ALLOWED_REL = ["Self", "Spouse", "Son", "Daughter", "Father", "Mother", "Father-in-law", "Mother-in-law"];
+  var NAME_RE = /^[a-zA-Z.  ]*$/, EMAIL_RE = /^[a-zA-Z0-9._%+\-']+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, CODE_RE = /^[a-zA-Z0-9 -_\/]*$/;
+  var MALE_ONLY = ["Son", "Father", "Father-in-law"], FEMALE_ONLY = ["Daughter", "Mother", "Mother-in-law"];
+  function toDate(v) {
+    if (v instanceof Date) return v; if (typeof v !== "string") return null;
+    var m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(v) || /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v); if (!m) return null; return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  }
+  window.LegacyCheck = {
+    /** rows = projected arrays; returns {checked, problems:[{row, rule, message}], total} */
+    run: function (headers, rows, limit) {
+      var plan = buildColumnPlan(headers), idx = {};
+      plan.forEach(function (c, i) { if (c.canonical && idx[c.canonical] === undefined) idx[c.canonical] = i; });
+      var problems = [], total = 0, today = new Date(); today = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      function add(row, rule, msg) { total++; if (problems.length < 25) problems.push({ row: row, rule: rule, message: msg }); }
+      function get(r, k) { var i = idx[k]; var v = i === undefined ? null : r[i]; return v === undefined || v === null ? "" : v; }
+      var n = Math.min(rows.length, limit || 20000), codes = {}, emails = {}, fam = null;
+      function close() {
+        if (!fam) return; var self = fam.rows[0];
+        if (!self || get(self.r, "relationship") !== "Self") add(fam.start, "SELF_MISSING", "family " + fam.code + " has no Self row first");
+        else {
+          var sDob = toDate(get(self.r, "employee_dob")), sp = fam.rows.filter(function (x) { return get(x.r, "relationship") === "Spouse"; })[0];
+          fam.rows.forEach(function (x) {
+            var rel = get(x.r, "relationship"), dob = toDate(get(x.r, rel === "Self" ? "employee_dob" : "insured_member_dob"));
+            if (rel === "Son" || rel === "Daughter") { if (dob && sDob && dob.getTime() <= sDob.getTime()) add(x.i, "CHILD_OLDER_THAN_EMPLOYEE", "child DOB must be after the employee's"); }
+            if ((rel === "Father" || rel === "Mother" || rel === "Father-in-law" || rel === "Mother-in-law") && dob && sDob && dob.getTime() >= sDob.getTime()) add(x.i, "PARENT_YOUNGER_THAN_EMPLOYEE", "parent DOB must be before the employee's");
+            if ((rel === "Self" || rel === "Spouse") && get(x.r, "date_of_marriage")) {
+              var dom = toDate(get(x.r, "date_of_marriage"));
+              if (!dom) return add(x.i, "DOM_FORMAT", "date of marriage is not a date");
+              if (dom.getTime() > today.getTime()) add(x.i, "DOM_FUTURE", "date of marriage is in the future");
+              var d18 = dob && new Date(Date.UTC(dob.getUTCFullYear() + 18, dob.getUTCMonth(), dob.getUTCDate()));
+              if (d18 && dom.getTime() < d18.getTime()) add(x.i, "DOM_UNDER_18", "DOB and DOM difference must be at least 18 years");
+              if (rel === "Spouse" && sp && get(self.r, "date_of_marriage") && toDate(get(self.r, "date_of_marriage")) && dom.getTime() !== toDate(get(self.r, "date_of_marriage")).getTime()) add(x.i, "DOM_MISMATCH", "spouse and employee dates of marriage differ");
+            }
+          });
+        }
+        fam = null;
+      }
+      for (var i = 0; i < n; i++) {
+        var r = rows[i], rel = String(get(r, "relationship")), self = rel === "Self", code = String(get(r, "employee_code"));
+        if (!fam || fam.code !== code) { close(); fam = { code: code, start: i + 1, rows: [] }; }
+        fam.rows.push({ r: r, i: i + 1 });
+        if (!code) add(i + 1, "EMPLOYEE_CODE", "employee code is blank"); else if (!CODE_RE.test(code)) add(i + 1, "EMPLOYEE_CODE", "employee code has characters the legacy regex rejects");
+        if (ALLOWED_REL.indexOf(rel) < 0) add(i + 1, "RELATION", "relationship '" + rel + "' is not a legacy relation name");
+        var fn = String(get(r, self ? "employee_first_name" : "insured_member_first_name")), ln = String(get(r, self ? "employee_last_name" : "insured_member_last_name"));
+        if (!fn) add(i + 1, "NAME_REQUIRED", "first name is required"); if (!NAME_RE.test(fn) || !NAME_RE.test(ln)) add(i + 1, "NAME_FORMAT", "names may only contain letters, spaces and dots");
+        var g = String(get(r, self ? "employee_gender" : "insured_member_gender"));
+        if (["Male", "male", "Female", "female", "Other", "other"].indexOf(g) < 0) add(i + 1, "GENDER", "gender must be Male, Female or Other (exact spelling)");
+        if (MALE_ONLY.indexOf(rel) >= 0 && /^female$/i.test(g) || FEMALE_ONLY.indexOf(rel) >= 0 && /^male$/i.test(g)) add(i + 1, "GENDER_RELATION", "gender does not fit the relationship");
+        var dob = toDate(get(r, self ? "employee_dob" : "insured_member_dob"));
+        if (!dob) add(i + 1, "DOB_REQUIRED", "date of birth is required"); else if (dob.getTime() > today.getTime()) add(i + 1, "DOB_FUTURE", "date of birth is in the future");
+        if (self) {
+          var doj = toDate(get(r, "employee_doj")); if (!doj) add(i + 1, "DOJ_REQUIRED", "date of joining is required for Self");
+          else if (dob) { if (doj.getTime() === dob.getTime()) add(i + 1, "DOJ_EQ_DOB", "employee DOB must differ from DOJ"); if (doj.getTime() < Date.UTC(dob.getUTCFullYear() + 18, dob.getUTCMonth(), dob.getUTCDate())) add(i + 1, "DOJ_UNDER_18", "date of joining is before the employee turned 18"); }
+          var em = String(get(r, "employee_email")); if (!em) add(i + 1, "EMAIL_REQUIRED", "email is required for Self"); else if (!EMAIL_RE.test(em) || /\s/.test(em)) add(i + 1, "EMAIL_FORMAT", "email is not valid"); else if (emails[em.toLowerCase()]) add(i + 1, "EMAIL_DUPLICATE", "email is used twice in the sheet"); else emails[em.toLowerCase()] = 1;
+          if (codes[code] && fam.rows.length === 1) add(i + 1, "EMPLOYEE_CODE_DUPLICATE", "employee code is used by two employees"); codes[code] = 1;
+          var mob = String(get(r, "employee_mobile")); if (mob && !/^\d{10}$/.test(mob)) add(i + 1, "MOBILE", "mobile must be exactly 10 digits");
+        }
+        var cover = String(get(r, "cover_type")); if (cover && ["Individual", "Family Cover"].indexOf(cover) < 0) add(i + 1, "COVER_TYPE", "cover type must be Individual or Family Cover");
+      }
+      if (n === rows.length || fam) close();
+      return { checked: n, problems: problems, total: total };
+    }
+  };
+  /** after a run of the original generator: legacy-rule check + the rater's own findings */
+  window.RaterUI.afterRun = function (headers, result) {
+    var host = $("resultsWrap"); if (!host) return;
+    var box = $("rm-runReport"); if (!box) { box = el("div", null, "note"); box.id = "rm-runReport"; host.insertBefore(box, host.firstChild); }
+    var lc = window.LegacyCheck.run(headers, result.rows, 20000), m = window.RaterUI.last, parts = [];
+    parts.push(lc.total ? "Legacy validation (first " + lc.checked.toLocaleString() + " rows): " + lc.total + " problem(s), e.g. " + lc.problems.slice(0, 4).map(function (p) { return "row " + p.row + " " + p.rule; }).join(", ") + "." : "Legacy validation (first " + lc.checked.toLocaleString() + " rows): no problems under the legacy addition rules.");
+    if ($("rm-enabled").checked && m) {
+      var s = m.stats, bad = s.siErrors + s.premiumErrors;
+      parts.push(bad ? "Rater: no rate row was found for " + bad + " of " + s.families + " families (" + Object.keys(s.errors).slice(0, 3).join("; ") + "). Check that the SI and premium sheets agree with each other." : "Rater: every family found its sum-insured" + ($("rm-calcPrem").checked ? " and premium" : "") + " row." + (s.droppedMembers ? " " + s.droppedMembers + " dependant(s) left out because no rate row or age band fits them." : ""));
+    }
+    box.textContent = parts.join(" "); box.className = "note" + (lc.total || ($("rm-enabled").checked && m && (m.stats.siErrors + m.stats.premiumErrors)) ? " warn" : ""); box.style.marginBottom = "12px";
+  };
+
   // ── UPDATE / REMOVE from an enrollment report (section 6b) ───────────────────────────────────────────────
   var ROLES = [
     ["code", "Employee code *", ["employeecode", "empcode", "employeeid", "empid", "code", "employeeno", "empno"]],
     ["relation", "Relationship *", ["relationshipwithemployee", "relationwithemployee", "relationship", "relation", "memberrelation"]],
-    ["endorsement", "Endorsement number", ["endrosementnumber", "endorsementnumber", "endorsementno", "endorsementid", "endrosementid", "memberid", "insuredid"]],
+    ["endorsement", "Endorsement number", ["endrosementnumber", "endorsementnumber", "endorsementno", "endorsementid", "endrosementid"]],
     ["emp_first", "Employee first name", ["employeefirstname", "empfirstname"]], ["emp_last", "Employee last name", ["employeelastname", "emplastname"]],
-    ["mem_first", "Member first name", ["insuredmemberfirstname", "memberfirstname", "dependentfirstname"]], ["mem_last", "Member last name", ["insuredmemberlastname", "memberlastname", "dependentlastname"]],
-    ["first", "First name (one block)", ["firstname", "name", "membername", "insuredname", "employeename"]], ["last", "Last name (one block)", ["lastname", "surname"]],
-    ["emp_dob", "Employee DOB", ["employeedob", "employeedateofbirth"]], ["mem_dob", "Member DOB", ["insuredmemberdob", "memberdob", "dependentdob"]], ["dob", "DOB (one block)", ["dob", "dateofbirth"]],
+    ["mem_first", "Member first name", ["insuredmemberfirstname", "memberfirstname", "dependentfirstname"]], ["mem_last", "Member last name", ["insuredmemberlastname", "memberlastname", "dependentlastname"]], ["tpa_id", "Member id (TPA)", ["memberidtpa", "tpamemberid", "memberidtpa", "memberid"]],
+    ["first", "First name (one block)", ["firstname", "name", "membername", "insuredname", "employeename", "fullname"]], ["last", "Last name (one block)", ["lastname", "surname"]],
+    ["emp_dob", "Employee DOB", ["employeedob", "employeedateofbirth", "employeedobddmmyyyy"]], ["mem_dob", "Member DOB", ["insuredmemberdob", "memberdob", "dependentdob", "memberdobddmmyyyy"]], ["dob", "DOB (one block)", ["dob", "dateofbirth"]],
     ["gender", "Gender", ["gender", "employeegender", "insuredmembergender", "membergender"]], ["email", "Email", ["employeeemail", "email", "emailid"]], ["mobile", "Mobile", ["employeemobilenumber", "mobilenumber", "mobile", "phone"]],
-    ["grade", "Grade", ["employeegrade", "grade"]], ["designation", "Designation", ["employeedesignation", "designation"]], ["since", "Cover start / joining date", ["effectivedate", "coverstartdate", "dateofjoining", "employeedateofjoining", "startdate"]]
+    ["grade", "Grade", ["employeegrade", "grade"]], ["designation", "Designation", ["employeedesignation", "designation"]], ["since", "Cover start / joining date", ["effectivedate", "coverstartdate", "coverstartdateendorsementdateddmmyyyy", "dateofjoining", "employeedateofjoining", "dojddmmyyyy", "startdate"]]
   ];
   var ch = { aoa: null, map: {}, members: null };
   function norm(h) { return String(h == null ? "" : h).toLowerCase().replace(/[^a-z0-9]/g, ""); }
@@ -3771,7 +4160,7 @@ const BUILTIN_TEMPLATES = {
     var ok = ch.aoa && ch.map.code !== undefined && ch.map.relation !== undefined;
     $("ch-go").disabled = !ok;
     var type = document.querySelector("input[name=ch-type]:checked").value;
-    show("ch-modeBox", type === "REMOVE"); show("ch-corrBox", type === "UPDATE"); show("ch-updBox", type === "UPDATE");
+    show("ch-modeBox", type === "REMOVE"); show("ch-updBox", type === "UPDATE");
     $("ch-countLabel").textContent = type === "REMOVE" ? "Families to touch" : "Members to update";
     if (ch.aoa) status("ch-status", (ch.aoa.length - 1) + " report rows" + (ok ? "." : " — pick the Employee code and Relationship columns below."), !ok);
   }
@@ -3789,29 +4178,33 @@ const BUILTIN_TEMPLATES = {
     $("ch-download").addEventListener("click", dlCh);
     refreshCh();
   }
-  var BUILTIN = {
-    REMOVE: [["employee_code", "Employee Code"], ["relationship", "Relationship with Employee"], ["endorsement_number", "Endorsement Number"], ["employee_first_name", "Employee First Name"], ["employee_last_name", "Employee Last Name"],
-      ["insured_member_first_name", "Insured Member First Name"], ["insured_member_last_name", "Insured Member Last Name"], ["insured_member_dob", "Insured Member DOB"], ["employee_leaving_date", "Employee Leaving Date"], ["effective_date", "Effective Date"]],
-    UPDATE: [["employee_code", "Employee Code"], ["relationship", "Relationship with Employee"], ["endorsement_number", "Endorsement Number"], ["type_of_correction", "Type of Correction"], ["employee_first_name", "Employee First Name"],
-      ["employee_last_name", "Employee Last Name"], ["employee_mobile", "Employee Mobile Number"], ["employee_email", "Employee Email"], ["employee_grade", "Employee Grade"], ["employee_designation", "Employee Designation"],
-      ["insured_member_first_name", "Insured Member First Name"], ["insured_member_last_name", "Insured Member Last Name"], ["effective_date", "Effective Date"]]
-  };
-  // the original generator's alias table learns the UPDATE / REMOVE fields
+  var LEGACY_LAYOUT = {"REMOVE": [["Employee Code", "employee_code"], ["Endrosement Number", "endrosement_number"], ["Employer Name", "employer_name"], ["Employee First Name", "employee_first_name"], ["Member Existing Claim", "member_existing_claim"], ["Employee Last Name", "employee_last_name"], ["Relationship with Employee", "relationship_with_employee"], ["Employee DOB", "employee_dob"], ["Employee Leaving Date", "employee_leaving_date"], ["Insured Member DOB", "insured_member_dob"], ["Insured Member First Name", "insured_member_first_name"], ["Tpa Member Id", "tpa_member_id"], ["Effective Date", "effective_date"], ["Has Death Certificate", "has_death_certificate"], ["Insurer Removal Id", "insurer_removal_id"], ["Insurer Removal Date", "insurer_removal_date"], ["Inception/Endorsement Date", "inceptionendorsement_date"], ["Batch ID", "batch_id"], ["Insurer Client Id", "insurer_client_id"], ["Reason of Removal", "reason_of_removal"], ["Others 1", "others_1"], ["Others 2", "others_2"], ["Others 3", "others_3"]], "UPDATE": [["Endrosement Number", "endrosement_number"], ["Type Of Correction", "type_of_correction"], ["Effective Date", "effective_date"], ["Is Password Reset", "is_password_reset"], ["Employee Code", "employee_code"], ["Existing Employee Code", "existing_employee_code"], ["Employee First Name", "employee_first_name"], ["Employee Last Name", "employee_last_name"], ["Employee Gender", "employee_gender"], ["Employee DOB", "employee_dob"], ["Existing Employee DOB", "existing_employee_dob"], ["Employee Date of Joining", "employee_date_of_joining"], ["Insurer Endorsement Id", "insurer_endorsement_id"], ["Insurer Endorsement Date", "insurer_endorsement_date"], ["Employee Email", "employee_email"], ["Insurer Removal Id", "insurer_removal_id"], ["Employee Alternate Email", "employee_alternate_email"], ["Employee Mobile Number", "employee_mobile_number"], ["Insurer Correction Id", "insurer_correction_id"], ["Mobile No Code", "mobile_no_code"], ["Employee Alternate Mobile Number", "employee_alternate_mobile_number"], ["Employee Designation", "employee_designation"], ["Insurer Correction Date", "insurer_correction_date"], ["Employee Grade", "employee_grade"], ["Insurer Removal Date", "insurer_removal_date"], ["Employee Annual Salary", "employee_annual_salary"], ["Employee Variables in Salary", "employee_variables_in_salary"], ["Employee Number of Time Salary", "employee_number_of_time_salary"], ["Employee Address", "employee_address"], ["Batch Id", "batch_id"], ["Employee State", "employee_state"], ["Employee City", "employee_city"], ["Employee Pin Code", "employee_pin_code"], ["Suminsured", "suminsured"], ["Employee Premium", "employee_premium"], ["Employer Premium", "employer_premium"], ["OPD Suminsured", "opd_suminsured"], ["OPD Employee Premium", "opd_employee_premium"], ["OPD Employer Premium", "opd_employer_premium"], ["Installment", "installment"], ["Relationship with Employee", "relationship_with_employee"], ["Date of Marriage", "date_of_marriage"], ["Employee Unit", "employee_unit"], ["Insured Member First Name", "insured_member_first_name"], ["Existing Insured Member First Name", "existing_insured_member_first_name"], ["Insured Member Last Name", "insured_member_last_name"], ["Insured Member Gender", "insured_member_gender"], ["Insured Member DOB", "insured_member_dob"], ["Insured Member Email", "insured_member_email"], ["Existing Insured Member DOB", "existing_insured_member_dob"], ["CTC", "ctc"], ["Location", "location"], ["Zone", "zone"], ["Employee No of Time Suminsured", "employee_no_of_time_suminsured"], ["Is Dummy Email", "is_dummy_email"], ["To Hide Email", "to_hide_email"], ["Is VIP Employee", "is_vip_employee"], ["Insured Member Mobile Number", "insured_member_mobile_number"], ["Is Dummy Mobile", "is_dummy_mobile"], ["To Hide Mobile", "to_hide_mobile"], ["Insured Member Address", "insured_member_address"], ["Insured Member City", "insured_member_city"], ["Insured Member State", "insured_member_state"], ["Insured Member Pin Code", "insured_member_pin_code"], ["Employee Annual Salary 2", "employee_annual_salary_2"], ["Employee Variables in Salary 2", "employee_variables_in_salary_2"], ["Employee Annual Salary 3", "employee_annual_salary_3"], ["Employee Variables in Salary 3", "employee_variables_in_salary_3"], ["Member Existing Claim", "member_existing_claim"], ["Default Password", "default_password"], ["Is Demo Email", "is_demo_email"], ["Demo Email Expiry Date", "demo_email_expiry_date"], ["Aadhar Number", "aadhar_number"], ["Nominee Name", "nominee_name"], ["Nominee DOB", "nominee_dob"], ["Appointee Name", "appointee_name"], ["Relationship With Insured", "relationship_with_insured"], ["Relation Of Appointee With Nominee", "relation_of_appointee_with_nominee"], ["Nominee Email", "nominee_email"], ["Nominee Mobile Number", "nominee_mobile_number"], ["ABHA ID", "abha_id"], ["Account Number", "account_number"]]};
+  var CORRECTION_TYPES = ["Insured member details correction", "SI Correction", "DOB Correction", "Employee Designation/Grade Correction", "Nominee Details Correction", "Appointee Details Correction"];
+  // the original generator's alias table learns the labels of the legacy REMOVE / UPDATE sheets; a label it already knows keeps its canonical key
+  var LABEL2FIELD = {};
   try {
-    var extra = { endorsement_number: ["endrosementnumber", "endorsementnumber", "endorsementno", "endorsementid"], employee_leaving_date: ["employeeleavingdate", "dateofleaving", "leavingdate", "removaldate"], type_of_correction: ["typeofcorrection", "correctiontype"] };
-    Object.keys(extra).forEach(function (k) { FIELD_ALIASES[k] = extra[k]; extra[k].forEach(function (a) { ALIAS_LOOKUP.set(a, k); }); });
+    ["REMOVE", "UPDATE"].forEach(function (k) { LEGACY_LAYOUT[k].forEach(function (c) {
+      var n = norm(c[0]); LABEL2FIELD[n] = c[1];
+      if (!ALIAS_LOOKUP.has(n)) { FIELD_ALIASES[c[1]] = (FIELD_ALIASES[c[1]] || []).concat(n); ALIAS_LOOKUP.set(n, c[1]); }
+    }); });
+    ALIAS_LOOKUP.set("endorsementnumber", ALIAS_LOOKUP.get("endrosementnumber") || "endrosement_number");
   } catch (e) { /* the page still works without the extra aliases */ }
   function fmtDate(d) { return String(d.getUTCDate()).padStart(2, "0") + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + d.getUTCFullYear(); }
   function newName(old) { var pool = ["Aarav", "Vivaan", "Arjun", "Rohan", "Priya", "Ananya", "Meera", "Shreya", "Neha", "Kavya"]; var n; do { n = pool[Math.floor(Math.random() * pool.length)]; } while (n === old); return n; }
+  function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function shiftDate(text, days) {
+    var m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(text); if (!m) return ""; var d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1] + days));
+    return fmtDate(d);
+  }
   async function layoutColumns(type) {
     if ($("ch-layout").value === "auto") {
       var tf = $("tmplFile") && $("tmplFile").files[0], chosenUpload = document.querySelector("input[name=tmplMode]:checked").value === "upload";
-      if (tf && chosenUpload) { var aoa = await readAoa(tf); if (aoa.length) return aoa[0].map(function (h) { return { header: String(h), canonical: ALIAS_LOOKUP.get(norm(h)) || null }; }); }
+      if (tf && chosenUpload) { var aoa = await readAoa(tf); if (aoa.length) return aoa[0].map(function (h) { var n = norm(h); return { header: String(h), field: LABEL2FIELD[n] || null, canonical: ALIAS_LOOKUP.get(n) || null }; }); }
     }
-    return BUILTIN[type].map(function (c) { return { header: c[1], canonical: c[0] }; });
+    return LEGACY_LAYOUT[type].map(function (c) { return { header: c[0], field: c[1], canonical: ALIAS_LOOKUP.get(norm(c[0])) || null }; });
   }
   async function runCh() {
-    var type = document.querySelector("input[name=ch-type]:checked").value, count = Math.max(1, +$("ch-count").value || 1), mode = $("ch-mode").value;
+    var type = document.querySelector("input[name=ch-type]:checked").value, count = Math.max(1, +$("ch-count").value || 1), mode = $("ch-mode").value, ident = $("ch-ident").value;
     var families = {}, order = [];
     ch.aoa.slice(1).forEach(function (row) {
       var code = cell(row, "code"), rel = cell(row, "relation"); if (!code || !rel) return;
@@ -3828,11 +4221,13 @@ const BUILTIN_TEMPLATES = {
     }
     function dobOf(row) { return legacyDate((isSelf(row) ? cell(row, "emp_dob") : cell(row, "mem_dob")) || cell(row, "dob")); }
     function legacyDate(t) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t); return m ? m[3] + "-" + m[2] + "-" + m[1] : t; }       // the legacy sheet uses dd-mm-yyyy
-    function base(row) {
-      var v = { employee_code: cell(row, "code"), relationship: cell(row, "relation"), endorsement_number: cell(row, "endorsement"), effective_date: date };
-      var self = isSelf(row);
-      v[self ? "employee_first_name" : "insured_member_first_name"] = nameOf(row, "first"); v[self ? "employee_last_name" : "insured_member_last_name"] = nameOf(row, "last");
-      if (!self) v.insured_member_dob = dobOf(row);
+    // legacy: a member is named either by Endrosement Number, or by employee code + relationship (+ dob / first name for look-alikes)
+    function base(row, update) {
+      var self = isSelf(row), hasNumber = !!cell(row, "endorsement"), useNumber = ident === "number" || (ident === "auto" && hasNumber);
+      if (useNumber && !hasNumber) throw new Error("The report has no Endorsement Number column (or it is empty): choose \"Employee code + relationship\".");
+      var v = { relationship_with_employee: cell(row, "relation") };
+      if (useNumber) v.endrosement_number = cell(row, "endorsement");
+      else { v[update ? "existing_employee_code" : "employee_code"] = cell(row, "code"); if (!self) { v[update ? "existing_insured_member_first_name" : "insured_member_first_name"] = nameOf(row, "first"); v[update ? "existing_insured_member_dob" : "insured_member_dob"] = dobOf(row); } }
       return v;
     }
     var out = [], taken = 0, warnings = [];
@@ -3841,33 +4236,46 @@ const BUILTIN_TEMPLATES = {
         var fam = families[order[f]], deps = fam.filter(function (r) { return !isSelf(r); });
         var whole = mode === "FAMILY" || (mode === "MIX" && (!deps.length || Math.random() < 0.5));
         if (!whole && !deps.length) continue;
-        (whole ? fam : [deps[Math.floor(Math.random() * deps.length)]]).forEach(function (row) { var v = base(row); v.employee_leaving_date = date; out.push(v); });
+        (whole ? fam : [deps[Math.floor(Math.random() * deps.length)]]).forEach(function (row) { var v = base(row, false); v.employee_leaving_date = date; out.push(v); });
         taken++;
       }
       if (taken < count) warnings.push("Only " + taken + " of " + count + " families could be used.");
     } else {
       var what = [].filter.call($("ch-whatChips").querySelectorAll("input"), function (x) { return x.checked; }).map(function (x) { return x.value; });
-      if (!what.length) throw new Error("Pick at least one thing to change.");
+      if (!what.length) throw new Error("Tick at least one type of correction.");
       var all = []; order.forEach(function (c) { families[c].forEach(function (r) { all.push(r); }); });
       for (var k = all.length - 1; k > 0; k--) { var q = Math.floor(Math.random() * (k + 1)), tt = all[k]; all[k] = all[q]; all[q] = tt; }
+      var skipped = {};
       for (var m = 0; m < all.length && taken < count; m++) {
-        var row = all[m], self = isSelf(row), v = base(row), kind = what[Math.floor(Math.random() * what.length)];
-        if (!self && kind !== "first_name") continue;           // mobile / email / grade / designation belong to the employee row
-        v.type_of_correction = $("ch-corr").value || "Correction";
-        if (kind === "first_name") v[self ? "employee_first_name" : "insured_member_first_name"] = newName(nameOf(row, "first"));
-        else if (kind === "mobile") v.employee_mobile = "9" + String(Math.floor(Math.random() * 1e9)).padStart(9, "0");
-        else if (kind === "email") v.employee_email = "updated." + String(cell(row, "code")).toLowerCase() + "@example.test";
-        else if (kind === "grade") v.employee_grade = cell(row, "grade") ? cell(row, "grade") + "-X" : "Grade A";
-        else if (kind === "designation") v.employee_designation = cell(row, "designation") ? cell(row, "designation") : "Manager";
+        var row = all[m], self = isSelf(row), v = base(row, true), kind = pickOne(what);
+        if (!self && (kind === "Employee Designation/Grade Correction" || kind === "Nominee Details Correction")) continue;     // these belong to the employee row
+        var firstKey = self ? "employee_first_name" : "insured_member_first_name", lastKey = self ? "employee_last_name" : "insured_member_last_name";
+        v.type_of_correction = kind;
+        if (kind === "Insured member details correction") {
+          var what2 = self ? pickOne(["first", "last", "mobile", "email"]) : pickOne(["first", "last"]);
+          if (what2 === "first") v[firstKey] = newName(nameOf(row, "first")); else if (what2 === "last") v[lastKey] = pickOne(["Kulkarni", "Deshmukh", "Iyer", "Naidu", "Banerjee"]);
+          else if (what2 === "mobile") v.employee_mobile_number = String(pickOne([7, 8, 9])) + String(Math.floor(Math.random() * 1e9)).padStart(9, "0");
+          else v.employee_email = "updated." + String(cell(row, "code")).toLowerCase().replace(/[^a-z0-9]/g, "") + "@example.test";
+        } else if (kind === "SI Correction") v.suminsured = String(+$("ch-newSi").value || 500000);
+        else if (kind === "DOB Correction") {
+          var d0 = dobOf(row); var nd = shiftDate(d0, pickOne([-20, -10, -5, 5, 10, 20])); if (!nd) { skipped.dob = 1; continue; }
+          v[self ? "employee_dob" : "insured_member_dob"] = nd;
+        } else if (kind === "Employee Designation/Grade Correction") {
+          var g = $("ch-newGrade").value.trim() || cell(row, "grade"); if (!g) { skipped.grade = 1; continue; } v.employee_grade = g;
+        } else if (kind === "Nominee Details Correction") {
+          v.nominee_name = newName("") + " " + pickOne(["Rao", "Shah", "Nair"]); v.nominee_dob = fmtDate(new Date(Date.UTC(1950 + Math.floor(Math.random() * 40), Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 28))));
+          v.relationship_with_insured = pickOne(["Spouse", "Father", "Mother"]); v.nominee_email = "nominee." + String(cell(row, "code")).toLowerCase().replace(/[^a-z0-9]/g, "") + "@example.test"; v.nominee_mobile_number = "9" + String(Math.floor(Math.random() * 1e9)).padStart(9, "0");
+        }
         out.push(v); taken++;
       }
-      if (taken < count) warnings.push("Only " + taken + " of " + count + " updates could be made.");
+      if (taken < count) warnings.push("Only " + taken + " of " + count + " updates could be made" + (skipped.dob ? " (some members have no readable date of birth in the report)" : "") + (skipped.grade ? " (give a grade / designation, the report has none)" : "") + ".");
     }
-    var cols = await layoutColumns(type), recognised = cols.filter(function (c) { return c.canonical; }).length;
-    ch.result = { type: type, headers: cols.map(function (c) { return c.header; }), rows: out.map(function (v) { return cols.map(function (c) { var x = c.canonical ? v[c.canonical] : ""; return x == null ? "" : x; }); }), warnings: warnings };
+    var cols = await layoutColumns(type), recognised = cols.filter(function (c) { return c.field || c.canonical; }).length;
+    function valueFor(v, c) { var x = c.field && v[c.field] !== undefined ? v[c.field] : (c.canonical ? v[c.canonical] : ""); return x == null ? "" : x; }
+    ch.result = { type: type, headers: cols.map(function (c) { return c.header; }), rows: out.map(function (v) { return cols.map(function (c) { return valueFor(v, c); }); }), warnings: warnings };
     $("ch-statRows").textContent = out.length; $("ch-statCols").textContent = cols.length;
     var note = $("ch-note"); note.hidden = false; note.className = warnings.length || recognised < 3 ? "note warn" : "note";
-    note.textContent = (warnings.join(" ") + " " + recognised + " of " + cols.length + " template columns are filled; the rest stay blank." + (type === "UPDATE" ? " Type of Correction values are yours: the legacy list is not known to this tool." : "")).trim();
+    note.textContent = (warnings.join(" ") + " Uses the legacy " + type + " sheet's own headers" + ($("ch-layout").value === "auto" && cols.length !== LEGACY_LAYOUT[type].length ? " (your Section 1 template)" : "") + "; columns that are not part of the change stay blank. Before upload the legacy app rejects any header it does not know, so leave the header row as it is.").trim();
     var tbl = $("ch-table"); tbl.textContent = "";
     var th = el("thead"), hr = el("tr"); ch.result.headers.forEach(function (h) { hr.appendChild(el("th", h)); }); th.appendChild(hr); tbl.appendChild(th);
     var tb = el("tbody"); ch.result.rows.slice(0, 100).forEach(function (r) { var tr = el("tr"); r.forEach(function (x) { tr.appendChild(el("td", x)); }); tb.appendChild(tr); }); tbl.appendChild(tb);
@@ -3900,17 +4308,19 @@ const BUILTIN_TEMPLATES = {
   };
   function maxDate(a, b) { return a.getTime() >= b.getTime() ? a : b; }
   window.applyRaterModel = function (rows, cfg, asOf, scen) {
-    var model = cfg.raterModel, bands = model.ageBands(), only = model.ageDims().employeeOnly;
+    var model = cfg.raterModel, only = model.ageDims().employeeOnly, anyBands = model.ageBands();
     var fam = rows.map(function (v) { return { values: v, rel: R.relKey(v.relationship), dob: v.employee_dob || v.insured_member_dob, gender: v.employee_gender || v.insured_member_gender }; });
-    if (bands) {
+    var empBand = scen && scen.employeeAgeBand ? [scen.employeeAgeBand] : null;
+    if (anyBands || empBand) {
       var survivors = [];
       fam.forEach(function (m, i) {
-        if (i > 0 && only) { survivors.push(m); return; }
-        var age = ageOf(m.dob, asOf);
-        if (inBands(age, bands)) { survivors.push(m); return; }
+        var bands = model.ageBands(m.rel);
+        if (i > 0 && (only || (empBand && !anyBands))) { survivors.push(m); return; }
+        var age = ageOf(m.dob, asOf), useBands = i === 0 && empBand ? empBand : bands;
+        if (!useBands || inBands(age, useBands)) { survivors.push(m); return; }
         var lim = LIMITS[m.rel] || [18, 70], lo = lim[0], hi = lim[1];
         if (i > 0 && (m.rel === "SON" || m.rel === "DAUGHTER" || m.rel === "KID")) hi = Math.min(hi, Math.max(0, ageOf(fam[0].dob, asOf) - 18));
-        var ok = []; for (var a = lo; a <= hi; a++) if (inBands(a, bands)) ok.push(a);
+        var ok = []; for (var a = lo; a <= hi; a++) if (inBands(a, useBands)) ok.push(a);
         if (!ok.length) { model.stats.droppedMembers++; if (i === 0) survivors.push(m); return; }     // no age fits: a dependant is left out; the employee stays and the error is counted
         var na = randIn(ok), nd = dobForAge(na, na, asOf);
         m.dob = nd; m.values[i === 0 ? "employee_dob" : "insured_member_dob"] = nd;
@@ -3922,7 +4332,7 @@ const BUILTIN_TEMPLATES = {
       });
       fam = survivors;
     }
-    var members = fam.map(function (m) { return m; });
+    var members = model.filterFamily(fam);
     model.apply(members, scen || {}, asOf, fam[0].gender);
     var rowsOut = members.map(function (m) { return m.values; });
     window.fixMarriageDate(rowsOut, asOf);

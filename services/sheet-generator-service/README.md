@@ -102,3 +102,10 @@ Tested end to end: sheets from the service and the HTML tool (all 34 SI/premium 
 * Ages are whole years as of the day of the run; effective dates in the future relative to a member's age are guarded (employee ≥ 18 on the effective date) but a very old policy period can still pair with old birth dates.
 * UPDATE rows carry the Effective Date as the change date; legacy UPDATE also needs an insurer endorsement number (not generated).
 * A spec fetched with a token is re-fetched on every call (no caching); fine for a testing tool.
+
+## Legacy sheet readers and real REMOVE/UPDATE layouts (standalone page)
+
+- Section 3 rater upload reads real legacy rate sheets (heading-row and NPRS matrix layouts, form-only types) via `RaterModel.legacy`; `LegacyCheck.run` validates generated ADD sheets against the legacy rules.
+- Section 6b builds REMOVE (23 col) / UPDATE (82 col, six `Type Of Correction` values) sheets in the legacy layout from an enrollment report. The engine ingests them with no missing mandatory fields and zero row errors; legacy-only columns are ignored.
+- Limits: GRAL (premium 31) sample is sparse so some families find no row (reported in UI); GDAC sequence groups unsupported; family-percentage (28) is approximated.
+- `static/index.html` is generated from separate source parts; edit those, not the output.
