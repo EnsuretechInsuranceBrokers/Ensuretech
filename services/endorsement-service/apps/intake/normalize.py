@@ -166,6 +166,8 @@ def normalize_row(raw: dict, *, source_key: str = "", options: dict | None = Non
 
     dob, err = normalize_date(raw.get("dob"), options.get("dob_format"), today)
     out["dob"] = keep("dob", dob, err)
+    dom, err = normalize_date(raw.get("date_of_marriage"), options.get("dob_format"), today)
+    out["date_of_marriage"] = keep("date_of_marriage", dom, err)
     eff, err = normalize_date(raw.get("effective_date"), options.get("date_format"), today)
     out["effective_date"] = keep("effective_date", eff, err) or default_effective_date
 

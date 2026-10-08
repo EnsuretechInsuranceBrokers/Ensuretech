@@ -248,4 +248,4 @@ def _policy_facts(p) -> dict:
     return {"policy_type": p.policy_type, "requires_family_construct": p.requires_family_construct,
             "start_date": p.start_date.isoformat(), "end_date": p.end_date.isoformat(),
             "pro_rata_type": p.pro_rata_type, "relation_prorata": p.relation_prorata, "contribution_type": p.contribution_type,
-            "contribution_groups": p.contribution_groups, "premium_rounding": p.premium_rounding, "rounding_unit": p.rounding_unit, "midterm_basis": p.midterm_basis, "is_inception": p.is_inception, "policy_number": p.policy_number}
+            "contribution_groups": p.contribution_groups, "premium_rounding": p.premium_rounding, "rounding_unit": p.rounding_unit, "midterm_basis": p.midterm_basis, "dependant_midterm": p.dependant_midterm, "is_inception": p.is_inception, "policy_number": p.policy_number}

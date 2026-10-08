@@ -279,4 +279,35 @@ class GrpcTest extends IntegrationTestBase {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/broker/policies/" + id + "/midterm")
                 .header("Authorization", admin(BROKER_B))).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound());
     }
+
+    @Test
+    void getPolicyCarriesTheDependantMidtermRules() throws Exception {
+        long id = livePolicy(BROKER_A, EMP_A, "P-DM");
+        assertThat(stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getDependantMidtermList()).isEmpty();
+        String url = "/api/v1/broker/policies/" + id + "/midterm-dependants";
+        var json = org.springframework.http.MediaType.APPLICATION_JSON;
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url).header("Authorization", admin(BROKER_A)).contentType(json)
+                .content("{\"rules\":{\"SPOUSE\":{\"allowed\":true,\"windowDays\":30,\"startBasis\":\"EVENT\"},\"KIDS\":{\"allowed\":false,\"startBasis\":\"UPLOAD\"}}}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        var rules = stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getDependantMidtermList();
+        assertThat(rules).hasSize(2);
+        var spouse = rules.stream().filter(r -> r.getMemberGroup().equals("SPOUSE")).findFirst().orElseThrow();
+        assertThat(spouse.getAllowed()).isTrue();
+        assertThat(spouse.hasWindowDays()).isTrue();
+        assertThat(spouse.getWindowDays()).isEqualTo(30);
+        assertThat(spouse.getStartBasis()).isEqualTo("EVENT");
+        var kids = rules.stream().filter(r -> r.getMemberGroup().equals("KIDS")).findFirst().orElseThrow();
+        assertThat(kids.getAllowed()).isFalse();
+        assertThat(kids.hasWindowDays()).isFalse();
+        for (String bad : new String[] {"{\"rules\":{\"CHILDREN\":{\"allowed\":true,\"startBasis\":\"UPLOAD\"}}}", "{\"rules\":{\"SPOUSE\":{\"allowed\":true,\"startBasis\":\"WHENEVER\"}}}",
+                "{\"rules\":{\"SPOUSE\":{\"allowed\":true,\"windowDays\":-1,\"startBasis\":\"EVENT\"}}}"}) {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url).header("Authorization", admin(BROKER_A)).contentType(json).content(bad))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is4xxClientError());
+        }
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url).header("Authorization", admin(BROKER_B)).contentType(json).content("{\"rules\":{}}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url).header("Authorization", admin(BROKER_A)).contentType(json).content("{\"rules\":{}}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        assertThat(stub(admin(BROKER_A)).getPolicy(PolicyRequest.newBuilder().setPolicyId(id).build()).getDependantMidtermList()).isEmpty();   // replaced, not merged
+    }
 }

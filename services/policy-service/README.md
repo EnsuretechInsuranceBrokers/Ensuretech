@@ -94,3 +94,9 @@ refunds slightly more). Default NONE (paise kept): legacy rounds for one portal 
 `PUT/GET /api/v1/broker/policies/{id}/midterm` `{"basis":"DATE_OF_JOINING|DATE_OF_UPLOAD|NO_MIDTERM"}` (legacy `EnrollmentMidtermType`; BROKER_ADMIN to write). Default DATE_OF_JOINING.
 The engine applies it: DATE_OF_UPLOAD starts a joiner's cover on the upload day (never before the policy start; inception-window policies are exempt);
 NO_MIDTERM rejects `MIDTERM_NOT_ALLOWED` any ADD whose cover start is after the policy start unless the policy is in its inception window. Carried in `PolicyInfo.midterm_basis`.
+
+## Mid-term dependant rules
+`PUT/GET /api/v1/broker/policies/{id}/midterm-dependants` `{"rules":{"SPOUSE":{"allowed":true,"windowDays":30,"startBasis":"EVENT"},"KIDS":{...},"PARTNER":{...}}}` (legacy
+`is_midterm_enrollement_allowed_for_*`, `default_midterm_enrollement_days_for_*`, `midterm_premium_calculation_from_for_*`). For a dependant added to an employee who is already covered:
+`allowed:false` rejects it; `startBasis` UPLOAD starts cover on the upload day, EVENT on the date of marriage (spouse, partner) or birth (kids); `windowDays` is how long after
+that date cover may be added without HR approval. `put` replaces the whole set; a group with no rule keeps the sheet's date. Carried in `PolicyInfo.dependant_midterm`.

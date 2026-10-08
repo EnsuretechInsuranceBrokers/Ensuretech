@@ -29,12 +29,13 @@ public class PolicyController {
     private final PolicyReadinessService readiness;
     private final RelationRuleService relationRules;
     private final ContributionService contributions;
+    private final DependantMidtermService dependantMidterm;
     private final SheetSpecService sheetSpecs;
     private final BigDecimal defaultTaxRate;
 
     PolicyController(PolicyService policies, RateCardService rateCards, FamilyConstructService families,
                      PremiumService premiums, PolicyReadinessService readiness,
-                     RelationRuleService relationRules, ContributionService contributions, SheetSpecService sheetSpecs,
+                     RelationRuleService relationRules, ContributionService contributions, DependantMidtermService dependantMidterm, SheetSpecService sheetSpecs,
                      @Value("${app.default-tax-rate:18.00}") BigDecimal defaultTaxRate) {
         this.policies = policies;
         this.rateCards = rateCards;
@@ -43,6 +44,7 @@ public class PolicyController {
         this.readiness = readiness;
         this.relationRules = relationRules;
         this.contributions = contributions;
+        this.dependantMidterm = dependantMidterm;
         this.sheetSpecs = sheetSpecs;
         this.defaultTaxRate = defaultTaxRate;
     }
@@ -173,6 +175,17 @@ public class PolicyController {
     @GetMapping("/{id}/midterm")
     MidtermDto getMidterm(@PathVariable long id) {
         return new MidtermDto(policies.get(broker(), id).getMidtermBasis());
+    }
+
+    @PutMapping("/{id}/midterm-dependants")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    DependantMidtermDto putDependantMidterm(@PathVariable long id, @RequestBody DependantMidtermDto r) {
+        return new DependantMidtermDto(dependantMidterm.put(broker(), id, r.rules()));
+    }
+
+    @GetMapping("/{id}/midterm-dependants")
+    DependantMidtermDto getDependantMidterm(@PathVariable long id) {
+        return new DependantMidtermDto(dependantMidterm.get(broker(), id));
     }
 
     @GetMapping("/{id}/rounding")

@@ -104,6 +104,8 @@ public final class Dtos {
     /** type NONE | FLOOR | CEIL | ROUND; unit is the multiple the charged amount is rounded to (1 = whole rupees). */
     public record RoundingDto(@NotBlank String type, Integer unit) {}
 
+    public record DependantMidtermDto(java.util.Map<String, com.broker.policy.domain.DependantMidtermRules.Rule> rules) {}
+
     public record MidtermDto(@NotBlank String basis) {}
 
     public record PutRelationRulesRequest(@NotNull List<@Valid RelationRuleDto> rules) {}

@@ -39,6 +39,11 @@ Blocked/failed states are recoverable (`CD_INSUFFICIENT`, `CD_PARTIAL_SUFFICIENT
 `ENDORSEMENT_FAILED`, `MANUAL_INTERVENTION_REQUIRED`) via `/retry/`; `CANCELLED_BY_HR` is allowed until execution is queued.
 Mid-term joiners follow the policy's `midterm_basis` (cover start = date of joining / upload day, or rejected `MIDTERM_NOT_ALLOWED`; CSV uploads only, GUI sessions carry an explicit date).
 
+Dependants added to an already-covered employee follow the policy's mid-term dependant rules (`apps/validation/midterm.py`): not allowed -> `MIDTERM_DEPENDANT_NOT_ALLOWED`;
+cover start = upload day or the date of marriage (spouse/partner, new `Date of Marriage` column) / birth (kids), never before the policy start, written back to the staged row;
+older than the window -> WARN `MIDTERM_APPROVAL_REQUIRED` (the HR-approval workflow itself does not exist yet). Pricing uses one cover start per family (the first row's), so a file that
+adds a spouse and a child together with different bases is priced from the first.
+
 The charged amount per family is rounded by the policy's rounding setting (`pro_rata.round_amount`; default none) before tax is computed; the employee/employer split is rounded the same way and still adds up to the charge.
 
 After `ENDORSED` the legacy lifecycle continues in the INTEGRATION phase, driven by integration-service through the SYSTEM-only

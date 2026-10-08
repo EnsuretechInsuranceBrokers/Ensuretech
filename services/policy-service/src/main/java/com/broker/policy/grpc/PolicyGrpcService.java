@@ -38,11 +38,13 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
     private final FamilyConstructService families;
     private final RelationRuleRepository relationRules;
     private final ContributionPlanRepository contributionPlans;
+    private final com.broker.policy.domain.DependantMidtermRulesRepository dependantMidterm;
     private final ObjectMapper mapper;
 
     PolicyGrpcService(PolicyService policies, PolicyReadinessService readiness, RateCardService rateCards,
                       PremiumService premiums, PremiumTypeRepository premiumTypes, FamilyConstructService families,
-                      RelationRuleRepository relationRules, ContributionPlanRepository contributionPlans, ObjectMapper mapper) {
+                      RelationRuleRepository relationRules, ContributionPlanRepository contributionPlans, com.broker.policy.domain.DependantMidtermRulesRepository dependantMidterm, ObjectMapper mapper) {
+        this.dependantMidterm = dependantMidterm;
         this.relationRules = relationRules;
         this.contributionPlans = contributionPlans;
         this.policies = policies;
@@ -186,6 +188,11 @@ public class PolicyGrpcService extends PolicyValidationGrpc.PolicyValidationImpl
                 info.setContributionType(c.getType().name());
                 c.getGroups().forEach((k, v) -> info.putContributionGroups(k, v.stripTrailingZeros().toPlainString()));
             }, () -> info.setContributionType("NONE"));
+            dependantMidterm.findByPolicyIdAndBrokerId(p.getId(), p.getBrokerId()).ifPresent(d -> d.getRules().forEach((g, r) -> {
+                DependantMidtermInfo.Builder b = DependantMidtermInfo.newBuilder().setMemberGroup(g).setAllowed(r.allowed()).setStartBasis(r.startBasis());
+                if (r.windowDays() != null) b.setWindowDays(r.windowDays());
+                info.addDependantMidterm(b);
+            }));
             return info.build();
         });
     }

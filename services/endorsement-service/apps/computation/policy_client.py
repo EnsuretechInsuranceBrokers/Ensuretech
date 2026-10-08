@@ -45,6 +45,7 @@ class PolicyInfo:
     premium_rounding: str = "NONE"                             # NONE | FLOOR | CEIL | ROUND (see pro_rata.round_amount)
     rounding_unit: int = 1
     midterm_basis: str = "DATE_OF_JOINING"                     # DATE_OF_JOINING | DATE_OF_UPLOAD | NO_MIDTERM
+    dependant_midterm: dict = field(default_factory=dict)      # SPOUSE | PARTNER | KIDS -> {allowed, window_days, start_basis}
 
 
 @dataclass(frozen=True)
@@ -138,7 +139,10 @@ class GrpcPolicyClient:
                           date.fromisoformat(r.start_date), date.fromisoformat(r.end_date), r.pro_rata_type,
                           r.is_inception, r.premium_type_code, r.requires_family_construct,
                           {x.relation_code: x.pro_rata_type for x in r.relation_rules},
-                          r.contribution_type or "NONE", dict(r.contribution_groups), r.premium_rounding or "NONE", r.rounding_unit or 1, r.midterm_basis or "DATE_OF_JOINING")
+                          r.contribution_type or "NONE", dict(r.contribution_groups), r.premium_rounding or "NONE", r.rounding_unit or 1,
+                          r.midterm_basis or "DATE_OF_JOINING",
+                          {d.member_group: {"allowed": d.allowed, "window_days": d.window_days if d.HasField("window_days") else None,
+                                            "start_basis": d.start_basis} for d in r.dependant_midterm})
 
     def validate_families(self, broker_id, policy_id, families):
         pb = self._pb

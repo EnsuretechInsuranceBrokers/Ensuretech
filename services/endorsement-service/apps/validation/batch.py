@@ -8,6 +8,7 @@ from datetime import date
 from apps.computation.policy_client import Person, PolicyClient
 from apps.jobs.models import EndorsementJob, EndorsementMember
 
+from .midterm import apply_rules as apply_midterm_rules
 from .rules import Issue, issues_vectorized, to_frame
 
 
@@ -34,12 +35,20 @@ def validate_rows(job: EndorsementJob, staged: list, policy_facts: dict, client:
     if not staged:
         return []
     op = job.op_type
+    # mid-term dependants get their cover start from the policy's rules BEFORE the row rules look at dates
+    midterm_issues, changed = apply_midterm_rules(job, staged, policy_facts, today)
+    if changed:
+        from apps.intake.models import StagedRow
+        StagedRow.objects.bulk_update(changed, ["normalised_payload"])
     payloads = [s.normalised_payload for s in staged]
     df = to_frame(payloads)
     found: list[tuple[int, Issue]] = [(i.row_index, i) for i in issues_vectorized(df, op, today)]
 
     def add(i: int, field, rule, msg, sev="ERROR", value=""):
         found.append((i, Issue(i, field, rule, sev, msg, str(value) if value is not None else "")))
+
+    for i, field, rule, sev, msg, value in midterm_issues:
+        add(i, field, rule, msg, sev, value)
 
     key = df["employee_code"].astype(str) + "|" + df["relation_code"].astype(str)
     has_key = df["employee_code"].notna() & df["relation_code"].notna()

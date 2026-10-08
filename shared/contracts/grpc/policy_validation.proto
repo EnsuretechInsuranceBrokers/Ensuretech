@@ -111,7 +111,16 @@ message PolicyInfo {
   map<string, string> contribution_groups = 15;
   string premium_rounding = 16;  // NONE, FLOOR, CEIL, ROUND: how the money charged for an endorsement is rounded
   int32 rounding_unit = 17;      // the multiple it is rounded to (1 = whole rupees); 1 when NONE
+  repeated DependantMidtermInfo dependant_midterm = 19;   // per member group; a group with no entry has no rule
   string midterm_basis = 18;     // DATE_OF_JOINING, DATE_OF_UPLOAD or NO_MIDTERM: how a mid-term joiner's cover start is decided
+}
+
+// Mid-term dependant rules (legacy is_midterm_enrollement_allowed_for_*, default_midterm_enrollement_days_for_*, midterm_premium_calculation_from_for_*).
+message DependantMidtermInfo {
+  string member_group = 1;       // SPOUSE, PARTNER, KIDS
+  bool allowed = 2;
+  optional int32 window_days = 3;
+  string start_basis = 4;        // UPLOAD or EVENT (date of marriage for spouse/partner, date of birth for kids)
 }
 
 // Per-relation rules (legacy policy_age_details). pro_rata_type is already resolved: NONE if the policy forbids pro-rata, else the
