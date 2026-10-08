@@ -2141,7 +2141,8 @@ const BUILTIN_TEMPLATES = {
       alert("Load a template first — upload your sheet or pick a built-in layout in Section 1.");
       return;
     }
-    const cfg = gatherConfig();
+    let cfg;
+    try { cfg = gatherConfig(); } catch (err) { alert(err.message); return; }   // a bad setting must tell the user, not fail silently
 
     // Rough volume heads-up (non-blocking).
     const estPerEmployee = cfg.includeFamily ? 2.3 : 1;
