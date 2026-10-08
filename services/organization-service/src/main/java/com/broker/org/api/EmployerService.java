@@ -43,6 +43,8 @@ public class EmployerService {
         e.setContactPhone(r.contactPhone());
         e.setHrmsType(r.hrmsType());
         e.setHidden(Boolean.TRUE.equals(r.hidden()));
+        if (r.parentEmployerId() != null) checkParent(brokerId, null, r.parentEmployerId());
+        e.setParentEmployerId(r.parentEmployerId());
         e = employers.saveAndFlush(e);
         emit("EmployerCreated", e);
         return e;
@@ -66,10 +68,50 @@ public class EmployerService {
         return e;
     }
 
+    /** Makes {@code id} a child of {@code parentId}. One level only; same broker; neither side may already be on the other end of a link. */
+    @Transactional
+    public Employer setParent(long brokerId, long id, long parentId) {
+        Employer e = get(brokerId, id);
+        checkParent(brokerId, e, parentId);
+        e.setParentEmployerId(parentId);
+        e = employers.saveAndFlush(e);
+        emit("EmployerUpdated", e);
+        return e;
+    }
+
+    @Transactional
+    public Employer clearParent(long brokerId, long id) {
+        Employer e = get(brokerId, id);
+        if (e.getParentEmployerId() == null) return e;
+        e.setParentEmployerId(null);
+        e = employers.saveAndFlush(e);
+        emit("EmployerUpdated", e);
+        return e;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Employer> children(long brokerId, long id) {
+        get(brokerId, id);
+        return employers.findByBrokerIdAndParentEmployerIdOrderById(brokerId, id);
+    }
+
+    private void checkParent(long brokerId, Employer child, long parentId) {
+        if (child != null && child.getId().equals(parentId)) throw new ConflictException("An employer cannot be its own parent");
+        Employer parent = get(brokerId, parentId);                                   // same broker, or 404
+        if (!parent.isActive()) throw new ConflictException("The parent employer is inactive");
+        if (parent.getParentEmployerId() != null) throw new ConflictException("The parent is itself a child company; only one level is supported");
+        if (child != null && employers.existsByBrokerIdAndParentEmployerId(brokerId, child.getId())) {
+            throw new ConflictException("This employer already has child companies; it cannot become a child");
+        }
+    }
+
     @Transactional
     public void deactivate(long brokerId, long id) {
         Employer e = get(brokerId, id);
         if (!e.isActive()) return;
+        if (employers.findByBrokerIdAndParentEmployerIdOrderById(brokerId, id).stream().anyMatch(Employer::isActive)) {
+            throw new ConflictException("Deactivate or detach the child companies first");
+        }
         e.setActive(false);
         emit("EmployerDeactivated", employers.saveAndFlush(e));
     }
@@ -113,6 +155,7 @@ public class EmployerService {
         p.put("employer_code", e.getEmployerCode());
         p.put("display_name", e.getDisplayName());
         p.put("is_active", e.isActive());
+        p.put("parent_employer_id", e.getParentEmployerId());
         outbox.publish("Employer", e.getId(), type, TOPIC, String.valueOf(e.getBrokerId()), p);
     }
 }

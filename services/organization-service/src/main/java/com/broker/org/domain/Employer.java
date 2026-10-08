@@ -18,6 +18,7 @@ public class Employer {
     @Column(name = "contact_email") private String contactEmail;
     @Column(name = "contact_phone") private String contactPhone;
     @Column(name = "hrms_type") private String hrmsType;
+    @Column(name = "parent_employer_id") private Long parentEmployerId;
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(name = "is_hidden", nullable = false) private boolean hidden = false;
     @Column(name = "is_test_data", nullable = false) private boolean testData = false;
@@ -55,6 +56,8 @@ public class Employer {
     public void setContactPhone(String v) { contactPhone = v; }
     public String getHrmsType() { return hrmsType; }
     public void setHrmsType(String v) { hrmsType = v; }
+    public Long getParentEmployerId() { return parentEmployerId; }
+    public void setParentEmployerId(Long v) { parentEmployerId = v; }
     public boolean isActive() { return active; }
     public void setActive(boolean v) { active = v; }
     public boolean isHidden() { return hidden; }

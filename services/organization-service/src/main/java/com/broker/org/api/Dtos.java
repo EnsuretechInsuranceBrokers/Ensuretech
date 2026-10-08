@@ -22,7 +22,8 @@ public final class Dtos {
             @Email String contactEmail,
             @Size(max = 20) String contactPhone,
             @Size(max = 40) String hrmsType,
-            Boolean hidden) {}
+            Boolean hidden,
+            Long parentEmployerId) {}
 
     /** PATCH semantics: null = leave unchanged. employerCode and brokerId are immutable. */
     public record UpdateEmployerRequest(
@@ -40,13 +41,15 @@ public final class Dtos {
     public record EmployerResponse(Long id, Long brokerId, String employerCode, String legalName,
                                    String displayName, String gstin, String pan, String sector,
                                    Integer employeeCount, String contactEmail, String contactPhone,
-                                   String hrmsType, boolean active, boolean hidden) {
+                                   String hrmsType, boolean active, boolean hidden, Long parentEmployerId) {
         public static EmployerResponse of(Employer e) {
             return new EmployerResponse(e.getId(), e.getBrokerId(), e.getEmployerCode(), e.getLegalName(),
                     e.getDisplayName(), e.getGstin(), e.getPan(), e.getSector(), e.getEmployeeCount(),
-                    e.getContactEmail(), e.getContactPhone(), e.getHrmsType(), e.isActive(), e.isHidden());
+                    e.getContactEmail(), e.getContactPhone(), e.getHrmsType(), e.isActive(), e.isHidden(), e.getParentEmployerId());
         }
     }
+
+    public record SetParentRequest(@jakarta.validation.constraints.NotNull Long parentEmployerId) {}
 
     public record CreateBrokerRequest(
             @NotBlank @Size(max = 40) String code,

@@ -58,6 +58,23 @@ public class EmployerController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/children")
+    List<EmployerResponse> children(@PathVariable long id) {
+        return service.children(TenantContextHolder.requireBrokerId(), id).stream().map(EmployerResponse::of).toList();
+    }
+
+    @PutMapping("/{id}/parent")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    EmployerResponse setParent(@PathVariable long id, @Valid @RequestBody SetParentRequest r) {
+        return EmployerResponse.of(service.setParent(TenantContextHolder.requireBrokerId(), id, r.parentEmployerId()));
+    }
+
+    @DeleteMapping("/{id}/parent")
+    @PreAuthorize("hasRole('BROKER_ADMIN')")
+    EmployerResponse clearParent(@PathVariable long id) {
+        return EmployerResponse.of(service.clearParent(TenantContextHolder.requireBrokerId(), id));
+    }
+
     @GetMapping("/{id}/configs")
     List<ConfigResponse> configs(@PathVariable long id) {
         return service.listConfigs(TenantContextHolder.requireBrokerId(), id);

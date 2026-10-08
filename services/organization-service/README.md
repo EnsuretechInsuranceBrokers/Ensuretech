@@ -18,6 +18,8 @@ Spring Boot 4.1 / Java 21. Owns brokers, employers, branches, per-employer confi
 | `GET/PUT /api/v1/broker/employers/{id}/configs[/{key}]` | write: BROKER_ADMIN |
 | `GET/POST /api/v1/broker/branches` | write: BROKER_ADMIN |
 | `GET /api/v1/employer/employer` | employer roles (their own employer only) |
+| `PUT/DELETE /api/v1/broker/employers/{id}/parent`, `GET .../{id}/children` | parent/child companies (legacy `employer_child_companies`); write: BROKER_ADMIN |
+| `GET /api/v1/employer/employer/children` | a parent company's HR sees its child companies |
 | `POST/GET /api/v1/admin/brokers` | SYSTEM |
 
 ## Outbox
@@ -32,3 +34,9 @@ export DATABASE_URL=jdbc:postgresql://localhost:5432/ensuretech
 mvn spring-boot:run
 mvn test      # integration tests run against the real database in DATABASE_URL (they TRUNCATE organization.*)
 ```
+
+## Parent / child employers
+`employers.parent_employer_id`: one level only, same broker, no cycles; a parent cannot become a child (and vice versa), the parent must be active, and a parent
+with active children cannot be deactivated. `EmployerCreated/Updated` events carry `parent_employer_id`. What legacy *does* with the link (employee
+look-up across the group in the add pipeline, applying nominee/config to child policies) is switched by the `PARENT_CHILD_LOGIC` employer config in
+legacy and is **not** implemented in the engine yet; this service only models the hierarchy.

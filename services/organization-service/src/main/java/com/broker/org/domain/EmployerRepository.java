@@ -10,5 +10,7 @@ public interface EmployerRepository extends JpaRepository<Employer, Long> {
     Optional<Employer> findByIdAndBrokerId(Long id, Long brokerId);
     Page<Employer> findByBrokerIdAndTestDataFalse(Long brokerId, Pageable p);
     Page<Employer> findByBrokerIdAndHiddenFalseAndTestDataFalse(Long brokerId, Pageable p);
+    java.util.List<Employer> findByBrokerIdAndParentEmployerIdOrderById(Long brokerId, Long parentEmployerId);
+    boolean existsByBrokerIdAndParentEmployerId(Long brokerId, Long parentEmployerId);
     boolean existsByBrokerIdAndEmployerCode(Long brokerId, String employerCode);
 }
