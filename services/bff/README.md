@@ -1,58 +1,40 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# bff (the orchestrator)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 13 / PHP 8.3. The public front door of the platform, as described in the root README ("BFF as the Public Contract Boundary"). It **owns the public API
+contract and holds no business logic and no database**: every authorisation decision, calculation and piece of state stays in the services behind it.
 
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+client --JWT--> BFF --(same JWT, X-Correlation-Id)--> identity / organization / policy / endorsement / billing / integration / read
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## What it does
+| | |
+|---|---|
+| **Contract, not a proxy** | `config/contract.php` is the only list of public endpoints and fields. Routes are generated from it; there is no catch-all. A service can add a field or an endpoint tomorrow and nothing leaks until the contract says so. An endpoint with no response schema refuses to boot. |
+| **Normalisation** | One public vocabulary: snake_case, pages are `{items, total, page (1-based), page_size}` whatever the backend dialect (Spring 0-based `content/size` vs Django `results/page_size`), jobs use `status`, internal ids (`broker_id`, `status_code`, `correlation_id`...) never appear. |
+| **Authentication** | Verifies identity-service's RS256 access tokens (algorithm pinned, issuer, expiry, `token_type=access`); forwards the same token so every service verifies it again. Callers stay on their own gateway (`/broker` vs `/employer`); SYSTEM and TPA tokens are refused. |
+| **Sanitised input** | Query parameters and JSON body keys are allowlisted per endpoint (scalars only); path parameters are regex-constrained (`../` cannot get through); only `Authorization`, `Accept-Language` and declared headers (e.g. `Idempotency-Key`) travel on. Uploads are streamed through with a size cap. |
+| **Sanitised output** | Upstream errors are mapped to one RFC 7807 shape with a correlation id; 5xx become a generic 502, timeouts a 504; hosts, stack traces and raw bodies are never shown. A service answer that does not match the contract is a 502, not a leak. Redirects are not followed. |
+| **Composition** | `GET /api/v1/{broker,employer}/policies/{id}/overview` fetches the policy, deposit account, recent endorsements and (brokers) TPA syncs in parallel. The policy is required; other parts degrade independently and are listed under `degraded`. |
+| **Progress stream** | `GET .../endorsements/{id}/progress` re-emits the engine's Server-Sent Events event by event through the same allowlist. |
+| **Mitigations** | `storage/bff/mitigations.json` (see the example): id, endpoint, reason, owner, introduced, **expires**, removal condition and the permanent fix are all mandatory; an incomplete entry is refused, an expired one stops applying by itself. Only `rename`, `map`, `drop` and `default` exist: no arithmetic, because recalculating a premium here would be business logic. Applied ids come back in `X-Mitigations`. |
+| **Limits** | Per-IP before authentication, then per tenant and per user, plus a stricter bucket for uploads (`bff.limit`, not Laravel's `throttle`, which the framework sorts *before* authentication and would key everything by IP). |
+| **Honeypots** | Bait paths (`/api/v1/admin/export`, `/debug/config`, ...) answer like any unknown path and write a critical entry to the `security` log channel (the silent alert). |
+| **Ops** | `GET /api/v1/ops/mitigations`, `/ops/upstreams` for roles listed in `BFF_OPS_ROLES`. identity-service does not issue such a role yet, so the endpoints are closed until it does. |
 
-## Contributing
+## Run / test
+```bash
+composer install && cp .env.example .env && php artisan key:generate
+php artisan serve --port 8090
+php artisan test            # 43 tests, no database or network: upstreams are faked
+```
+Needs the identity public key (`BFF_JWT_PUBLIC_KEY_PATH` or `BFF_JWT_PUBLIC_KEY`) and the `UPSTREAM_*` URLs (defaults match each service's default port; read-service on 8087 is a guess).
+Use the `redis` cache store when more than one instance runs, so rate-limit counters are shared.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Not done / assumptions (read before relying on it)
+- **Never run against the real services.** Contract shapes were taken from reading each service's code (`PolicyResponse`, `AccountResponse`, `job_to_dict`, the read-service listing...); the tests use fakes. Spring `Page` JSON is assumed to have `content/totalElements/number/size` at the top level. Run it once against the running stack before trusting a field.
+- **No mTLS.** The README requires service-to-service mTLS; that belongs to the deployment (reverse proxy / mesh) and is not configured here.
+- **Payment Service bypass** is documented in the root README and intentionally has no route here.
+- Contract covers the endpoints a broker or HR screen needs now (employers, policies, deposits, endorsements and their progress, dashboards, sync jobs). Not yet: identity (login/refresh/users), policy configuration writes, rate cards, sheet generation, RAG `ask`, row-level error reports (`/errors/` - its shape is not in the contract yet), reports downloads.
+- No GraphQL or WebSocket (the README mentions them for clients). CORS is closed by default: set `BFF_CORS_ORIGINS` to the portal origin(s).
+- Anomaly detection beyond honeypots and rate limits is not built.

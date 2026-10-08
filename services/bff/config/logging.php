@@ -52,6 +52,9 @@ return [
 
     'channels' => [
 
+        // Silent alerts (honeypots, refused tokens worth a look). Ship this file to the SIEM; nothing here is ever shown to a caller.
+        'security' => ['driver' => 'daily', 'path' => storage_path('logs/security.log'), 'level' => 'debug', 'days' => 90],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
