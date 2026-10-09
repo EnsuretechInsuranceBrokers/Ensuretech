@@ -6,7 +6,7 @@ endorsement engine (uvicorn, Celery eager), integration, read-service (+ project
 ## Order and settings that matter
 | Piece | Setting |
 |---|---|
-| Shared secret | One random value in `BFF_GATEWAY_SECRET` (BFF) and `GATEWAY_SECRET` (every core service). Services refuse `/api/v1/broker|employer/**` (identity: login/refresh/logout/me/change-password/users) without it plus a matching `X-Session-Key` = HMAC-SHA256(secret, `X-Session-Id`). Blank = check off (dev/tests); each service logs a warning. |
+| Shared secret | One random value (32+ characters) in `BFF_GATEWAY_SECRET` (BFF) and `GATEWAY_SECRET` (every core service). The BFF signs every call; the services refuse anything unsigned (or without a SYSTEM token). Missing secret = the service will not start. See `docs/core-lockdown.md`. |
 | Java services | `KAFKA_BOOTSTRAP_SERVERS`, `JWT_PUBLIC_KEY_LOCATION=file:…/identity-service/keys/jwt-public.pem`, `REDIS_*` (policy), `GRPC_PORT` 9090 (policy) / 9091 (billing) |
 | Engine | `uvicorn config.asgi:application` (SSE needs ASGI), `CELERY_TASK_ALWAYS_EAGER=true` when there is no RabbitMQ, `IDENTITY_TOKEN_URL` + a service account (`manage.py service_account create engine`) so it can call policy/billing over gRPC |
 | Engine outbox | Normally a Celery beat task (`apps.core.tasks.relay_outbox`). Without a broker, call it in a loop. Nothing reaches Kafka (and so read-service) otherwise. |

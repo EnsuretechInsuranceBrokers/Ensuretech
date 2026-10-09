@@ -35,6 +35,13 @@ spring:
       auto-offset-reset: earliest
 
 server:
+  address: ${BIND_ADDRESS:127.0.0.1}   # listen on the private interface only; never 0.0.0.0 on a public network
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 2MB
+    connection-timeout: 10s
+    threads:
+      max: ${TOMCAT_MAX_THREADS:100}
   port: ${PORT:8082}
 
 management:
@@ -61,4 +68,5 @@ app:
       max-retries: 5
 
 gateway:
-  secret: ${GATEWAY_SECRET:}     # shared with the BFF; blank = the check is off (local development)
+  secret: ${GATEWAY_SECRET:}                 # shared with the BFF (BFF_GATEWAY_SECRET), at least 32 random characters. The service refuses to start without it.
+  allow-unguarded: ${GATEWAY_ALLOW_UNGUARDED:false}   # true = answer anyone who can reach the port. Local development only.

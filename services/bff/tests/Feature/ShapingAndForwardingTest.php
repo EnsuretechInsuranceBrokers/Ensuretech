@@ -26,15 +26,15 @@ class ShapingAndForwardingTest extends TestCase
         $this->assertNull($body['renewal_date']);
     }
 
-    public function test_every_upstream_call_carries_the_gateway_secret_and_a_session_key_derived_from_it(): void
+    public function test_every_upstream_call_is_signed_for_its_own_method_path_query_and_token_and_never_carries_the_secret(): void
     {
         $this->fake(['policy.test/*' => Http::response(self::POLICY)]);
         $this->as()->getJson('/api/v1/broker/policies/123')->assertOk();
         Http::assertSent(function (Request $r) {
-            $sid = $r->header('X-Session-Id')[0] ?? '';
+            $u = parse_url($r->url());
 
-            return ($r->header('X-Gateway-Secret')[0] ?? '') === 'test-gateway-secret' && $sid !== ''
-                && hash_equals(hash_hmac('sha256', $sid, 'test-gateway-secret'), $r->header('X-Session-Key')[0] ?? '');
+            return ! $r->hasHeader('X-Gateway-Secret') && ($r->header('X-Gateway-Signature')[0] ?? '') === \App\Bff\GatewaySeal::signature('test-gateway-secret', $r->header('X-Gateway-Timestamp')[0] ?? '',
+                $r->header('X-Gateway-Nonce')[0] ?? '', $r->method(), $u['path'] ?? '/', $u['query'] ?? '', $r->header('Authorization')[0] ?? '') && abs(time() - (int) ($r->header('X-Gateway-Timestamp')[0] ?? 0)) < 5;
         });
     }
 

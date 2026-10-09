@@ -38,14 +38,14 @@ class PortalTest extends TestCase
         $this->assertNotNull($this->app['session.store']->get('portal.access'));
     }
 
-    public function test_every_call_to_a_core_service_carries_the_secret_and_the_session_key(): void
+    public function test_every_call_to_a_core_service_is_signed(): void
     {
         $this->signedIn()->get('/app')->assertOk();
         Http::assertSent(function (Request $r) {
-            $sid = $r->header('X-Session-Id')[0] ?? '';
+            $u = parse_url($r->url());
 
-            return str_contains($r->url(), 'read.test') && ($r->header('X-Gateway-Secret')[0] ?? '') === 'test-gateway-secret'
-                && hash_equals(hash_hmac('sha256', $sid, 'test-gateway-secret'), $r->header('X-Session-Key')[0] ?? '');
+            return str_contains($r->url(), 'read.test') && ! $r->hasHeader('X-Gateway-Secret') && ($r->header('X-Gateway-Signature')[0] ?? '') === \App\Bff\GatewaySeal::signature('test-gateway-secret', $r->header('X-Gateway-Timestamp')[0] ?? '',
+                $r->header('X-Gateway-Nonce')[0] ?? '', $r->method(), $u['path'] ?? '/', $u['query'] ?? '', $r->header('Authorization')[0] ?? '') && abs(time() - (int) ($r->header('X-Gateway-Timestamp')[0] ?? 0)) < 5;
         });
     }
 

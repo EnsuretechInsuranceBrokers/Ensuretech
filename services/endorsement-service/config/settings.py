@@ -124,4 +124,7 @@ CELERY_BEAT_SCHEDULE["expire-gui-sessions"] = {"task": "apps.intake.tasks.expire
 REMOVAL_INCLUDES_LEAVING_DAY = env.bool("REMOVAL_INCLUDES_LEAVING_DAY", default=True)        # False reproduces the TATA AIG same-day-removal variant
 REMOVAL_REFUND_WHEN_PRORATA_DISABLED = env("REMOVAL_REFUND_WHEN_PRORATA_DISABLED", default="DAILY")   # DAILY (legacy) | FULL | NONE
 
-GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF; blank = the check is off (local development)
+GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF (BFF_GATEWAY_SECRET), 32+ random characters; the service refuses to start without it
+import sys as _sys
+GATEWAY_ALLOW_UNGUARDED = env.bool("GATEWAY_ALLOW_UNGUARDED", default="pytest" in _sys.modules)   # true = answer anyone who can reach the port: local development, and the test run
+GATEWAY_OPEN_CIDRS = env("GATEWAY_OPEN_CIDRS", default="")   # optional: networks allowed to reach the open doors (identity: service-token sign-in)

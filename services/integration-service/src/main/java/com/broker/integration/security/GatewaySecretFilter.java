@@ -5,65 +5,62 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Only the BFF may call the browser-facing API. It sends the shared secret (GATEWAY_SECRET) and a session key, HMAC-SHA256(secret, session id); anything
- * else is refused before authentication even looks at the user's token. Service-to-service calls use other paths and are not affected.
- * Blank secret = check off (local development and tests); the service says so at startup.
+ * Nothing reaches this service except through the BFF. Every request (health probes aside) must carry a valid {@link GatewaySeal} signature,
+ * or a verified SYSTEM token: a super-credential holder (a service account whose secret is stored hashed in identity-service) who signs in
+ * for a token. A request with neither is refused before authentication, parsing or any database work, so curl, Postman and port scans get an empty 403.
+ *
+ * Fail closed: without GATEWAY_SECRET the service refuses to start, unless gateway.allow-unguarded=true (local development and tests only).
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class GatewaySecretFilter extends OncePerRequestFilter {
+    private final GatewaySeal seal;
+    private final JwtDecoder decoder;
 
-    private final byte[] secret;
-
-    public GatewaySecretFilter(@Value("${gateway.secret:}") String secret) {
-        this.secret = secret.isBlank() ? null : secret.getBytes(StandardCharsets.UTF_8);
-        if (this.secret == null) {
-            logger.warn("GATEWAY_SECRET is not set: calls that bypass the BFF are NOT refused. Set it outside local development.");
-        }
+    public GatewaySecretFilter(@Value("${gateway.secret:}") String secret, @Value("${gateway.allow-unguarded:false}") boolean allowUnguarded, JwtDecoder decoder) {
+        this.decoder = decoder;
+        boolean blank = secret.isBlank();
+        if (!blank && secret.length() < 32 && !allowUnguarded) throw new IllegalStateException("GATEWAY_SECRET is shorter than 32 characters. Use a long random value (openssl rand -hex 32).");
+        if (blank && !allowUnguarded) throw new IllegalStateException("GATEWAY_SECRET is not set, so this service would answer anyone who can reach it. Set it (the same value as the BFF's BFF_GATEWAY_SECRET); "
+                + "gateway.allow-unguarded=true is for local development only.");
+        this.seal = blank ? null : new GatewaySeal(secret);
+        if (blank) logger.warn("GATEWAY_SECRET is not set and gateway.allow-unguarded=true: requests that bypass the BFF are NOT refused. Local development only.");
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String p = request.getRequestURI();
-        return secret == null || !(p.startsWith("/api/v1/broker/") || p.startsWith("/api/v1/employer/") || p.startsWith("/api/v1/tpa/"));
+        return seal == null || request.getRequestURI().startsWith("/actuator/health");
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
-        String given = req.getHeader("X-Gateway-Secret");
-        String sid = req.getHeader("X-Session-Id");
-        String key = req.getHeader("X-Session-Key");
-        if (given == null || sid == null || key == null || !same(given.getBytes(StandardCharsets.UTF_8), secret) || !same(hmac(sid).getBytes(StandardCharsets.UTF_8), key.getBytes(StandardCharsets.UTF_8))) {
-            res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        String auth = req.getHeader("Authorization");
+        if (seal.verify(req.getHeader("X-Gateway-Timestamp"), req.getHeader("X-Gateway-Nonce"), req.getHeader("X-Gateway-Signature"), req.getMethod(), req.getRequestURI(),
+                req.getQueryString(), auth, System.currentTimeMillis() / 1000) || isSystemToken(auth)) {
+            chain.doFilter(req, res);
             return;
         }
-        chain.doFilter(req, res);
+        logger.info("refused a request that did not come through the BFF: " + req.getMethod() + " " + req.getRequestURI() + " from " + req.getRemoteAddr());
+        res.setStatus(HttpServletResponse.SC_FORBIDDEN);
     }
 
-    private static boolean same(byte[] a, byte[] b) {
-        return MessageDigest.isEqual(a, b);
-    }
-
-    private String hmac(String sid) {
+    /** A super-credential call: a token identity-service issued to a service account (role SYSTEM), verified like any other. */
+    private boolean isSystemToken(String auth) {
+        if (auth == null || !auth.startsWith("Bearer ")) return false;
         try {
-            Mac m = Mac.getInstance("HmacSHA256");
-            m.init(new SecretKeySpec(secret, "HmacSHA256"));
-            StringBuilder sb = new StringBuilder();
-            for (byte x : m.doFinal(sid.getBytes(StandardCharsets.UTF_8))) sb.append(String.format("%02x", x));
-            return sb.toString();
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
+            Jwt jwt = decoder.decode(auth.substring(7));
+            return "SYSTEM".equals(jwt.getClaimAsString("role"));
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 }

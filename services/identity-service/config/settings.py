@@ -107,4 +107,7 @@ SIMPLE_JWT = {
     "TOKEN_OBTAIN_SERIALIZER": "apps.users.serializers.TenantTokenObtainPairSerializer",
 }
 
-GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF; blank = the check is off (local development)
+GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF (BFF_GATEWAY_SECRET), 32+ random characters; the service refuses to start without it
+import sys as _sys
+GATEWAY_ALLOW_UNGUARDED = env.bool("GATEWAY_ALLOW_UNGUARDED", default="pytest" in _sys.modules)   # true = answer anyone who can reach the port: local development, and the test run
+GATEWAY_OPEN_CIDRS = env("GATEWAY_OPEN_CIDRS", default="")   # optional: networks allowed to reach the open doors (identity: service-token sign-in)

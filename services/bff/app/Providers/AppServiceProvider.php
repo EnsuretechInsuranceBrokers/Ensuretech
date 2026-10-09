@@ -24,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The core services refuse any call that is not signed with this secret, so a BFF without one cannot work, and a weak one is a weak lock.
+        if (! $this->app->environment(['local', 'testing']) && strlen((string) config('bff.gateway_secret')) < 32) {
+            throw new \RuntimeException('BFF_GATEWAY_SECRET must be set to at least 32 random characters (php -r \'echo bin2hex(random_bytes(32));\') and be the same as GATEWAY_SECRET in every core service.');
+        }
+        \Illuminate\Support\Facades\Http::globalRequestMiddleware(\App\Bff\GatewaySeal::middleware());      // every call to a core service is signed, whoever makes it
         $cfg = fn (string $k) => (int) config("bff.rate_limits.$k");
         $principal = fn (Request $r) => $r->attributes->get('principal');
 

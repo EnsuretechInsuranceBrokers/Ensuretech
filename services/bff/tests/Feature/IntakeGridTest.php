@@ -107,7 +107,7 @@ class IntakeGridTest extends TestCase
         $this->postJson('/app/endorse/grid/'.self::SID.'/validate', ['op_type' => 'ADD', 'rows' => $rows])->assertOk()->assertJsonPath('summary.rows_typed', 1)->assertJsonPath('rows.0.valid', true);
         Http::assertSent(function (Request $r) {
             return str_contains($r->url(), '/grid/validate/') && count($r['rows']) === 2 && $r['rows'][0]['dob'] === '17/05/1985' && $r['op_type'] === 'ADD'
-                && ($r->header('X-Gateway-Secret')[0] ?? '') === 'test-gateway-secret' && ! empty($r->header('X-Session-Key')[0]);
+                && ! $r->hasHeader('X-Gateway-Secret') && ! empty($r->header('X-Gateway-Signature')[0]);
         });
     }
 

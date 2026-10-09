@@ -17,9 +17,11 @@ public class GrpcAuthInterceptor implements ServerInterceptor {
     private static final Metadata.Key<String> AUTH = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
 
     private final JwtDecoder decoder;
+    private final boolean systemOnly;
 
-    GrpcAuthInterceptor(JwtDecoder decoder) {
+    GrpcAuthInterceptor(JwtDecoder decoder, @org.springframework.beans.factory.annotation.Value("${app.grpc.system-only:true}") boolean systemOnly) {
         this.decoder = decoder;
+        this.systemOnly = systemOnly;
     }
 
     @Override

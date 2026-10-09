@@ -33,6 +33,7 @@ abstract class TestCase extends BaseTestCase
     protected function fake(array|callable $stubs = []): void
     {
         Http::swap(new \Illuminate\Http\Client\Factory);
+        Http::globalRequestMiddleware(\App\Bff\GatewaySeal::middleware());          // a swapped factory has lost the provider's registration
         Http::preventStrayRequests();
         Http::fake($stubs);
     }

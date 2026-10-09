@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Validates the same RS256 access tokens as the REST side (same JwtDecoder bean: issuer + access-only).
- * Allowed callers: broker roles (own tenant) and SYSTEM service accounts (tenant named per request).
+ * Allowed callers: SYSTEM service accounts (tenant named per request). Nothing a person holds gets in: a broker user's token works on the REST API behind the BFF,
+ * not here (app.grpc.system-only, default true; only the test suite turns it off to exercise per-broker tenancy).
  * Employer and TPA tokens are rejected: this API is internal.
  */
 @Component
@@ -18,9 +19,11 @@ public class GrpcAuthInterceptor implements ServerInterceptor {
     private static final Metadata.Key<String> AUTH = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
 
     private final JwtDecoder decoder;
+    private final boolean systemOnly;
 
-    GrpcAuthInterceptor(JwtDecoder decoder) {
+    GrpcAuthInterceptor(JwtDecoder decoder, @org.springframework.beans.factory.annotation.Value("${app.grpc.system-only:true}") boolean systemOnly) {
         this.decoder = decoder;
+        this.systemOnly = systemOnly;
     }
 
     @Override
@@ -35,8 +38,8 @@ public class GrpcAuthInterceptor implements ServerInterceptor {
             return reject(call, Status.UNAUTHENTICATED, "invalid token");
         }
         String role = jwt.getClaimAsString("role");
-        if (role == null || !(role.startsWith("BROKER_") || role.equals("SYSTEM"))) {
-            return reject(call, Status.PERMISSION_DENIED, "role not allowed on internal API");
+        if (!"SYSTEM".equals(role) && (systemOnly || role == null || !role.startsWith("BROKER_"))) {
+            return reject(call, Status.PERMISSION_DENIED, "internal API: service accounts only");
         }
         TenantContext t = new TenantContext(String.valueOf((Object) jwt.getClaim("user_id")), role,
                 asLong(jwt.getClaim("broker_id")), asLong(jwt.getClaim("employer_id")), asLong(jwt.getClaim("tpa_id")));

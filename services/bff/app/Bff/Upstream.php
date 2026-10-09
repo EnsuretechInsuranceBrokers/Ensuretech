@@ -19,7 +19,6 @@ final class Upstream
         if ($forwardToken && ($token = $in->bearerToken())) {
             $headers['Authorization'] = 'Bearer '.$token;          // the services verify it again; the BFF is not their authority
         }
-        $headers += self::gatewayHeaders($in);
         foreach (array_merge(self::PASS, $extraHeaders) as $h) {
             if ($v = $in->header($h)) {
                 $headers[$h] = is_string($v) ? substr($v, 0, 200) : $v;
@@ -27,19 +26,6 @@ final class Upstream
         }
 
         return $headers;
-    }
-
-    /**
-     * Proof that a call came through this BFF: the shared secret from .env plus a session key, HMAC(secret, session id). The services recompute the
-     * key from the secret and refuse anything that does not match, so a request that bypasses the BFF is refused even with a valid user token.
-     * @return array<string,string>
-     */
-    public static function gatewayHeaders(?Request $in = null): array
-    {
-        $secret = (string) config('bff.gateway_secret');
-        $sid = (string) ($in?->attributes->get('session_id') ?: ($in?->bearerToken() ? substr(hash('sha256', $in->bearerToken()), 0, 32) : 'anonymous'));
-
-        return ['X-Gateway-Secret' => $secret, 'X-Session-Id' => $sid, 'X-Session-Key' => hash_hmac('sha256', $sid, $secret)];
     }
 
     public function client(Request $in, string $service, ?float $timeout = null, array $extraHeaders = [], bool $forwardToken = true): PendingRequest

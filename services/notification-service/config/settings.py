@@ -11,7 +11,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-only-insecure-key" if DEBUG e
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "testserver"])
 
 INSTALLED_APPS = ["rest_framework", "apps.core", "apps.mail"]
-MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
+MIDDLEWARE = ["config.gateway.GatewaySecretMiddleware", "django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
@@ -55,3 +55,8 @@ MAIL_BACKOFF_BASE_SECONDS = env.int("MAIL_BACKOFF_BASE_SECONDS", default=60)
 MAIL_BACKOFF_MAX_SECONDS = env.int("MAIL_BACKOFF_MAX_SECONDS", default=3600)
 MAIL_LEASE_SECONDS = env.int("MAIL_LEASE_SECONDS", default=300)
 MAIL_MAX_PER_RECIPIENT_PER_HOUR = env.int("MAIL_MAX_PER_RECIPIENT_PER_HOUR", default=60)
+
+GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF (BFF_GATEWAY_SECRET), 32+ random characters; the service refuses to start without it
+import sys as _sys
+GATEWAY_ALLOW_UNGUARDED = env.bool("GATEWAY_ALLOW_UNGUARDED", default="pytest" in _sys.modules)   # true = answer anyone who can reach the port: local development, and the test run
+GATEWAY_OPEN_CIDRS = env("GATEWAY_OPEN_CIDRS", default="")   # optional: networks allowed to reach the open doors (identity: service-token sign-in)
