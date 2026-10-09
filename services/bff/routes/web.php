@@ -39,5 +39,11 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
     Route::get('/cd', [P::class, 'cd']);
     Route::post('/cd/{policyId}/credit', [P::class, 'cdCredit'])->whereNumber('policyId');
     Route::post('/cd/{policyId}/replenish', [P::class, 'cdReplenish'])->whereNumber('policyId');
+    Route::get('/member-ids', [P::class, 'memberIds']);
+    Route::get('/member-ids/uploads/{uploadId}', [P::class, 'memberIdsUpload']);
+    Route::get('/member-ids/{id}', [P::class, 'memberIdsPolicy'])->whereNumber('id');
+    Route::get('/member-ids/{id}/template', [P::class, 'memberIdsTemplate'])->whereNumber('id');
+    Route::post('/member-ids/{id}/check', [P::class, 'memberIdsCheck'])->whereNumber('id')->middleware('throttle:30,1');
+    Route::post('/member-ids/{id}/apply', [P::class, 'memberIdsApply'])->whereNumber('id')->middleware('throttle:30,1');
     Route::match(['get', 'post'], '/assistant', [P::class, 'assistant']);
 });

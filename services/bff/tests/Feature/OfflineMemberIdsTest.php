@@ -46,4 +46,51 @@ class OfflineMemberIdsTest extends TestCase
         $r->assertOk();
         $this->assertStringContainsString('spreadsheetml', (string) $r->headers->get('Content-Type'));
     }
+
+    private const WAITING = ['policyId' => 50, 'policyNumber' => 'GMC/50', 'tpaId' => 3, 'policyStart' => '2030-04-01', 'policyEnd' => '2031-03-31', 'inception' => false, 'pendingIds' => 1,
+        'pendingEcards' => 0, 'oldestHours' => 30.0, 'urgency' => 'CRITICAL', 'nextAfter' => null,
+        'members' => [['id' => 1, 'employeeCode' => 'E1', 'relationCode' => 'SELF', 'name' => 'Asha Rao', 'coverStart' => '2030-04-01', 'endorsementRef' => 'abcd1234', 'tpaMemberId' => null,
+            'ecardUrl' => null, 'endorsedAt' => '2030-04-01T00:00:00Z', 'hoursWaiting' => 30.0, 'urgency' => 'CRITICAL']]];
+
+    private function portalAs(string $role, array $claims, string $home): static
+    {
+        $this->fake([
+            'identity.test/api/v1/auth/login/' => Http::response(['access' => $this->token($role, $claims), 'refresh' => 'r-1', 'access_expires_in' => 600]),
+            'identity.test/api/v1/auth/me/' => Http::response(['id' => 'u', 'email' => 'x@x.test', 'first_name' => 'X', 'last_name' => 'Y', 'role' => $role, 'broker_id' => 1, 'employer_id' => null, 'is_active' => true]),
+            'integration.test/*/policies/50/tpa-pending*' => Http::response(self::WAITING),
+            'integration.test/*/tpa-pending*' => Http::response(['policies' => [['policyId' => 50, 'policyNumber' => 'GMC/50', 'tpaId' => 3, 'employerId' => 10, 'pendingIds' => 1, 'pendingEcards' => 0,
+                'oldestHours' => 30.0, 'urgency' => 'CRITICAL']], 'totalPendingIds' => 1, 'totalPendingEcards' => 0, 'oldestHours' => 30.0]),
+            'integration.test/*offline-uploads*' => Http::response([]),
+            'integration.test/*offline-sheet*' => fn (Request $r) => Http::response(array_merge(self::REPORT, ['applied' => collect($r->data())->firstWhere('name', 'mode')['contents'] === 'apply'])),
+        ]);
+        $this->post('/login', ['email' => 'x@x.test', 'password' => 'pw'])->assertRedirect($home);
+
+        return $this;
+    }
+
+    public function test_a_broker_checks_then_saves_a_sheet_without_uploading_it_twice(): void
+    {
+        $this->portalAs('BROKER_ADMIN', [], '/app');
+        $this->get('/app/member-ids')->assertOk()->assertSee('GMC/50')->assertSee('Longest wait');
+        $this->get('/app/member-ids/50')->assertOk()->assertSee('Download .xlsx')->assertSee('Asha Rao');
+        $file = UploadedFile::fake()->createWithContent('tpa.csv', "Employee code,TPA member id\nE1,T1\n");
+        $page = $this->post('/app/member-ids/50/check', ['file' => $file])->assertOk()->assertSee('Checked, nothing saved yet')->assertSee('Save 1 line');
+        preg_match('/name="token" value="([0-9a-f]{32})"/', $page->getContent(), $m);
+        $this->assertNotEmpty($m, 'the check page carries a token for saving');
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), 'offline-sheet') && collect($r->data())->firstWhere('name', 'mode')['contents'] === 'preview');
+        $this->post('/app/member-ids/50/apply', ['token' => $m[1]])->assertOk()->assertSee('Saved');
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), 'offline-sheet') && collect($r->data())->firstWhere('name', 'mode')['contents'] === 'apply'
+            && str_contains((string) collect($r->data())->firstWhere('name', 'file')['contents'], 'E1,T1'));
+        $this->post('/app/member-ids/50/apply', ['token' => $m[1]])->assertRedirect('/app/member-ids/50');           // the held file is gone once saved
+    }
+
+    public function test_a_tpa_user_signs_in_to_its_own_pages_only(): void
+    {
+        $this->portalAs('TPA_USER', ['tpa_id' => 3, 'broker_id' => null], '/app/member-ids');
+        $this->get('/app/member-ids')->assertOk()->assertSee('Member ids and e-cards')->assertDontSee('Employers');
+        $this->get('/app')->assertRedirect('/app/member-ids');
+        $this->get('/app/member-ids/50')->assertOk();
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/api/v1/tpa/integration/'));
+        $this->get('/app/policies')->assertRedirect('/app/member-ids');
+    }
 }

@@ -12,7 +12,9 @@
   <aside class="side">
     <div class="brand"><span class="logo">E</span> Ensuretech</div>
     @php $nav = [['/app', 'Dashboard', 'app'], ['/app/announcements', 'Announcements', 'app/announcements*'], ['/app/policies', 'Policies', 'app/policies*'], ['/app/endorse', 'Add or remove people', ['app/endorse', 'app/endorse/*']], ['/app/endorsements', 'Endorsements', 'app/endorsements*'], ['/app/cd', 'CD balance', 'app/cd*'], ['/app/assistant', 'Assistant', 'app/assistant*']];
-       if ($gw === 'broker') array_splice($nav, 1, 0, [['/app/employers', 'Employers', 'app/employers*']]); @endphp
+       if ($gw === 'broker') array_splice($nav, 1, 0, [['/app/employers', 'Employers', 'app/employers*']]);
+       if ($gw === 'broker') $nav[] = ['/app/member-ids', 'TPA member ids', 'app/member-ids*'];
+       if ($gw === 'tpa') $nav = [['/app/member-ids', 'Member ids and e-cards', 'app/member-ids*']]; @endphp
     <nav class="nav">
       @foreach($nav as [$href, $label, $pattern])
         <a href="{{ $href }}" @if(request()->is($pattern)) aria-current="page" @endif><span class="dot"></span>{{ $label }}</a>

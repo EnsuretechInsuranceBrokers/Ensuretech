@@ -71,14 +71,14 @@ class PortalController extends Controller
         $r->session()->put('portal.refresh', $res['json']['refresh_token']);
         $me = $this->api->call($r, 'GET', '/auth/me');
         $role = (string) ($me['json']['role'] ?? '');
-        if (! str_starts_with($role, 'BROKER') && ! str_starts_with($role, 'EMPLOYER')) {
+        if (! str_starts_with($role, 'BROKER') && ! str_starts_with($role, 'EMPLOYER') && $role !== 'TPA_USER') {
             $r->session()->flush();
 
-            return redirect('/login')->with('err', 'This portal is for broker and employer users.');
+            return redirect('/login')->with('err', 'This portal is for broker, employer and TPA users.');
         }
         $r->session()->put('portal.user', ['email' => $me['json']['email'], 'name' => trim(($me['json']['first_name'] ?? '').' '.($me['json']['last_name'] ?? '')), 'role' => $role]);
 
-        return redirect('/app');
+        return redirect($role === 'TPA_USER' ? '/app/member-ids' : '/app');
     }
 
     public function logout(Request $r)
@@ -96,6 +96,9 @@ class PortalController extends Controller
     // ── pages ────────────────────────────────────────────────────────────────────────────────────────────────
     public function dashboard(Request $r)
     {
+        if ($this->gw($r) === 'tpa') {
+            return redirect('/app/member-ids');
+        }
         [$dash] = $this->get($r, '/dashboard');
         [$flags] = $this->get($r, '/dashboard/red-flags');
         [$jobs] = $this->get($r, '/endorsements', ['page_size' => 5]);
@@ -388,5 +391,98 @@ class PortalController extends Controller
     public function announcementRetire(Request $r, int $id)
     {
         return $this->back($r, '/app/announcements', $this->api->call($r, 'DELETE', "/broker/announcements/$id"), 'Announcement retired.');
+    }
+
+    // ── TPA member ids and e-cards that arrive on a spreadsheet (the TPA's server is down, or it simply emails a sheet) ─────────────────────
+    private function offlineOnly(Request $r): void
+    {
+        abort_unless(in_array($this->gw($r), ['broker', 'tpa'], true), 404);
+    }
+
+    public function memberIds(Request $r)
+    {
+        $this->offlineOnly($r);
+        [$board, $s] = $this->get($r, '/integration/tpa-pending');
+        [$uploads] = $this->get($r, '/integration/offline-uploads');
+
+        return $this->view($r, 'member_ids', ['board' => $s < 300 ? $board : null, 'uploads' => is_array($uploads) && array_is_list($uploads) ? array_slice($uploads, 0, 8) : []]);
+    }
+
+    public function memberIdsPolicy(Request $r, int $id)
+    {
+        $this->offlineOnly($r);
+        [$detail, $s] = $this->get($r, "/integration/policies/$id/tpa-pending", ['limit' => 200]);
+        if ($s >= 300) {
+            return redirect('/app/member-ids')->with('err', self::problem($detail, $s));
+        }
+        [$uploads] = $this->get($r, '/integration/offline-uploads', ['policy_id' => $id]);
+
+        return $this->view($r, 'member_ids_policy', ['d' => $detail, 'uploads' => is_array($uploads) && array_is_list($uploads) ? $uploads : [], 'report' => null, 'token' => null,
+            'canUpload' => $r->session()->get('portal.user.role') !== 'BROKER_NON_ADMIN']);
+    }
+
+    public function memberIdsTemplate(Request $r, int $id)
+    {
+        $this->offlineOnly($r);
+
+        return $this->api->call($r, 'GET', '/'.$this->gw($r)."/integration/policies/$id/offline-template")['response'];
+    }
+
+    /** Preview: check the sheet and show every line's verdict without saving anything. The file is kept briefly so "Save" needs no second upload. */
+    public function memberIdsCheck(Request $r, int $id)
+    {
+        $this->offlineOnly($r);
+        $r->validate(['file' => 'required|file|max:10240']);
+        $ignore = $r->boolean('ignore_cover_date');
+        $res = $this->api->call($r, 'POST', '/'.$this->gw($r)."/integration/policies/$id/offline-sheet", ['mode' => 'preview', 'ignore_cover_date' => $ignore ? 'true' : 'false'], $r->file('file'));
+        if ($res['status'] >= 300) {
+            return redirect("/app/member-ids/$id")->with('err', self::problem($res['json'], $res['status']));
+        }
+        $dir = storage_path('app/offline-sheets');
+        @mkdir($dir, 0700, true);
+        foreach (glob($dir.'/*') ?: [] as $old) {
+            if (filemtime($old) < time() - 3600) {
+                @unlink($old);                                          // a preview nobody saved within the hour
+            }
+        }
+        $token = bin2hex(random_bytes(16));
+        $r->file('file')->move($dir, $token);
+        $r->session()->put("portal.offline.$token", ['path' => "$dir/$token", 'name' => preg_replace('/[^A-Za-z0-9._ -]/', '_', basename($r->file('file')->getClientOriginalName() ?: 'sheet')) ?: 'sheet',
+            'policy' => $id, 'ignore' => $ignore]);
+        [$detail] = $this->get($r, "/integration/policies/$id/tpa-pending", ['limit' => 200]);
+
+        return $this->view($r, 'member_ids_policy', ['d' => $detail, 'uploads' => [], 'report' => $res['json'], 'token' => $token, 'canUpload' => true]);
+    }
+
+    /** Save: the same file again, this time applied. Good lines are saved; the bad ones are listed and can be fixed and re-sent. */
+    public function memberIdsApply(Request $r, int $id)
+    {
+        $this->offlineOnly($r);
+        $token = (string) $r->input('token');
+        abort_unless(preg_match('/^[0-9a-f]{32}$/', $token), 404);
+        $held = $r->session()->get("portal.offline.$token");
+        if (! $held || $held['policy'] !== $id || ! is_file($held['path'])) {
+            return redirect("/app/member-ids/$id")->with('err', 'That check has expired. Upload the sheet again.');
+        }
+        $file = new \Illuminate\Http\UploadedFile($held['path'], $held['name'], null, null, true);
+        $res = $this->api->call($r, 'POST', '/'.$this->gw($r)."/integration/policies/$id/offline-sheet", ['mode' => 'apply', 'ignore_cover_date' => $held['ignore'] ? 'true' : 'false'], $file);
+        if ($res['status'] >= 300) {
+            return redirect("/app/member-ids/$id")->with('err', self::problem($res['json'], $res['status']));
+        }
+        @unlink($held['path']);
+        $r->session()->forget("portal.offline.$token");
+        [$detail] = $this->get($r, "/integration/policies/$id/tpa-pending", ['limit' => 200]);
+
+        return $this->view($r, 'member_ids_policy', ['d' => $detail, 'uploads' => [], 'report' => $res['json'], 'token' => null, 'canUpload' => true]);
+    }
+
+    public function memberIdsUpload(Request $r, string $uploadId)
+    {
+        $this->offlineOnly($r);
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $uploadId), 404);
+        [$d, $s] = $this->get($r, "/integration/offline-uploads/$uploadId");
+        abort_if($s === 404, 404);
+
+        return $this->view($r, 'member_ids_upload', ['d' => $d]);
     }
 }
