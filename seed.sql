@@ -1,3 +1,4 @@
+-- NOT needed with the full setup.sql, which already contains these rows. Only for databases built with `setup.sql -v databases_only=1`.
 -- Run AFTER organization-service has started once (its tables must exist):
 --     psql -h localhost -U ensuretech -d ensuretech_org -f seed.sql      (password: ensuretech)
 -- No API creates brokers; every broker_id that appears in a user's token needs a row here.

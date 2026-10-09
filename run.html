@@ -90,15 +90,14 @@ done</code></pre></div>
 <h2 id="db">4. Database and keys</h2>
 <h3>4.1 Databases</h3>
 <div class="pre"><button class="copy">Copy</button><pre><code>psql -h localhost -U postgres -f setup.sql</code></pre></div>
-<p>Creates the login role <code>ensuretech</code> (password <code>ensuretech</code>) and eight UTF-8 databases, one per service. Safe to re-run. <strong>One database per service is required</strong>: each service creates an <code>outbox</code> schema with the same tables.</p>
+<p>One file builds <strong>everything</strong>: the login role <code>ensuretech</code> (password <code>ensuretech</code>), the eight UTF-8 databases (one per service, which is required: each service creates an <code>outbox</code> schema with the same tables), <strong>every table of every service</strong>, and a story's worth of sample data in all of them (two brokers, five employers, five policies, deposits, a dozen endorsement jobs, TPA settings, mail logs). The services find their tables already there and start without migrating. The sample users, their shared password and the engine's service account are listed in the file's header comment. It stops at the first error; to start over use <code>psql -h localhost -U postgres -v reset=1 -f setup.sql</code>, which <em>drops</em> the <code>ensuretech_*</code> databases first. Want empty databases that each service fills itself? <code>-v databases_only=1</code>. Not in the file: read-service's MongoDB data, which is built from Kafka events as new work happens.</p>
 <h3>4.2 Identity signing keys (once)</h3>
 <p>identity-service signs tokens with a private key; every other component only needs the public half. The keys folder is git-ignored, so each machine creates its own.</p>
 <div class="pre"><button class="copy">Copy</button><pre><code>mkdir -p services/identity-service/keys
 openssl genrsa -out services/identity-service/keys/jwt-private.pem 2048
 openssl rsa -in services/identity-service/keys/jwt-private.pem -pubout -out services/identity-service/keys/jwt-public.pem</code></pre></div>
-<h3>4.3 Brokers (after organization-service has run once, §6.2)</h3>
-<div class="pre"><button class="copy">Copy</button><pre><code>psql -h localhost -U ensuretech -d ensuretech_org -f seed.sql</code></pre></div>
-<p>No API creates brokers. Without these rows, creating an employer fails with <em>409 Duplicate or invalid reference</em>.</p>
+<h3>4.3 Brokers</h3>
+<p>Already in <code>setup.sql</code> (Northwind Brokers and Southbridge). If you built empty databases with <code>databases_only=1</code>, run <code>psql -h localhost -U ensuretech -d ensuretech_org -f seed.sql</code> after organization-service has started once. No API creates brokers; without these rows, creating an employer fails with <em>409 Duplicate or invalid reference</em>.</p>
 
 <h2 id="env">5. Environment</h2>
 <p><code>local.env</code> holds every variable used below. In <strong>every terminal</strong> you start a component from, at the repository root:</p>
@@ -139,7 +138,7 @@ DATABASE_URL="$IDENTITY_DB" python manage.py service_account create integration
 <div class="pre"><button class="copy">Copy</button><pre><code>cd services/organization-service
 mvn -DskipTests package
 DATABASE_URL="$ORG_JDBC" PORT=8081 java -jar target/organization-service-0.1.0.jar</code></pre></div>
-<p>Flyway creates the tables on first start. Then do §4.3 (<code>seed.sql</code>). Check: <code>curl -s localhost:8081/actuator/health</code> → <code>"status":"UP"</code>.</p>
+<p>With the full <code>setup.sql</code> the tables already exist and Flyway only validates them; with <code>databases_only=1</code> Flyway creates them on first start (then do §4.3). Check: <code>curl -s localhost:8081/actuator/health</code> → <code>"status":"UP"</code>.</p>
 
 <h3 id="policy">6.3 policy-service <span class="tag">port 8082 · gRPC 9090</span></h3>
 <p>Policies, rate cards, family rules, premium rating, contribution/rounding/mid-term settings. The engine calls its gRPC port. Needs Redis.</p>
@@ -257,7 +256,7 @@ The job page shows progress live and ends at <code>ENDORSED</code>; CD balance d
 </ol>
 
 <h2 id="tests">9. Tests</h2>
-<p>Each suite is self-contained (real PostgreSQL for the Spring and engine suites, fake brokers). Run with <code>setup.sql</code> already applied and Redis up. Never run tests against a database you care about: they truncate tables. Python suites need the test tools: <code>python ../../scripts/install_python_deps.py --dev</code>.</p>
+<p>Each suite is self-contained (real PostgreSQL for the Spring and engine suites, fake brokers). Run with the role from <code>setup.sql</code> and Redis up. Never run tests against a database you care about (and that includes the seeded <code>ensuretech_*</code> ones): they truncate tables. Point <code>DATABASE_URL</code> at a scratch database. Python suites need the test tools: <code>python ../../scripts/install_python_deps.py --dev</code>.</p>
 <table>
 <tr><th>Component</th><th>Command (from the service folder)</th><th>Expected</th></tr>
 <tr><td>BFF</td><td><code>php artisan test</code></td><td>70 passed</td></tr>
@@ -297,8 +296,7 @@ The job page shows progress live and ends at <code>ENDORSED</code>; CD balance d
 for p in 8090 8087 8085 8084 8083 8082 8081 8086 8000; do kill $(lsof -ti:$p) 2>/dev/null; done
 
 # wipe all data and start clean (destroys everything)
-for d in identity org policy billing endorsement integration sheetgen notification; do dropdb -h localhost -U postgres --if-exists ensuretech_$d; done
-psql -h localhost -U postgres -f setup.sql
+psql -h localhost -U postgres -v reset=1 -f setup.sql
 # also delete the Kafka topics/data and the MongoDB database ensuretech_read, or the read models will be inconsistent with the new database</code></pre></div>
 
 <p style="margin-top:3rem;color:var(--mut);font-size:.9rem">Deeper reading: <code>docs/full-stack-local.md</code> (what a full run found), <code>docs/runtime-dependencies.md</code> (free vs paid), each service's own <code>README.md</code>, <code>services/bff/README.md</code> (public API).</p>
