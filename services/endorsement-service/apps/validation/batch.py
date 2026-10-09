@@ -9,7 +9,7 @@ from apps.computation.policy_client import Person, PolicyClient
 from apps.jobs.models import EndorsementJob, EndorsementMember
 
 from .midterm import apply_rules as apply_midterm_rules
-from .rules import Issue, issues_vectorized, to_frame
+from .rules import Issue, issues_scalar, issues_vectorized, to_frame
 
 
 @dataclass(frozen=True)
@@ -29,9 +29,11 @@ def _age(dob: date, on: date) -> int:
 
 
 def validate_rows(job: EndorsementJob, staged: list, policy_facts: dict, client: PolicyClient,
-                  today: date | None = None, *, persist: bool = True) -> list[RowIssue]:
+                  today: date | None = None, *, persist: bool = True, scalar_rules: bool = False) -> list[RowIssue]:
     """staged: StagedRow instances of ONE chunk, ordered by row_index. persist=False is for the interactive grid, whose rows are not
-    database rows: mid-term start dates are still worked out (in memory) but nothing is written."""
+    database rows: mid-term start dates are still worked out (in memory) but nothing is written.
+    scalar_rules=True runs the row rules as plain Python per row instead of one pandas pass: for a handful of rows that is several times faster
+    (a DataFrame has a fixed cost); tests/test_rules_parity.py keeps the two implementations identical."""
     today = today or date.today()
     if not staged:
         return []
@@ -43,7 +45,8 @@ def validate_rows(job: EndorsementJob, staged: list, policy_facts: dict, client:
         StagedRow.objects.bulk_update(changed, ["normalised_payload"])
     payloads = [s.normalised_payload for s in staged]
     df = to_frame(payloads)
-    found: list[tuple[int, Issue]] = [(i.row_index, i) for i in issues_vectorized(df, op, today)]
+    row_issues = ([i for n, p in enumerate(payloads) for i in issues_scalar(p, op, today, n)] if scalar_rules else issues_vectorized(df, op, today))
+    found: list[tuple[int, Issue]] = [(i.row_index, i) for i in row_issues]
 
     def add(i: int, field, rule, msg, sev="ERROR", value=""):
         found.append((i, Issue(i, field, rule, sev, msg, str(value) if value is not None else "")))

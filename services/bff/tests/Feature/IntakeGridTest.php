@@ -139,4 +139,44 @@ class IntakeGridTest extends TestCase
         $this->postJson('/app/endorse/grid/'.self::SID.'/submit', ['op_type' => 'ADD', 'rows' => [['row_key' => 'r1']]])->assertStatus(422)->assertJsonPath('result.summary.rows_with_errors', 1);
         Http::assertNotSent(fn (Request $r) => str_contains($r->url(), '/submit/'));
     }
+
+    public function test_typing_sends_only_the_row_that_changed(): void
+    {
+        $this->openGrid(3);
+        $answer = ['row' => ['row_key' => 'r2', 'blank' => false, 'valid' => false, 'issues' => [['field' => 'dob', 'rule' => 'INVALID_DOB', 'severity' => 'ERROR', 'message' => 'x']]],
+            'changed' => [['row_key' => 'r1', 'blank' => false, 'valid' => true, 'issues' => []]], 'summary' => ['rows_typed' => 2], 'checks' => ['family_rules' => true], 'v' => 4];
+        Http::fake(['engine.test/api/v1/broker/endorsements/gui/sessions/'.self::SID.'/grid/rows/r2/' => Http::response($answer)]);
+        $this->putJson('/app/endorse/grid/'.self::SID.'/row/r2', ['op_type' => 'ADD', 'row' => ['employee_code' => '1001', 'dob' => '31/02/1983'], 'position' => 1, 'grid_rows' => 3, 'v' => 4])
+            ->assertOk()->assertJsonPath('row.row_key', 'r2')->assertJsonPath('changed.0.row_key', 'r1')->assertJsonPath('v', 4);
+        Http::assertSent(function (Request $r) {
+            return $r->method() === 'PUT' && str_contains($r->url(), '/grid/rows/r2/') && $r['row'] === ['employee_code' => '1001', 'dob' => '31/02/1983'] && $r['position'] === 1
+                && ! isset($r['rows']) && strlen($r->body()) < 300;                         // one row, a few hundred bytes at most, whatever the size of the grid
+        });
+    }
+
+    public function test_deleting_a_row_goes_to_the_one_row_route(): void
+    {
+        $this->openGrid(3);
+        Http::fake(['engine.test/api/v1/broker/endorsements/gui/sessions/'.self::SID.'/grid/rows/r2/*' => Http::response(['row' => ['row_key' => 'r2', 'blank' => true, 'issues' => [], 'valid' => false], 'changed' => [], 'summary' => ['rows_typed' => 1], 'checks' => ['family_rules' => false]])]);
+        $this->deleteJson('/app/endorse/grid/'.self::SID.'/row/r2?op_type=ADD&grid_rows=3')->assertOk()->assertJsonPath('row.blank', true);
+        Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), 'op_type=ADD') && str_contains($r->url(), 'grid_rows=3'));
+    }
+
+    public function test_the_row_and_sync_routes_refuse_what_was_never_opened_here_or_has_a_bad_key(): void
+    {
+        $this->signedIn();
+        $this->putJson('/app/endorse/grid/'.self::SID.'/row/r1', ['op_type' => 'ADD', 'row' => ['a' => 'b']])->assertNotFound();
+        $this->postJson('/app/endorse/grid/'.self::SID.'/sync', ['op_type' => 'ADD', 'rows' => []])->assertNotFound();
+        $this->openGrid(1);
+        $this->putJson('/app/endorse/grid/'.self::SID.'/row/'.rawurlencode('../x'), ['op_type' => 'ADD', 'row' => ['a' => 'b']])->assertNotFound();
+        $this->putJson('/app/endorse/grid/'.self::SID.'/row/'.str_repeat('a', 65), ['op_type' => 'ADD', 'row' => ['a' => 'b']])->assertNotFound();
+    }
+
+    public function test_a_paste_goes_once_as_a_whole_grid(): void
+    {
+        $this->openGrid(2);
+        Http::fake(['engine.test/api/v1/broker/endorsements/gui/sessions/'.self::SID.'/grid/' => Http::response(['rows' => [['index' => 0, 'row_key' => 'r1', 'blank' => false, 'valid' => true, 'issues' => []]], 'summary' => ['rows_typed' => 1], 'checks' => [], 'saved_rows' => 1])]);
+        $this->postJson('/app/endorse/grid/'.self::SID.'/sync', ['op_type' => 'ADD', 'rows' => [['row_key' => 'r1', 'employee_code' => '1']]])->assertOk()->assertJsonPath('saved_rows', 1);
+        Http::assertSent(fn (Request $r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/grid/') && count($r['rows']) === 1);
+    }
 }

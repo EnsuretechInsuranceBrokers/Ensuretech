@@ -67,8 +67,10 @@ final class Gateway
         $uri = '/api/v1'.$path;
         if ($file !== null) {
             $sub = Request::create($uri, 'POST', $data, [], ['file' => $file], $server);
-        } elseif ($method === 'GET' || $method === 'DELETE') {
+        } elseif ($method === 'GET') {
             $sub = Request::create($uri, $method, $data, [], [], $server);
+        } elseif ($method === 'DELETE') {
+            $sub = Request::create($uri.($data ? '?'.http_build_query($data) : ''), $method, [], [], [], $server);      // a DELETE's parameters are a query string, not a body
         } else {
             $server['CONTENT_TYPE'] = 'application/json';
             $sub = Request::create($uri, $method, [], [], [], $server, json_encode($data, JSON_THROW_ON_ERROR));

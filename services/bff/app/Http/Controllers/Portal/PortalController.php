@@ -231,6 +231,29 @@ class PortalController extends Controller
         return response()->json($res['json'], $res['status']);
     }
 
+    /** One edited row: only it travels. The engine already holds the rest of the grid and answers with that row's verdict, any other row it changed, and the summary. */
+    public function gridRow(Request $r, string $id, string $key)
+    {
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id) && preg_match('/^[A-Za-z0-9_.:-]{1,64}$/', $key) && $r->session()->has('portal.grid.'.$id), 404);
+        $gw = '/'.$this->gw($r)."/endorsements/gui/sessions/$id/grid/rows/$key";
+        $res = $r->isMethod('delete')
+            ? $this->api->call($r, 'DELETE', $gw, array_filter(['op_type' => $r->query('op_type'), 'grid_rows' => $r->query('grid_rows')], fn ($v) => $v !== null))
+            : $this->api->call($r, 'PUT', $gw, array_filter(['op_type' => $r->input('op_type'), 'row' => $r->input('row'), 'position' => $r->input('position'), 'grid_rows' => $r->input('grid_rows'), 'v' => $r->input('v')], fn ($v) => $v !== null));
+        $r->session()->save();
+
+        return response()->json($res['json'], $res['status']);
+    }
+
+    /** The whole grid at once (a paste, a reload, "remove empty rows"): stores it as it stands and checks all of it. Not used for typing. */
+    public function gridSync(Request $r, string $id)
+    {
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id) && $r->session()->has('portal.grid.'.$id), 404);
+        $res = $this->api->call($r, 'PUT', '/'.$this->gw($r)."/endorsements/gui/sessions/$id/grid", ['op_type' => $r->input('op_type'), 'rows' => $r->input('rows', [])]);
+        $r->session()->save();
+
+        return response()->json($res['json'], $res['status']);
+    }
+
     /** Save the grid as it is, and submit it only if it has no errors. */
     public function gridSubmit(Request $r, string $id)
     {

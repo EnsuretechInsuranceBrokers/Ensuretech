@@ -198,3 +198,154 @@ def test_a_filled_template_goes_straight_through_the_file_path(world):
 @pytest.mark.parametrize("q,code", [({"op_type": "ADD", "employee_count": 5}, 400), ({"policy_id": 100, "op_type": "X", "employee_count": 5}, 400), ({"policy_id": 102, "op_type": "ADD", "employee_count": 5}, 422)])
 def test_template_input_is_checked(world, q, code):
     assert client_for().get(B + "intake/template/", q).status_code == code
+
+
+# ── one row at a time ─────────────────────────────────────────────────────────────────────────────────────────────────────
+def put_row(c, sid, key, cells, pos=0, grid_rows=10, op="ADD", v=None):
+    return c.put(f"{B}gui/sessions/{sid}/grid/rows/{key}/", {"op_type": op, "row": cells, "position": pos, "grid_rows": grid_rows, "v": v}, format="json")
+
+
+def del_row(c, sid, key, op="ADD", grid_rows=10):
+    return c.delete(f"{B}gui/sessions/{sid}/grid/rows/{key}/?op_type={op}&grid_rows={grid_rows}")
+
+
+def apply(state, resp):
+    """What the browser does with an answer: the row's own verdict, plus any other row that changed."""
+    body = resp.json()
+    state[body["row"]["row_key"]] = body["row"]["issues"]
+    for r in body["changed"]:
+        state[r["row_key"]] = r["issues"]
+    return body
+
+
+def rules_of(issues):
+    return sorted((i["field"], i["rule"]) for i in issues)
+
+
+def test_typing_row_by_row_ends_where_the_whole_grid_check_does(world):
+    c = client_for()
+    sid = plan(c, employee_count=6).json()["session_id"]
+    rows = [row("1001", "SELF", "Asha", "17/05/1985", pan="ABCDE1234F"), row("1001", "SPOUSE", "Ravi", "02/02/1983"),
+            row("1001", "SPOUSE", "Ravi again", "02/02/1983"),
+            row("1002", "SELF", "Meera", "03/03/1990", pan="ABCDE1234F"), row("1002", "SON", "K1", "01/01/2015"), row("1002", "SON_II", "K2", "01/01/2017"),
+            row("1002", "DAUGHTER", "K3", "01/01/2019"), row("1003", "SELF", "Raj", "31/02/1980"), row("1004", "SELF", "Dev", "01/01/1980", sum_insured="-5")]
+    state = {}
+    for pos, cells in enumerate(rows):
+        apply(state, put_row(c, sid, f"k{pos}", cells, pos=pos))
+    for pos in (3, 0, 5):                                           # edit some rows again, out of order, with the same content
+        apply(state, put_row(c, sid, f"k{pos}", rows[pos], pos=pos))
+    whole = grid(c, sid, rows).json()["rows"]
+    for pos, w in enumerate(whole):
+        assert rules_of(state[f"k{pos}"]) == rules_of(w["issues"]), pos           # every row, same verdict as checking everything at once
+    assert any(state[f"k{p}"] for p in range(len(rows)))
+
+
+def test_changing_the_employee_code_rechecks_both_families(world):
+    c = client_for()
+    sid = plan(c, employee_count=3).json()["session_id"]
+    state = {}
+    fam = [row("1001", "SELF", "Asha", "17/05/1985")] + [row("1001", rel, f"K{i}", f"0{i}/01/201{i}") for i, rel in enumerate(["SON", "SON_II", "DAUGHTER"], start=1)]
+    for pos, cells in enumerate(fam):
+        apply(state, put_row(c, sid, f"k{pos}", cells, pos=pos))
+    assert any(i["rule"] == "MAX_CHILDREN_EXCEEDED" for p in range(4) for i in state[f"k{p}"])
+    moved = apply(state, put_row(c, sid, "k3", {**fam[3], "employee_code": "2002"}, pos=3))      # the third child is really somebody else's
+    assert not any(i["severity"] == "ERROR" for p in range(3) for i in state[f"k{p}"])      # 1001 is fine again, and the answer said so
+    assert {r["row_key"] for r in moved["changed"]} <= {"k0", "k1", "k2"}
+
+
+def test_a_shared_pan_clears_on_the_other_row_when_one_is_edited(world):
+    c = client_for()
+    sid = plan(c).json()["session_id"]
+    state = {}
+    apply(state, put_row(c, sid, "a", row("1001", "SELF", "A", "01/01/1985", pan="ABCDE1234F"), pos=0))
+    apply(state, put_row(c, sid, "b", row("1002", "SELF", "B", "01/01/1986", pan="ABCDE1234F"), pos=1))
+    assert "DUPLICATE_PAN_IN_FILE" in {i["rule"] for i in state["b"]}
+    r = apply(state, put_row(c, sid, "a", row("1001", "SELF", "A", "01/01/1985", pan="PQRST5678K"), pos=0))
+    assert state["b"] == [] and "b" in {x["row_key"] for x in r["changed"]}        # the OTHER row was told it is fine now
+
+
+def test_only_the_rows_that_can_be_affected_are_checked_again(world):
+    from tests.fakes import FakePolicyClient
+    seen = []
+    original = FakePolicyClient.validate_families
+    FakePolicyClient.validate_families = lambda self, b, p, families: (seen.append(sorted(families)), original(self, b, p, families))[1]
+    try:
+        c = client_for()
+        sid = plan(c, employee_count=20).json()["session_id"]
+        for e in range(20):
+            put_row(c, sid, f"e{e}", row(str(5000 + e), "SELF", f"E{e}", "01/01/1985"), pos=e)
+        seen.clear()
+        put_row(c, sid, "e7", row("5007", "SELF", "Edited", "01/01/1986"), pos=7)
+    finally:
+        FakePolicyClient.validate_families = original
+    assert seen == [["5007"]]                                        # one employee's family went to policy-service, not twenty
+
+
+def test_the_summary_comes_from_the_stored_rows_and_counts_empty_rows(world):
+    c = client_for()
+    sid = plan(c, employee_count=5).json()["session_id"]
+    put_row(c, sid, "a", row("1001", "SELF", "A", "01/01/1985"), pos=0, grid_rows=5)
+    s = put_row(c, sid, "b", row("1002", "SELF", "B", "bad"), pos=1, grid_rows=5).json()["summary"]
+    assert (s["rows_typed"], s["rows_blank"], s["rows_with_errors"], s["employees_entered"], s["expected_employees"]) == (2, 3, 1, 2, 5)
+    s = put_row(c, sid, "b", {}, pos=1, grid_rows=5).json()["summary"]                      # emptying a row removes it
+    assert (s["rows_typed"], s["rows_blank"], s["rows_with_errors"]) == (1, 4, 0) and GuiRow.objects.filter(session_id=sid).count() == 1
+
+
+def test_deleting_a_row_tells_its_twin_it_is_fine(world):
+    c = client_for()
+    sid = plan(c).json()["session_id"]
+    state = {}
+    apply(state, put_row(c, sid, "a", row("1001", "SELF", "A", "01/01/1985"), pos=0))
+    apply(state, put_row(c, sid, "b", row("1001", "SELF", "A again", "01/01/1985"), pos=1))
+    assert "DUPLICATE_ROW_IN_FILE" in {i["rule"] for i in state["b"]}
+    apply(state, del_row(c, sid, "b"))
+    assert GuiRow.objects.filter(session_id=sid).count() == 1 and state["a"] == []
+
+
+def test_row_by_row_rows_submit_like_any_other(world):
+    c = client_for()
+    sid = plan(c).json()["session_id"]
+    put_row(c, sid, "a", row("1001", "SELF", "Asha", "17/05/1985"), pos=0)
+    put_row(c, sid, "b", row("1002", "SELF", "Meera", "03/03/1990"), pos=1)
+    sub = c.post(f"{B}gui/sessions/{sid}/submit/")
+    assert sub.status_code == 202 and sub.json()["jobs"][0]["rows"] == 2
+
+
+def test_the_row_cap_and_tenancy_apply_to_single_rows(world):
+    c = client_for()
+    sid = plan(c, employee_count=1).json()["session_id"]
+    for i in range(8):
+        assert put_row(c, sid, f"r{i}", row(str(i), "SELF", "A", "01/01/1990"), pos=i).status_code == 200
+    assert put_row(c, sid, "r9", row("9", "SELF", "A", "01/01/1990"), pos=9).status_code == 422
+    assert put_row(c, sid, "r0", row("0", "SELF", "A2", "01/01/1990"), pos=0).status_code == 200            # editing an existing row is never refused
+    assert put_row(client_for(broker_id=BROKER_B), sid, "x", row("1", "SELF", "A", "01/01/1990")).status_code == 404
+    assert c.put(f"{B}gui/sessions/{sid}/grid/rows/x/", {"op_type": "ADD", "row": "nope"}, format="json").status_code == 400
+
+
+def test_fuzz_random_edits_always_end_where_checking_everything_would(world):
+    import random
+    rng = random.Random(20301)
+    c = client_for()
+    for round_ in range(6):
+        sid = plan(c, employee_count=8).json()["session_id"]
+        slots = 9
+        cells = [{} for _ in range(slots)]
+        state = {}
+
+        def random_row():
+            code = rng.choice(["1", "2", "3", ""])
+            return {"employee_code": code, "relation": rng.choice(["SELF", "SPOUSE", "SON", "SON_II", "DAUGHTER", "COUSIN", ""]), "first_name": rng.choice(["A", "B", ""]),
+                    "dob": rng.choice(["01/01/1985", "01/01/2015", "31/02/2000", "", "01/01/2040"]), "gender": "F", "sum_insured": rng.choice(["500000", "-1", ""]),
+                    "pan": rng.choice(["", "", "ABCDE1234F", "PQRST5678K"])}
+        for _ in range(45):
+            p = rng.randrange(slots)
+            cells[p] = rng.choice([{}, random_row(), random_row()]) if rng.random() < 0.8 else {**cells[p], "employee_code": rng.choice(["1", "2", "3"])}
+            r = put_row(c, sid, f"k{p}", cells[p], pos=p, grid_rows=slots)
+            assert r.status_code == 200, r.content
+            body = r.json()
+            state[f"k{p}"] = body["row"]["issues"] if not body["row"]["blank"] else []
+            for ch in body["changed"]:
+                state[ch["row_key"]] = ch["issues"]
+        whole = grid(c, sid, [{**x, "row_key": f"k{i}"} for i, x in enumerate(cells)]).json()["rows"]
+        for i, w in enumerate(whole):
+            assert rules_of(state.get(f"k{i}", [])) == rules_of(w["issues"]), (round_, i, cells[i])

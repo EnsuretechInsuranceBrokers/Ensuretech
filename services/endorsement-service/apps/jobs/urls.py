@@ -19,6 +19,7 @@ urlpatterns = [
     path("gui/sessions/<uuid:session_id>/", gui.GuiSessionDetailView.as_view()),
     path("gui/sessions/<uuid:session_id>/grid/validate/", intake_plan.GridValidateView.as_view()),
     path("gui/sessions/<uuid:session_id>/grid/", intake_plan.GridSaveView.as_view()),
+    path("gui/sessions/<uuid:session_id>/grid/rows/<str:row_key>/", intake_plan.GridRowView.as_view()),
     path("gui/sessions/<uuid:session_id>/rows/validate/", gui.GuiValidateView.as_view()),
     path("gui/sessions/<uuid:session_id>/rows/<str:row_key>/", gui.GuiRowView.as_view()),
     path("gui/sessions/<uuid:session_id>/submit/", gui.GuiSubmitView.as_view()),

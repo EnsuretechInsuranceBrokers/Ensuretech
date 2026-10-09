@@ -30,6 +30,8 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
     Route::get('/endorse/template', [P::class, 'intakeTemplate']);
     Route::get('/endorse/grid/{id}', [P::class, 'grid']);
     Route::post('/endorse/grid/{id}/validate', [P::class, 'gridValidate'])->middleware('throttle:300,1');
+    Route::match(['put', 'delete'], '/endorse/grid/{id}/row/{key}', [P::class, 'gridRow'])->middleware('throttle:600,1');
+    Route::post('/endorse/grid/{id}/sync', [P::class, 'gridSync'])->middleware('throttle:120,1');
     Route::post('/endorse/grid/{id}/submit', [P::class, 'gridSubmit']);
     Route::get('/endorsements/{id}', [P::class, 'job']);
     Route::get('/endorsements/{id}/progress', [P::class, 'progress']);

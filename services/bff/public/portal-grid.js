@@ -2,9 +2,10 @@
  *
  * What the person sees: a sheet they can type or paste into, a mark on every row, red on the cell that is wrong with the reason on hover and below,
  * and a panel that fills in as they go (how many employees of how many, the mistakes grouped by kind, ages, sums insured, family sizes).
- * What happens behind it: on every pause in typing the WHOLE grid goes to the endorsement engine, which runs the same rules the million-row file
- * path runs, in one vectorised pass, and sends back a verdict per row and a pandas summary. This file only draws it; it holds no rules.
- * Nothing is saved until Submit.
+ * What happens behind it: the engine holds the grid, so on a pause in typing ONLY THE ROW THAT CHANGED is sent. The engine stores it, runs the same
+ * rules the million-row file path runs on that row and on the few rows it can affect (the same employee, the same PAN), and answers with that row's
+ * verdict, any other row whose verdict changed because of it, and a pandas summary. A paste or a reload sends the grid once. This file only draws
+ * the answers; it holds no rules. Nothing becomes an endorsement until Submit.
  */
 (function () {
   "use strict";
@@ -17,7 +18,8 @@
     UPDATE: ["employee_code", "relation", "first_name", "last_name", "dob", "gender", "pan", "mobile", "email", "grade", "designation", "annual_salary", "sum_insured"] }[OP];
   var COLS = SHOW.filter(function (f) { return byField[f]; });
   var PLACEHOLDER = { dob: "dd/mm/yyyy", effective_date: "dd/mm/yyyy", sum_insured: "5,00,000", pan: "ABCDE1234F", mobile: "10 digits", gender: "M / F" };
-  var rows = [], seq = 0, verdict = {}, pending = null, inflight = 0, dirty = false, lastSummary = null, lastChecks = null, valid = false;
+  var rows = [], seq = 0, verdict = {}, inflight = 0, lastSummary = null, lastChecks = null, valid = false;
+  var ver = {}, timers = {}, sent = {}, epoch = 0, applied = 0, bulkTimer = null;          // per-row edit counter, per-row debounce, rows the engine already holds
   var thead = app.querySelector("thead"), tbody = app.querySelector("tbody"), side = document.getElementById("side"), verdictEl = document.getElementById("verdict"), submit = document.getElementById("submit"), saving = document.getElementById("saving");
   var KEY = "ensuretech-grid-" + ID;
 
@@ -66,7 +68,7 @@
       });
       var st = tr.querySelector("td.state"), wy = tr.querySelector("td.why"); wy.textContent = ""; st.textContent = "";
       if (v && !v.blank) { var bad = issues.some(function (x) { return x.severity === "ERROR"; }); st.append(el("span", { class: "mark " + (bad ? "no" : issues.length ? "maybe" : "yes"), text: bad ? "✕" : issues.length ? "!" : "✓", title: bad ? "needs fixing" : issues.length ? "check this" : "good", role: "img", "aria-label": bad ? "needs fixing" : issues.length ? "check this" : "good" })); }
-      else if (inflight && !isBlank(r)) st.append(el("span", { class: "mark wait", text: "…", "aria-label": "checking" }));
+      else if ((timers[r.id] || inflight) && !isBlank(r)) st.append(el("span", { class: "mark wait", text: "…", "aria-label": "checking" }));
       why.slice(0, 3).forEach(function (x) { wy.append(el("div", { class: "w " + x.severity.toLowerCase() }, el("code", { text: x.rule }), " ", x.message)); });
       if (why.length > 3) wy.append(el("div", { class: "w more", text: "+" + (why.length - 3) + " more" }));
     });
@@ -101,36 +103,59 @@
   }
   function setVerdict() {
     var s = lastSummary, typed = rows.filter(function (r) { return !isBlank(r); }).length;
-    valid = !!s && !inflight && !dirty && s.rows_typed > 0 && s.rows_with_errors === 0 && typed === s.rows_typed;
+    valid = !!s && !busy() && s.rows_typed > 0 && s.rows_with_errors === 0 && typed === s.rows_typed;
     submit.disabled = !valid;
     verdictEl.className = valid ? "ok" : "";
-    verdictEl.textContent = !typed ? "Nothing entered yet." : (dirty || inflight) ? "Checking…" : s && s.rows_with_errors ? s.rows_with_errors + " row" + (s.rows_with_errors === 1 ? "" : "s") + " to fix before you can submit." : s ? "All " + s.rows_typed + " rows pass. Ready to submit." : "";
+    verdictEl.textContent = !typed ? "Nothing entered yet." : busy() ? "Checking…" : s && s.rows_with_errors ? s.rows_with_errors + " row" + (s.rows_with_errors === 1 ? "" : "s") + " to fix before you can submit." : s ? "All " + s.rows_typed + " rows pass. Ready to submit." : "";
   }
 
   /* ── talking to the engine ─────────────────────────────────────────────────────────────────────────────────────────────── */
-  function payload() { return rows.map(function (r) { var o = { row_key: r.id }; if (isBlank(r)) return o; COLS.forEach(function (f) { var v = r.cells[f]; if (v !== undefined && String(v).trim() !== "") o[f] = String(v).trim(); }); return o; }); }
-  function post(url, body) { return fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": app.dataset.token }, body: JSON.stringify(body) }); }
-  var seqCall = 0;
-  function check() {
-    var mine = ++seqCall; inflight++; dirty = false; setVerdict();
-    post("/app/endorse/grid/" + ID + "/validate", { op_type: OP, rows: payload() }).then(function (res) { return res.json().then(function (j) { return [res.status, j]; }); }).then(function (a) {
-      inflight--; if (mine !== seqCall) { setVerdict(); return; }                      // a newer check is on its way: this one is stale
-      if (a[0] === 200) { verdict = {}; a[1].rows.forEach(function (x, i) { verdict[rows[i] ? rows[i].id : x.row_key] = x; }); lastSummary = a[1].summary; lastChecks = a[1].checks; saving.textContent = ""; }
-      else saving.textContent = a[0] === 429 ? "Slow down a moment…" : (a[1] && a[1].detail) || "Could not check just now. Your typing is kept.";
-      paint(); drawIssues(); drawSide(); setVerdict();
-    }).catch(function () { inflight--; saving.textContent = "Offline? Your typing is kept here."; setVerdict(); });
+  function cellsOf(r) { var o = {}; COLS.forEach(function (f) { var v = r.cells[f]; if (v !== undefined && String(v).trim() !== "") o[f] = String(v).trim(); }); return o; }
+  function payload() { return rows.map(function (r) { var o = { row_key: r.id }; if (isBlank(r)) return o; var c = cellsOf(r); Object.keys(c).forEach(function (k) { o[k] = c[k]; }); return o; }); }
+  function call(method, url, body) { return fetch(url, { method: method, credentials: "same-origin", headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": app.dataset.token }, body: body ? JSON.stringify(body) : undefined })
+    .then(function (res) { return res.json().then(function (j) { return [res.status, j]; }).catch(function () { return [res.status, null]; }); }); }
+  function rowById(id) { for (var i = 0; i < rows.length; i++) if (rows[i].id === id) return i; return -1; }
+  function busy() { return inflight > 0 || Object.keys(timers).length > 0 || bulkTimer !== null; }
+  function applyAnswer(a, mine, v, n) {
+    var j = a[1] || {};
+    if (a[0] !== 200) { saving.textContent = a[0] === 429 ? "Slow down a moment…" : (j && j.detail) || "Could not check just now. Your typing is kept."; return; }
+    saving.textContent = "";
+    if (mine) { if (j.row && (v === undefined || ver[mine] === v)) { verdict[mine] = j.row; sent[mine] = !j.row.blank; } }
+    (j.changed || []).forEach(function (c) { if (!timers[c.row_key] && rowById(c.row_key) >= 0) verdict[c.row_key] = c; });     // another row whose verdict this edit changed
+    if (j.summary && (n === undefined || n > applied)) { if (n !== undefined) applied = n; lastSummary = j.summary; lastChecks = j.checks; }       // an older answer arriving late never overwrites a newer summary
   }
-  function later() { dirty = true; setVerdict(); clearTimeout(pending); pending = setTimeout(check, 350); stash(); }
+  /* the ONE row that changed */
+  function sendRow(id) {
+    delete timers[id]; var i = rowById(id); if (i < 0) return; var r = rows[i], v = ver[id];
+    if (isBlank(r)) { delete verdict[id]; if (!sent[id]) { settle(); return; } inflight++; var dn = ++epoch; call("DELETE", "/app/endorse/grid/" + ID + "/row/" + encodeURIComponent(id) + "?op_type=" + OP + "&grid_rows=" + rows.length).then(function (a) { inflight--; if (ver[id] === v) delete sent[id]; applyAnswer(a, null, undefined, dn); settle(); }).catch(offline); return; }
+    inflight++; var n = ++epoch;
+    call("PUT", "/app/endorse/grid/" + ID + "/row/" + encodeURIComponent(id), { op_type: OP, row: cellsOf(r), position: i, grid_rows: rows.length, v: v }).then(function (a) { inflight--; applyAnswer(a, id, v, n); settle(); }).catch(offline);
+  }
+  /* the whole grid, once: a paste, a reload, rows inserted in the middle (so positions are renumbered) */
+  function syncAll() {
+    bulkTimer = null; var n = ++epoch, snap = {}; rows.forEach(function (r) { snap[r.id] = ver[r.id] || 0; }); var body = payload(); inflight++;
+    call("POST", "/app/endorse/grid/" + ID + "/sync", { op_type: OP, rows: body }).then(function (a) {
+      inflight--; var j = a[1] || {};
+      if (a[0] === 200) { (j.rows || []).forEach(function (x) { var r = rows[rowById(x.row_key)]; if (r && (ver[r.id] || 0) === snap[r.id] && !timers[r.id]) { if (x.blank) delete verdict[r.id]; else verdict[r.id] = x; sent[r.id] = !x.blank; } }); if (n > applied) { applied = n; lastSummary = j.summary; lastChecks = j.checks; } saving.textContent = ""; }
+      else saving.textContent = (j && j.detail) || "Could not check just now. Your typing is kept.";
+      settle();
+    }).catch(offline);
+  }
+  function sendRowDelete(id) { inflight++; var n = ++epoch; call("DELETE", "/app/endorse/grid/" + ID + "/row/" + encodeURIComponent(id) + "?op_type=" + OP + "&grid_rows=" + rows.length).then(function (a) { inflight--; delete sent[id]; applyAnswer(a, null, undefined, n); settle(); }).catch(offline); }
+  function settle() { paint(); drawIssues(); drawSide(); setVerdict(); }
+  function offline() { inflight--; saving.textContent = "Offline? Your typing is kept here."; setVerdict(); }
+  function edited(id) { ver[id] = (ver[id] || 0) + 1; clearTimeout(timers[id]); timers[id] = setTimeout(function () { sendRow(id); }, 250); setVerdict(); stash(); }
+  function bulk() { clearTimeout(bulkTimer); bulkTimer = setTimeout(syncAll, 300); setVerdict(); stash(); }
   function stash() { try { sessionStorage.setItem(KEY, JSON.stringify(rows)); } catch (e) {} }
 
   /* ── editing ───────────────────────────────────────────────────────────────────────────────────────────────────────────── */
   function rowOf(t) { var id = t.dataset.r; for (var i = 0; i < rows.length; i++) if (rows[i].id === id) return i; return -1; }
-  tbody.addEventListener("input", function (e) { var t = e.target; if (!t.dataset.f) return; var i = rowOf(t); if (i < 0) return; rows[i].cells[t.dataset.f] = t.value; later(); });
-  tbody.addEventListener("change", function (e) { var t = e.target; if (t.tagName === "SELECT" && t.dataset.f) { var i = rowOf(t); if (i >= 0) { rows[i].cells[t.dataset.f] = t.value; later(); } } });
+  tbody.addEventListener("input", function (e) { var t = e.target; if (!t.dataset.f) return; var i = rowOf(t); if (i < 0) return; rows[i].cells[t.dataset.f] = t.value; edited(rows[i].id); });
+  tbody.addEventListener("change", function (e) { var t = e.target; if (t.tagName === "SELECT" && t.dataset.f) { var i = rowOf(t); if (i >= 0) { rows[i].cells[t.dataset.f] = t.value; edited(rows[i].id); } } });
   tbody.addEventListener("click", function (e) {
     var b = e.target.closest("button[data-do]"); if (!b) return; var tr = b.closest("tr"), i = Array.prototype.indexOf.call(tbody.children, tr);
-    if (b.dataset.do === "del") { rows.splice(i, 1); if (!rows.length) rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); later(); }
-    else if (b.dataset.do === "dep") { if (rows.length >= CAP) return flash("The grid holds " + CAP + " rows for " + COUNT + " employees."); var n = blankRow(""); n.cells.employee_code = rows[i].cells.employee_code || ""; rows.splice(i + 1, 0, n); drawAll(); focusCell(i + 1, "relation"); later(); }
+    if (b.dataset.do === "del") { var gone = rows.splice(i, 1)[0]; clearTimeout(timers[gone.id]); delete timers[gone.id]; delete verdict[gone.id]; if (sent[gone.id]) sendRowDelete(gone.id); if (!rows.length) rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); setVerdict(); stash(); }
+    else if (b.dataset.do === "dep") { if (rows.length >= CAP) return flash("The grid holds " + CAP + " rows for " + COUNT + " employees."); var n = blankRow(""); n.cells.employee_code = rows[i].cells.employee_code || ""; rows.splice(i + 1, 0, n); drawAll(); focusCell(i + 1, "relation"); bulk(); }
   });
   function focusCell(i, f) { var tr = tbody.children[i]; if (!tr) return; var x = tr.querySelector("[data-f=" + f + "]"); if (x) x.focus(); }
   function flash(msg) { saving.textContent = msg; setTimeout(function () { if (saving.textContent === msg) saving.textContent = ""; }, 4000); }
@@ -142,23 +167,23 @@
     if (i0 + lines.length > CAP) { flash("That is " + lines.length + " rows; the grid holds " + CAP + ". Use the spreadsheet for more."); lines = lines.slice(0, CAP - i0); }
     lines.forEach(function (cells, li) { var ri = i0 + li; while (rows.length <= ri) rows.push(blankRow(""));
       cells.forEach(function (v, ci) { var f = COLS[c0 + ci]; if (f) rows[ri].cells[f] = v.trim(); }); });
-    drawAll(); later();
+    drawAll(); bulk();
   });
   /* Enter / arrows move like a spreadsheet */
   tbody.addEventListener("keydown", function (e) {
     var t = e.target; if (!t.dataset || !t.dataset.f) return; var i = rowOf(t);
-    if (e.key === "Enter" && t.tagName !== "SELECT") { e.preventDefault(); if (i === rows.length - 1 && rows.length < CAP) { rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); later(); } focusCell(Math.min(i + 1, rows.length - 1), t.dataset.f); }
+    if (e.key === "Enter" && t.tagName !== "SELECT") { e.preventDefault(); if (i === rows.length - 1 && rows.length < CAP) { rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); stash(); } focusCell(Math.min(i + 1, rows.length - 1), t.dataset.f); }
     else if (e.key === "ArrowDown" && t.tagName !== "SELECT") { e.preventDefault(); focusCell(Math.min(i + 1, rows.length - 1), t.dataset.f); }
     else if (e.key === "ArrowUp" && t.tagName !== "SELECT") { e.preventDefault(); focusCell(Math.max(i - 1, 0), t.dataset.f); }
   });
-  document.getElementById("add-row").addEventListener("click", function () { if (rows.length >= CAP) return flash("The grid holds " + CAP + " rows."); rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); focusCell(rows.length - 1, COLS[0]); later(); });
-  document.getElementById("add-five").addEventListener("click", function () { for (var k = 0; k < 5 && rows.length < CAP; k++) rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); later(); });
-  document.getElementById("clear-blank").addEventListener("click", function () { var keep = rows.filter(function (r) { return !isBlank(r); }); rows = keep.length ? keep : [blankRow(OP === "ADD" ? "SELF" : "")]; drawAll(); later(); });
+  document.getElementById("add-row").addEventListener("click", function () { if (rows.length >= CAP) return flash("The grid holds " + CAP + " rows."); rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); focusCell(rows.length - 1, COLS[0]); stash(); });
+  document.getElementById("add-five").addEventListener("click", function () { for (var k = 0; k < 5 && rows.length < CAP; k++) rows.push(blankRow(OP === "ADD" ? "SELF" : "")); drawAll(); stash(); });
+  document.getElementById("clear-blank").addEventListener("click", function () { var keep = rows.filter(function (r) { return !isBlank(r); }); rows = keep.length ? keep : [blankRow(OP === "ADD" ? "SELF" : "")]; drawAll(); bulk(); });
 
   /* ── submit ───────────────────────────────────────────────────────────────────────────────────────────────────────────── */
   submit.addEventListener("click", function () {
     if (!valid) return; submit.disabled = true; verdictEl.textContent = "Submitting…";
-    post("/app/endorse/grid/" + ID + "/submit", { op_type: OP, rows: payload() }).then(function (res) { return res.json().then(function (j) { return [res.status, j]; }); }).then(function (a) {
+    call("POST", "/app/endorse/grid/" + ID + "/submit", { op_type: OP, rows: payload() }).then(function (a) {
       if (a[0] === 200 && a[1].redirect) { try { sessionStorage.removeItem(KEY); } catch (e) {} location.href = a[1].redirect; return; }
       verdictEl.textContent = (a[1] && a[1].detail) || "Could not submit. Nothing was lost."; if (a[1] && a[1].result) { lastSummary = a[1].result.summary; a[1].result.rows.forEach(function (x, i) { verdict[rows[i].id] = x; }); paint(); drawIssues(); drawSide(); } submit.disabled = false;
     }).catch(function () { verdictEl.textContent = "Could not reach the server. Nothing was lost."; submit.disabled = false; });
@@ -169,5 +194,5 @@
   var restored = null; try { restored = JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (e) {}
   if (restored && Array.isArray(restored) && restored.length) { rows = restored.map(function (r) { return { id: "r" + (++seq), cells: r.cells || {} }; }); }
   else for (var k = 0; k < Math.min(+app.dataset.initial || 1, CAP); k++) rows.push(blankRow(OP === "ADD" ? "SELF" : ""));
-  head(); drawAll(); drawSide(); setVerdict(); if (restored) check();
+  head(); drawAll(); drawSide(); setVerdict(); if (restored) syncAll();
 })();

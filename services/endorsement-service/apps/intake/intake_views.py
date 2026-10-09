@@ -19,7 +19,7 @@ from apps.core.exceptions import Unprocessable
 from apps.core.permissions import CAN_SUBMIT, GatewayPermission
 
 from . import gui, template
-from .grid import analyse
+from .grid import analyse, delete_row, put_row
 from .gui_views import _policy, _policy_facts, _session, _touch
 from .models import GuiRow, GuiSession
 from .normalize import normalize_row
@@ -154,11 +154,58 @@ class GridSaveView(APIView):
             for pos, raw in enumerate(rows):
                 if by_pos[pos]["blank"]:
                     continue
-                cells = {k: v for k, v in raw.items() if k != "row_key"}
+                cells = {k: v for k, v in raw.items() if k != "row_key" and not k.startswith("_")}
                 norm, _ = normalize_row(cells, default_effective_date=s.effective_date.isoformat() if s.effective_date else None)
-                keep.append(GuiRow(session=s, row_key=f"g{pos}", op_type=op, raw=cells, normalised=norm, issues=by_pos[pos]["issues"],
+                keep.append(GuiRow(session=s, row_key=str(raw.get("row_key") or f"g{pos}")[:64], op_type=op, raw={**cells, "_pos": pos}, normalised=norm, issues=by_pos[pos]["issues"],
                                    employee_code=norm.get("employee_code") or "", relation_code=norm.get("relation_code") or ""))
             GuiRow.objects.bulk_create(keep)
         _touch(s)
         result["saved_rows"] = len(keep)
+        return Response(result)
+
+
+def _row_body(request, s: GuiSession) -> tuple[str, dict, int, int]:
+    op = _op(request.data.get("op_type"))
+    row = request.data.get("row")
+    if not isinstance(row, dict):
+        raise ValidationError({"row": "an object of cell values is required"})
+    pos = _int(request.data.get("position", 10**6), "position", 0, 10**6)
+    grid_rows = _int(request.data.get("grid_rows", 0), "grid_rows", 0, 10**6)
+    return op, row, pos, grid_rows
+
+
+def _row_key(row_key: str) -> str:
+    if not row_key or len(row_key) > 64:
+        raise ValidationError({"row_key": "1-64 characters"})
+    return row_key
+
+
+class GridRowView(APIView):
+    """ONE row of the grid, as it changed. The service already holds the rest of the grid, so that is all that needs sending: the answer is that
+    row's verdict, the verdict of any other row it changed (a duplicate, a family), and the new summary."""
+    permission_classes = PERMS
+
+    def put(self, request, session_id, row_key):
+        s = _session(request, session_id, mutate=True)
+        _grid_throttle(s)
+        row_key = _row_key(row_key)
+        op, cells, pos, grid_rows = _row_body(request, s)
+        cap = (s.expected_employees or settings.GRID_MAX_EMPLOYEES) * settings.GRID_ROWS_PER_EMPLOYEE
+        if not GuiRow.objects.filter(session=s, row_key=row_key).exists() and GuiRow.objects.filter(session=s).count() >= cap:
+            raise Unprocessable(f"the grid holds at most {cap} rows for {s.expected_employees} employees; use the spreadsheet for more")
+        result = put_row(s, op, row_key, cells, position=pos, grid_rows=grid_rows, families=request.data.get("families", True) is not False)
+        _touch(s)
+        return Response({**result, "v": request.data.get("v")})
+
+    def delete(self, request, session_id, row_key):
+        s = _session(request, session_id, mutate=True)
+        _grid_throttle(s)
+        row_key = _row_key(row_key)
+        op = _op(request.query_params.get("op_type") or request.data.get("op_type"))
+        try:
+            grid_rows = int(request.query_params.get("grid_rows") or 0)
+        except ValueError:
+            grid_rows = 0
+        result = delete_row(s, op, row_key, grid_rows=grid_rows)
+        _touch(s)
         return Response(result)
