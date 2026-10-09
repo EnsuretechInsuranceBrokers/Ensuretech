@@ -1,0 +1,3 @@
+apiVersion: 1
+providers:
+  - { name: ensuretech, folder: Ensuretech, type: file, options: { path: /var/lib/grafana/dashboards } }

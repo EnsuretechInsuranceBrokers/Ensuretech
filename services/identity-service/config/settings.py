@@ -111,3 +111,9 @@ GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF 
 import sys as _sys
 GATEWAY_ALLOW_UNGUARDED = env.bool("GATEWAY_ALLOW_UNGUARDED", default="pytest" in _sys.modules)   # true = answer anyone who can reach the port: local development, and the test run
 GATEWAY_OPEN_CIDRS = env("GATEWAY_OPEN_CIDRS", default="")   # optional: networks allowed to reach the open doors (identity: service-token sign-in)
+
+# Development-only debugging tools (Silk, Debug Toolbar, Ray): off unless DEV_TOOLS=true and DEBUG=true. See config/devtools.py and docs/debugging.md.
+DEV_TOOLS = env.bool("DEV_TOOLS", default=False)
+from config import devtools as _devtools  # noqa: E402
+
+_devtools.configure(globals())

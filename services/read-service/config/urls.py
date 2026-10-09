@@ -6,3 +6,7 @@ urlpatterns = [
     path("api/v1/broker/rag/", include("apps.rag.urls")),
     path("api/v1/employer/rag/", include("apps.rag.urls")),
 ]
+
+from config import devtools  # noqa: E402
+
+urlpatterns += devtools.urlpatterns()      # [] unless DEV_TOOLS=true (development only)

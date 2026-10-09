@@ -28,14 +28,14 @@ a{color:var(--brand)}details{background:var(--card);border:1px solid var(--line)
 <nav>
   <strong>Ensuretech</strong>
   <div class="h">Before you start</div>
-  <a href="#qa">0. For the QA run</a><a href="#prereq">1. A brand-new laptop</a><a href="#dbconfirm">2. The database: \i setup.sql?</a><a href="#howstart">3. Do I start each service?</a>
+  <a href="#qa">0. For the QA run</a><a href="#prereq">1. A brand-new laptop</a><a href="#dbconfirm">2. The database: \i setup.sql?</a><a href="#howstart">3. Do I start each service?</a><a href="#tmux">3a. One command: tmux</a>
   <div class="h">Setup</div>
   <a href="#map">4. What runs where</a><a href="#infra">5. Infrastructure</a><a href="#db">6. Database + keys</a><a href="#env">7. Environment</a>
   <div class="h">Components</div>
   <a href="#identity">8.1 identity</a><a href="#org">8.2 organization</a><a href="#policy">8.3 policy</a><a href="#billing">8.4 billing</a><a href="#engine">8.5 endorsement engine</a>
   <a href="#integration">8.6 integration</a><a href="#read">8.7 read-service</a><a href="#notif">8.8 notification</a><a href="#sheet">8.9 sheet generator</a><a href="#bff">8.10 BFF + portal</a>
   <div class="h">Using it</div>
-  <a href="#secret">9. The lock on the core</a><a href="#smoke">10. First run walkthrough</a><a href="#offline">11. TPA offline upload</a><a href="#lockcheck">12. Prove the lock</a><a href="#tests">13. Tests</a><a href="#trouble">14. Troubleshooting</a><a href="#stop">15. Stopping</a>
+  <a href="#secret">9. The lock on the core</a><a href="#smoke">10. First run walkthrough</a><a href="#offline">11. TPA offline upload</a><a href="#lockcheck">12. Prove the lock</a><a href="#tests">13. Tests</a><a href="#trouble">14. Troubleshooting</a><a href="#stop">15. Stopping</a><a href="#watch">16. Watching it run</a>
 </nav>
 <main>
 <h1>Run Ensuretech locally</h1>
@@ -164,6 +164,19 @@ docker rm -f ensuretech-test-pg</code></pre></div>
 <p>So <strong>ten terminals for the whole main flow</strong>, twelve with email, thirteen with everything. Each Spring service logs <em>Started ... in N seconds</em> when ready; each Django service prints <em>Starting development server</em>. A terminal multiplexer (<code>tmux</code>) is the easy way to hold that many; or open them as tabs.</p>
 <p><strong>What every terminal needs.</strong> From the repository root, <code>set -a; source local.env; set +a</code> (it holds the database URLs, the gateway secret, the service-account credentials and the Kafka/Redis addresses). The service then refuses to start if <code>GATEWAY_SECRET</code> is missing (§9), which is the signal you forgot it. The services listen on <code>127.0.0.1</code> only, so nothing on your network can reach them.</p>
 <p><strong>Order.</strong> identity first (the others fetch tokens from it), then organization, policy, billing, then the engine and its relay, then integration, read-service, then the BFF last. After the first run any order works as long as PostgreSQL, Kafka and identity are up.</p>
+
+<h3 id="tmux">3a. One command: the tmux launcher</h3>
+<p>You do not have to open ten terminals by hand. <code>scripts/dev-up.sh</code> checks your laptop, the infrastructure and the databases, prepares everything the first time (virtual environments, Maven builds when sources are newer than the jar, migrations, the gRPC stubs, the BFF's dependencies and <code>.env</code>, the five Kafka topics), then starts every process in its own <strong>tmux window</strong> in the right order, waits for identity, and opens a <code>status</code> window showing each port go green.</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>scripts/dev-up.sh --check          # only check: tools, PostgreSQL/Redis/Kafka/Mongo, databases, keys, secrets. Starts nothing.
+scripts/dev-up.sh                  # start everything that can run, then attach to tmux
+scripts/dev-up.sh --no-kafka       # Kafka is not running: portal works, but no cross-service events (dashboards, policy-to-billing hand-offs)
+scripts/dev-up.sh --with-mail --with-sheet      # also the notification workers and the sheet generator
+scripts/dev-up.sh --skip read,projector         # leave components out   (identity org policy billing engine relay integration read projector bff ...)
+scripts/dev-up.sh --devtools --ray              # debugging tools (section 16)
+DB_PORT=5433 scripts/dev-up.sh     # against the second, throwaway PostgreSQL (section 2)
+scripts/dev-down.sh                # stop everything it started (leaves PostgreSQL, Kafka, Redis, Mongo and your data alone)</code></pre></div>
+<p>In tmux: <code>Ctrl-b w</code> lists the windows (identity, org, policy, billing, engine, relay, integration, read, projector, bff), <code>Ctrl-b n</code>/<code>p</code> moves between them, the mouse works, <code>Ctrl-b d</code> detaches and leaves everything running (<code>tmux attach -t ensuretech</code> comes back). Every window also writes <code>.dev/logs/NAME.log</code>. If a process exits, its window stays open with the reason. Infrastructure is <em>not</em> started by the script: start PostgreSQL, Redis, Kafka and MongoDB first (§5).</p>
+<p><strong>What was and was not tested.</strong> I ran the script's first-run path in a Linux sandbox without Kafka or MongoDB: tool/infra/database checks, venv creation, dependency install, migrations, stale-jar rebuild, tmux windows and the status page, with <code>--no-kafka</code>. The Kafka-topic step, the read-service and projector windows, <code>--with-mail</code>, and macOS were not run. The first start of a Spring service takes 10-30 s after its window opens.</p>
 
 <h2 id="map">4. What runs where</h2>
 <p>You open <strong>one thing</strong>: the BFF (a Laravel app) on port 8090. It serves the portal and is the only door to everything else. Every core service refuses calls that did not come through it (§7).</p>
@@ -416,16 +429,16 @@ curl -s -o /dev/null -w "wrong secret at sign-in                       -> %{http
 <p>Each suite is self-contained (real PostgreSQL for the Spring and engine suites, fake brokers). Run with the role from <code>setup.sql</code> and Redis up. Never run tests against a database you care about (and that includes the seeded <code>ensuretech_*</code> ones): they truncate tables. Point <code>DATABASE_URL</code> at a scratch database: create one with <code>createdb -h localhost -U ensuretech scratch1</code> and use <code>jdbc:postgresql://localhost:5432/scratch1</code> (Spring) or <code>postgres://ensuretech:ensuretech@localhost:5432/scratch1</code> (Python), or use the second server of §2. Python suites need the test tools: <code>python ../../scripts/install_python_deps.py --dev</code>.</p>
 <table>
 <tr><th>Component</th><th>Command (from the service folder)</th><th>Expected</th></tr>
-<tr><td>BFF</td><td><code>php artisan test</code> (no database needed)</td><td>90 passed</td></tr>
-<tr><td>identity</td><td><code>DATABASE_URL="$IDENTITY_DB" pytest -q</code></td><td>39 passed</td></tr>
-<tr><td>endorsement engine</td><td><code>DATABASE_URL="$ENDORSEMENT_DB" pytest -q</code></td><td>305 passed</td></tr>
+<tr><td>BFF</td><td><code>php artisan test</code> (no database needed)</td><td>93 passed</td></tr>
+<tr><td>identity</td><td><code>DATABASE_URL="$IDENTITY_DB" pytest -q</code></td><td>43 passed</td></tr>
+<tr><td>endorsement engine</td><td><code>DATABASE_URL="$ENDORSEMENT_DB" pytest -q</code></td><td>309 passed</td></tr>
 <tr><td>read-service</td><td><code>TEST_MONGO_URI=$MONGO_URI pytest -q</code> (needs MongoDB or FerretDB on 27017)</td><td>all pass</td></tr>
-<tr><td>notification</td><td><code>DATABASE_URL="$NOTIFICATION_DB" pytest -q</code></td><td>needs PostgreSQL</td></tr>
+<tr><td>notification</td><td><code>DATABASE_URL="$NOTIFICATION_DB" pytest -q</code></td><td>42 (needs PostgreSQL)</td></tr>
 <tr><td>organization</td><td><code>DATABASE_URL="$ORG_JDBC" mvn test</code></td><td>29</td></tr>
-<tr><td>policy</td><td><code>DATABASE_URL="$POLICY_JDBC" mvn test</code> (Redis up)</td><td>about 90</td></tr>
+<tr><td>policy</td><td><code>DATABASE_URL="$POLICY_JDBC" mvn test</code> (Redis up)</td><td>91</td></tr>
 <tr><td>billing</td><td><code>DATABASE_URL="$BILLING_JDBC" mvn test</code></td><td>42</td></tr>
 <tr><td>integration</td><td><code>DATABASE_URL="$INTEGRATION_JDBC" mvn test</code></td><td>41</td></tr>
-<tr><td>sheet generator</td><td><code>DATABASE_URL="$SHEETGEN_JDBC" mvn test</code>, then see <code>qa/README.md</code> for the browser checks</td><td>-</td></tr>
+<tr><td>sheet generator</td><td><code>DATABASE_URL="$SHEETGEN_JDBC" mvn test</code>, then see <code>qa/README.md</code> for the browser checks</td><td>56</td></tr>
 </table>
 <div class="note">Use the Spring suites' DATABASE_USER/PASSWORD from <code>local.env</code>. The tests share the same databases as a running service: stop the service (or use a separate database) first, because the tests wipe its tables.</div>
 
@@ -463,6 +476,21 @@ for p in 8090 8087 8085 8084 8083 8082 8081 8086 8000 9090 9091; do kill $(lsof 
 # wipe all data and start clean (destroys everything); in a psql prompt: \set reset 1  then  \i setup.sql
 psql -h localhost -U postgres -v reset=1 -f setup.sql
 # also delete the Kafka topics/data and the MongoDB database ensuretech_read, or the read models will be inconsistent with the new database</code></pre></div>
+
+<h2 id="watch">16. Watching it run: debugging and analytics</h2>
+<p>All of these are for your laptop only, off by default, and none is installed or enabled on a server. Full notes: <code>docs/observability.md</code>.</p>
+<table>
+<tr><th>Tool</th><th>What it shows</th><th>Turn it on</th><th>Open</th></tr>
+<tr><td><strong>Laravel Telescope</strong> (BFF)</td><td>every request the portal and API handle, every call the BFF makes to a core service with its timing, exceptions, logs, cache, rate-limit hits. Tokens, passwords and the gateway signature are hidden.</td><td><code>scripts/dev-up.sh</code> (on by default; <code>--no-telescope</code> to skip)</td><td><a href="http://localhost:8090/telescope">localhost:8090/telescope</a></td></tr>
+<tr><td><strong>Django Silk</strong></td><td>every request a Django service handled, its SQL queries and how long each took, optional profiling. Stored in a throwaway SQLite file under <code>.dev/</code>, never in the service's database. Headers with tokens and cookies are masked and the sign-in calls are not recorded.</td><td><code>scripts/dev-up.sh --devtools</code></td><td>identity <code>:8000/silk/</code>, engine <code>:8083/silk/</code>, read <code>:8087/silk/</code></td></tr>
+<tr><td><strong>Django Debug Toolbar</strong></td><td>SQL, cache, headers, timing in a panel injected into <em>HTML</em> pages. The services mostly return JSON, so for the API itself use Silk; the toolbar shows on Silk's own pages and DRF's browsable API.</td><td><code>--devtools</code></td><td>appears on HTML pages</td></tr>
+<tr><td><strong>Ray</strong> (Spatie)</td><td>a desktop app: in PHP call <code>ray($x)</code>, in Python <code>from config.devtools import ray; ray($x)</code>. With <code>--ray</code> also every BFF request, call to a core service and log line, and every SQL query of the Django services with its time, are sent to it.</td><td>install the app from <a href="https://myray.app">myray.app</a> (a paid app with a trial; check its licence), start it, then <code>scripts/dev-up.sh --ray</code></td><td>the Ray window</td></tr>
+<tr><td><strong>Prometheus + Grafana</strong></td><td>request rate, latency, errors, JVM heap, database connections for each Spring service, and the TPA offline upload (lines by outcome, time taken). A dashboard "Ensuretech services" is preloaded.</td><td><code>scripts/observability-up.sh</code> (Docker)</td><td>Grafana <a href="http://localhost:3000">:3000</a> (admin/admin), Prometheus <a href="http://localhost:9099">:9099</a></td></tr>
+<tr><td><strong>Kafka UI</strong></td><td>topics, messages, consumer groups and their lag.</td><td><code>scripts/observability-up.sh</code></td><td><a href="http://localhost:8088">localhost:8088</a></td></tr>
+<tr><td>Mailpit</td><td>the emails notification-service sends.</td><td>already in <code>docker-compose.infra.yml</code></td><td><a href="http://localhost:8025">:8025</a></td></tr>
+</table>
+<div class="warn"><strong>Not included, on purpose.</strong> <em>Laravel Horizon</em> watches Redis queues, and the BFF has no queued jobs (every job would run inline), so its dashboard would always be empty. <em>Celery Flower</em> is the same: locally the engine runs tasks inline (<code>CELERY_TASK_ALWAYS_EAGER</code>). <em>Distributed tracing</em> (OpenTelemetry/Jaeger) is not wired. Each becomes useful when the thing it watches exists; ask and I will add it then.</div>
+<div class="note"><strong>How this fits the lock (§9).</strong> Metrics are read through one extra door: <code>GET /actuator/prometheus</code> with the read-only <code>METRICS_TOKEN</code> (in <code>local.env</code>). The Silk and Debug Toolbar pages are opened past the lock only while <code>DEV_TOOLS=true</code> and <code>DEBUG=true</code>, and the service refuses to start with <code>DEV_TOOLS</code> and no <code>DEBUG</code>. Do not use these switches for the QA run in §12, which proves the lock.</div>
 
 <p style="margin-top:3rem;color:var(--mut);font-size:.9rem">Deeper reading: <code>docs/full-stack-local.md</code> (what a full run found), <code>docs/runtime-dependencies.md</code> (free vs paid), each service's own <code>README.md</code>, <code>services/bff/README.md</code> (public API).</p>
 </main>

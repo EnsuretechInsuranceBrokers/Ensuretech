@@ -75,11 +75,12 @@ public class OfflineMemberService {
     private final OutboxPublisher outbox;
     private final TransactionTemplate tx;
     private final double urgentHours, criticalHours;
+    private final io.micrometer.core.instrument.MeterRegistry meters;
 
-    OfflineMemberService(PolicyRouteRepository routes, EngineClient engine, JdbcClient jdbc, OutboxPublisher outbox, PlatformTransactionManager tm,
+    OfflineMemberService(PolicyRouteRepository routes, EngineClient engine, JdbcClient jdbc, OutboxPublisher outbox, PlatformTransactionManager tm, io.micrometer.core.instrument.MeterRegistry meters,
                          @Value("${app.offline.urgent-hours:4}") double urgentHours, @Value("${app.offline.critical-hours:24}") double criticalHours) {
         this.routes = routes; this.engine = engine; this.jdbc = jdbc; this.outbox = outbox; this.tx = new TransactionTemplate(tm);
-        this.urgentHours = urgentHours; this.criticalHours = criticalHours;
+        this.urgentHours = urgentHours; this.criticalHours = criticalHours; this.meters = meters;
     }
 
     // ── who may see which policy ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -250,6 +251,9 @@ public class OfflineMemberService {
         }
         List<LineResult> lines = new ArrayList<>();
         for (OfflineMatcher.Verdict v : verdicts) lines.add(line(v));
+        if (apply) for (OfflineMatcher.Verdict v : verdicts) meters.counter("ensuretech.offline.lines", "outcome", v.outcome().name(), "source", s.source()).increment();
+        long took = System.nanoTime() - t0;
+        meters.timer("ensuretech.offline.upload", "mode", apply ? "apply" : "preview", "source", s.source()).record(took, java.util.concurrent.TimeUnit.NANOSECONDS);
         return new Report(id, apply, policyId, tpa, s.source(), filename, sha, verdicts.size(), assigned, reassigned, updated, ecards, unchanged, rejected,
                 assigned > 0 ? round1(longest) : null, sheet.warnings(), lines, (System.nanoTime() - t0) / 1_000_000);
     }

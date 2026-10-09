@@ -32,6 +32,9 @@ return [
 
     'connections' => [
 
+        // Telescope's own store (local development only): a file, so the BFF itself needs no database
+        'telescope' => ['driver' => 'sqlite', 'database' => env('TELESCOPE_DB_DATABASE', storage_path('telescope.sqlite')), 'prefix' => '', 'foreign_key_constraints' => false],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),

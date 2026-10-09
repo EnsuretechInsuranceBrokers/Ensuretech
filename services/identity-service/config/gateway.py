@@ -49,6 +49,7 @@ class GatewaySecretMiddleware:
             raise ImproperlyConfigured("GATEWAY_SECRET is shorter than 32 characters. Use a long random value (openssl rand -hex 32).")
         if not self.secret:
             log.warning("GATEWAY_SECRET is not set and GATEWAY_ALLOW_UNGUARDED is on: requests that bypass the BFF are NOT refused. Local development only.")
+        self.dev_tools = bool(getattr(settings, "DEV_TOOLS", False)) and bool(getattr(settings, "DEBUG", False))
         self.open_cidrs = getattr(settings, "GATEWAY_OPEN_CIDRS", "") or ""
         self._seen: dict[str, float] = {}
         self._lock = threading.Lock()
@@ -74,6 +75,8 @@ class GatewaySecretMiddleware:
             return False
 
     def _open(self, request):
+        if self.dev_tools and request.path.startswith(("/silk/", "/__debug__/", "/static/")):
+            return True                       # DEV_TOOLS (DEBUG only): the debugging dashboards are used from a browser, which cannot sign
         return request.path in OPEN or request.path.startswith(tuple(p for p in OPEN if p.endswith("/")))
 
     def _signed(self, request):

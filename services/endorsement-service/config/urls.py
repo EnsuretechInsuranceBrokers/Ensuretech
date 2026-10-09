@@ -12,3 +12,7 @@ urlpatterns = [
     path("api/v1/broker/endorsements/", include("apps.jobs.urls")),
     path("api/v1/employer/endorsements/", include("apps.jobs.urls")),
 ]
+
+from config import devtools  # noqa: E402
+
+urlpatterns += devtools.urlpatterns()      # [] unless DEV_TOOLS=true (development only)

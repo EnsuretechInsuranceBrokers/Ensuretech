@@ -69,4 +69,5 @@ app:
 
 gateway:
   secret: ${GATEWAY_SECRET:}                 # shared with the BFF (BFF_GATEWAY_SECRET), at least 32 random characters. The service refuses to start without it.
+  metrics-token: ${METRICS_TOKEN:}               # bearer token for a metrics scraper on GET /actuator/prometheus only; blank = metrics closed
   allow-unguarded: ${GATEWAY_ALLOW_UNGUARDED:false}   # true = answer anyone who can reach the port. Local development only.

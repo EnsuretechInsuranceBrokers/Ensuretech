@@ -21,6 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+devtools = ["django-silk>=5.3", "django-debug-toolbar>=4.4"]   # development only: DEV_TOOLS=true, see docs/debugging.md
 dev = ["pytest>=9", "pytest-django>=4.11", "pytest-env>=1.1", "pytest-asyncio>=1.0", "ruff"]
 
 [tool.pytest.ini_options]

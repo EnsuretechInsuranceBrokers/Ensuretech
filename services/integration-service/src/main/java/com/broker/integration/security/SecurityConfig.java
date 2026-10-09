@@ -35,6 +35,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()   // else every unhandled error is masked as an empty 403
                 .requestMatchers(HttpMethod.GET, "/actuator/health/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()      // only reachable with the METRICS_TOKEN: the gateway filter refuses everyone else first
                 .requestMatchers("/api/v1/broker/**")
                     .hasAnyRole("BROKER_ADMIN", "BROKER_SPECIALIZER", "BROKER_NON_ADMIN")
                 .requestMatchers("/api/v1/tpa/**").hasRole("TPA_USER")

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
 class OfflineUploadFlowTest extends IntegrationTestBase {
+    @org.springframework.beans.factory.annotation.Autowired io.micrometer.core.instrument.MeterRegistry meters;
     private static final String B = "/api/v1/broker/integration/", T = "/api/v1/tpa/integration/";
 
     /** A roster member that is waiting for its TPA id, endorsed `hoursAgo` hours ago. */
@@ -69,6 +70,8 @@ class OfflineUploadFlowTest extends IntegrationTestBase {
         Assertions.assertThat(world.assignCalls).hasSize(1);
         Assertions.assertThat(jdbc.sql("SELECT count(*) FROM integration.offline_upload_rows WHERE outcome='REJECTED'").query(Long.class).single()).isGreaterThanOrEqualTo(2);
         Assertions.assertThat(outbox("TpaMemberIdsReceived")).isEqualTo(1);
+        Assertions.assertThat(meters.find("ensuretech.offline.lines").tag("outcome", "ASSIGNED").counter().count()).isGreaterThanOrEqualTo(1);       // what Grafana plots
+        Assertions.assertThat(meters.find("ensuretech.offline.upload").tag("mode", "preview").timer().count()).isGreaterThanOrEqualTo(1);
         String id = com.jayway.jsonpath.JsonPath.read(res, "$.uploadId");
         mvc.perform(get(B + "offline-uploads/" + id).param("rejectedOnly", "true").header("Authorization", admin(BROKER_A)))
                 .andExpect(jsonPath("$.lines[*].outcome", everyItem(is("REJECTED"))));

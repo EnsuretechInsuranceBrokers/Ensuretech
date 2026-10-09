@@ -20,6 +20,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(JwtVerifier::class);
         $this->app->singleton(Upstream::class);
         $this->app->singleton(Mitigations::class, fn () => new Mitigations);
+
+        // Telescope: a development tool. Registered only on a local machine with TELESCOPE_ENABLED=true (and not installed at all by `composer install --no-dev`).
+        if ($this->app->environment('local') && config('telescope.enabled') && class_exists(\Laravel\Telescope\TelescopeApplicationServiceProvider::class)) {
+            $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);      // auto-discovery is off (composer.json), so both are registered here
+            $this->app->register(TelescopeServiceProvider::class);
+        }
     }
 
     public function boot(): void
