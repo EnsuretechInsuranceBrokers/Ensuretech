@@ -24,6 +24,13 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
     Route::post('/announcements/{id}/retire', [P::class, 'announcementRetire'])->whereNumber('id');
     Route::get('/endorsements', [P::class, 'endorsements']);
     Route::post('/endorsements/upload', [P::class, 'upload']);
+    Route::get('/endorse', [P::class, 'intake']);
+    Route::post('/endorse/plan', [P::class, 'intakePlan']);
+    Route::get('/endorse/file', [P::class, 'intakeFile']);
+    Route::get('/endorse/template', [P::class, 'intakeTemplate']);
+    Route::get('/endorse/grid/{id}', [P::class, 'grid']);
+    Route::post('/endorse/grid/{id}/validate', [P::class, 'gridValidate'])->middleware('throttle:300,1');
+    Route::post('/endorse/grid/{id}/submit', [P::class, 'gridSubmit']);
     Route::get('/endorsements/{id}', [P::class, 'job']);
     Route::get('/endorsements/{id}/progress', [P::class, 'progress']);
     Route::post('/endorsements/{id}/{action}', [P::class, 'jobAction']);

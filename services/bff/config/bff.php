@@ -55,6 +55,9 @@ return [
         'heavy_per_minute' => (int) env('BFF_RATE_HEAVY', 20),         // uploads and other expensive calls, per user
     ],
 
+    // Only for wording on the "how many employees" page; the endorsement service's GRID_MAX_EMPLOYEES is what actually decides. Keep them equal.
+    'grid_max_employees' => (int) env('BFF_GRID_MAX_EMPLOYEES', 100),
+
     'limits' => [
         'max_upload_bytes' => (int) env('BFF_MAX_UPLOAD_BYTES', 100 * 1024 * 1024),
         'max_json_body_bytes' => (int) env('BFF_MAX_JSON_BODY_BYTES', 256 * 1024),

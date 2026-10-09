@@ -167,6 +167,94 @@ class PortalController extends Controller
         return redirect('/app/endorsements/'.$res['json']['id'])->with('ok', 'File received. Checking it now.');
     }
 
+    // ── "how many employees?": a live grid up to the limit, a spreadsheet above it ─────────────────────────────────
+    public function intake(Request $r)
+    {
+        [$pols] = $this->get($r, '/policies', ['page_size' => 100]);
+
+        return $this->view($r, 'intake', ['policies' => array_values(array_filter($pols['items'] ?? [], fn ($p) => $p['status'] === 'APPROVED_AND_LIVE'))]);
+    }
+
+    public function intakePlan(Request $r)
+    {
+        $data = $r->validate(['policy_id' => 'required|integer|min:1', 'op_type' => 'required|in:ADD,REMOVE,UPDATE', 'employee_count' => 'required|integer|min:1|max:1000000', 'effective_date' => 'nullable|date']);
+        $res = $this->api->call($r, 'POST', '/'.$this->gw($r).'/endorsements/intake/plan', array_filter($data, fn ($v) => $v !== null && $v !== ''));
+        if ($res['status'] >= 300) {
+            return back()->withInput()->with('err', self::problem($res['json'], $res['status']));
+        }
+        $plan = $res['json'];
+        if (($plan['mode'] ?? '') === 'GRID') {
+            $r->session()->put('portal.grid.'.$plan['session_id'], ['plan' => $plan, 'effective_date' => $data['effective_date'] ?? null]);
+
+            return redirect('/app/endorse/grid/'.$plan['session_id']);
+        }
+
+        return redirect('/app/endorse/file?'.http_build_query(array_filter($data, fn ($v) => $v !== null && $v !== '')));
+    }
+
+    public function intakeFile(Request $r)
+    {
+        $q = $r->validate(['policy_id' => 'required|integer|min:1', 'op_type' => 'required|in:ADD,REMOVE,UPDATE', 'employee_count' => 'required|integer|min:1|max:1000000', 'effective_date' => 'nullable|date']);
+        $res = $this->api->call($r, 'POST', '/'.$this->gw($r).'/endorsements/intake/plan', array_filter($q, fn ($v) => $v !== null && $v !== ''));
+        if ($res['status'] >= 300 || ($res['json']['mode'] ?? '') !== 'FILE') {
+            return redirect('/app/endorse')->with('err', $res['status'] >= 300 ? self::problem($res['json'], $res['status']) : 'That size goes in the grid.');
+        }
+
+        return $this->view($r, 'intake_file', ['plan' => $res['json'], 'q' => $q]);
+    }
+
+    public function intakeTemplate(Request $r)
+    {
+        $q = $r->validate(['policy_id' => 'required|integer|min:1', 'op_type' => 'required|in:ADD,REMOVE,UPDATE', 'employee_count' => 'required|integer|min:1|max:1000000', 'effective_date' => 'nullable|date']);
+
+        return $this->api->call($r, 'GET', '/'.$this->gw($r).'/endorsements/intake/template', array_filter($q, fn ($v) => $v !== null && $v !== ''))['response'];
+    }
+
+    public function grid(Request $r, string $id)
+    {
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id), 404);
+        $held = $r->session()->get('portal.grid.'.$id);
+        if (! $held) {
+            return redirect('/app/endorse')->with('err', 'That grid has expired. Start again.');
+        }
+
+        return $this->view($r, 'grid', ['id' => $id, 'plan' => $held['plan'], 'eff' => $held['effective_date']]);
+    }
+
+    /** One pause in typing: the whole grid goes to the engine, the verdict and the pandas summary come back. */
+    public function gridValidate(Request $r, string $id)
+    {
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id) && $r->session()->has('portal.grid.'.$id), 404);
+        $res = $this->api->call($r, 'POST', '/'.$this->gw($r)."/endorsements/gui/sessions/$id/grid/validate", ['op_type' => $r->input('op_type'), 'rows' => $r->input('rows', []), 'families' => $r->boolean('families', true)]);
+        $r->session()->save();                                       // the session lock is not held while the next keystroke's check queues up
+
+        return response()->json($res['json'], $res['status']);
+    }
+
+    /** Save the grid as it is, and submit it only if it has no errors. */
+    public function gridSubmit(Request $r, string $id)
+    {
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id) && $r->session()->has('portal.grid.'.$id), 404);
+        $gw = '/'.$this->gw($r)."/endorsements/gui/sessions/$id";
+        $saved = $this->api->call($r, 'PUT', "$gw/grid", ['op_type' => $r->input('op_type'), 'rows' => $r->input('rows', [])]);
+        if ($saved['status'] >= 300) {
+            return response()->json($saved['json'], $saved['status']);
+        }
+        foreach ($saved['json']['rows'] ?? [] as $row) {
+            if (collect($row['issues'] ?? [])->contains('severity', 'ERROR')) {
+                return response()->json(['detail' => 'Some rows still need fixing.', 'result' => $saved['json']], 422);
+            }
+        }
+        $sub = $this->api->call($r, 'POST', "$gw/submit");
+        if ($sub['status'] >= 300) {
+            return response()->json($sub['json'], $sub['status']);
+        }
+        $r->session()->forget('portal.grid.'.$id);
+        $job = $sub['json']['jobs'][0]['job_id'] ?? null;
+
+        return response()->json(['redirect' => $job ? "/app/endorsements/$job" : '/app/endorsements']);
+    }
+
     public function job(Request $r, string $id)
     {
         abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id), 404);

@@ -11,7 +11,7 @@
 <div class="shell">
   <aside class="side">
     <div class="brand"><span class="logo">E</span> Ensuretech</div>
-    @php $nav = [['/app', 'Dashboard', 'app'], ['/app/announcements', 'Announcements', 'app/announcements*'], ['/app/policies', 'Policies', 'app/policies*'], ['/app/endorsements', 'Endorsements', 'app/endorsements*'], ['/app/cd', 'CD balance', 'app/cd*'], ['/app/assistant', 'Assistant', 'app/assistant*']];
+    @php $nav = [['/app', 'Dashboard', 'app'], ['/app/announcements', 'Announcements', 'app/announcements*'], ['/app/policies', 'Policies', 'app/policies*'], ['/app/endorse', 'Add or remove people', ['app/endorse', 'app/endorse/*']], ['/app/endorsements', 'Endorsements', 'app/endorsements*'], ['/app/cd', 'CD balance', 'app/cd*'], ['/app/assistant', 'Assistant', 'app/assistant*']];
        if ($gw === 'broker') array_splice($nav, 1, 0, [['/app/employers', 'Employers', 'app/employers*']]); @endphp
     <nav class="nav">
       @foreach($nav as [$href, $label, $pattern])

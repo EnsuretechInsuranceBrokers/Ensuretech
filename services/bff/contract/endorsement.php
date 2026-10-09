@@ -23,6 +23,11 @@ return [
         'gui_submitted' => ['session_id' => 'session_id', 'jobs' => ['as' => 'jobs', 'list' => 'gui_job']],
         'gui_check' => ['valid' => 'valid', 'issues' => ['as' => 'issues', 'raw' => true], 'normalised' => ['as' => 'normalised', 'raw' => true, 'obj' => true]],
         'gui_abandoned' => ['session_id' => 'session_id', 'state' => 'state'],
+        'intake_plan' => ['mode' => 'mode', 'employee_count' => 'employee_count', 'op_type' => 'op_type', 'policy_id' => 'policy_id', 'grid_max_employees' => 'grid_max_employees',
+            'session_id' => 'session_id', 'expires_at' => 'expires_at', 'schema' => ['as' => 'schema', 'raw' => true, 'obj' => true],
+            'grid' => ['as' => 'grid', 'raw' => true, 'obj' => true], 'file' => ['as' => 'file', 'raw' => true, 'obj' => true]],
+        'grid_result' => ['rows' => ['as' => 'rows', 'raw' => true], 'summary' => ['as' => 'summary', 'raw' => true, 'obj' => true], 'checks' => ['as' => 'checks', 'raw' => true, 'obj' => true],
+            'saved_rows' => 'saved_rows'],
     ],
     'inputs' => [
         'mapping_create' => ['source_name' => ['type' => 'string', 'required' => true, 'max' => 120], 'source_key' => ['type' => 'string', 'max' => 40],
@@ -30,6 +35,11 @@ return [
         'mapping_update' => ['column_map' => ['type' => 'map', 'required' => true], 'options' => ['type' => 'map']],
         'gui_session_create' => ['policy_id' => ['type' => 'int', 'required' => true, 'min' => 1], 'effective_date' => ['type' => 'date']],
         'gui_row_check' => ['op_type' => ['type' => 'string', 'required' => true, 'enum' => $OPS], 'row' => ['type' => 'map', 'required' => true], 'row_key' => ['type' => 'string', 'max' => 64]],
+        'intake_plan' => ['policy_id' => ['type' => 'int', 'required' => true, 'min' => 1], 'op_type' => ['type' => 'string', 'required' => true, 'enum' => $OPS],
+            'employee_count' => ['type' => 'int', 'required' => true, 'min' => 1, 'max' => 1000000], 'effective_date' => ['type' => 'date']],
+        // the whole grid on screen, in order; empty rows are fine. At most 100 employees x 8 rows, so 800; the service enforces the exact cap for the session.
+        'grid_check' => ['op_type' => ['type' => 'string', 'required' => true, 'enum' => $OPS], 'rows' => ['type' => 'list', 'of' => 'map', 'required' => true, 'max' => 2000],
+            'families' => ['type' => 'bool']],
         'gui_row_put' => ['op_type' => ['type' => 'string', 'required' => true, 'enum' => $OPS], 'row' => ['type' => 'map', 'required' => true]],
     ],
     'endpoints' => [
@@ -45,6 +55,12 @@ return [
             'upstream' => '/api/v1/{gw}/endorsements/{id}/errors/', 'where' => ['id' => $UUID],
             'query' => ['page' => 'page', 'page_size' => 'page_size', 'severity' => 'severity', 'rule' => 'rule', 'employee_code' => 'employee_code'], 'response' => 'job_errors'],
 
+        'endorsements.intake_plan' => ['methods' => ['POST'], 'path' => 'endorsements/intake/plan', 'gateways' => $both, 'service' => 'endorsement', 'upstream' => '/api/v1/{gw}/endorsements/intake/plan/',
+            'input' => 'intake_plan', 'response' => 'intake_plan'],
+        'endorsements.intake_template' => ['methods' => ['GET'], 'path' => 'endorsements/intake/template', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/intake/template/', 'query' => ['policy_id' => 'policy_id', 'op_type' => 'op_type', 'employee_count' => 'employee_count', 'effective_date' => 'effective_date'],
+            'download' => ['types' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], 'max_bytes' => 50 * 1024 * 1024]],
+
         'gui.create' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions', 'gateways' => $both, 'service' => 'endorsement', 'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/',
             'input' => 'gui_session_create', 'response' => 'gui_session_created'],
         'gui.get' => ['methods' => ['GET'], 'path' => 'endorsements/gui/sessions/{id}', 'gateways' => $both, 'service' => 'endorsement',
@@ -57,6 +73,10 @@ return [
             'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/rows/{row_key}/', 'where' => ['id' => $UUID, 'row_key' => $ROWKEY], 'response' => 'none'],
         'gui.submit' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions/{id}/submit', 'gateways' => $both, 'service' => 'endorsement',
             'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/submit/', 'where' => ['id' => $UUID], 'response' => 'gui_submitted'],
+        'gui.grid_validate' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions/{id}/grid/validate', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/grid/validate/', 'where' => ['id' => $UUID], 'input' => 'grid_check', 'response' => 'grid_result'],
+        'gui.grid_save' => ['methods' => ['PUT'], 'path' => 'endorsements/gui/sessions/{id}/grid', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/grid/', 'where' => ['id' => $UUID], 'input' => 'grid_check', 'response' => 'grid_result'],
         'gui.abandon' => ['methods' => ['POST'], 'path' => 'endorsements/gui/sessions/{id}/abandon', 'gateways' => $both, 'service' => 'endorsement',
             'upstream' => '/api/v1/{gw}/endorsements/gui/sessions/{id}/abandon/', 'where' => ['id' => $UUID], 'response' => 'gui_abandoned'],
     ],

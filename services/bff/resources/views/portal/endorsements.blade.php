@@ -1,7 +1,7 @@
 @extends('portal.layout')
 @section('title', 'Endorsements')
 @section('body')
-<h1>Endorsements</h1><p class="sub">Add, remove or update employees by uploading a CSV file.</p>
+<h1>Endorsements</h1><p class="sub">Add, remove or update employees by uploading a CSV file. <a href="/app/endorse"><b>Not sure how?</b> Tell us how many employees and we will pick the quickest way.</a></p>
 <div class="card"><h2>Upload a file</h2>
   <form class="form" method="post" action="/app/endorsements/upload" enctype="multipart/form-data">@csrf
     <label>Policy<select name="policy_id" required>@foreach($policies as $p)<option value="{{ $p['id'] }}">{{ $p['policy_number'] }}</option>@endforeach</select></label>
