@@ -72,9 +72,17 @@ CELERY_BROKER_HEARTBEAT = 10
 CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = "UTC"
+# Task events: what Flower (the Celery dashboard) and its Prometheus metrics are built from. Small overhead; leave on.
+CELERY_WORKER_SEND_TASK_EVENTS = env.bool("CELERY_EVENTS", default=True)
+CELERY_TASK_SEND_SENT_EVENT = env.bool("CELERY_EVENTS", default=True)
+CELERY_TASK_TRACK_STARTED = True
+# A Redis broker (the local fallback when there is no RabbitMQ) redelivers a task that is not acknowledged within this time: keep it above the longest task.
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600} if CELERY_BROKER_URL.startswith("redis") else {}
 CELERY_BEAT_SCHEDULE = {
     "relay-outbox": {"task": "apps.core.tasks.relay_outbox", "schedule": 5.0},
 }
+if not env.bool("RELAY_OUTBOX", default=True):          # RELAY_OUTBOX=false: no Kafka (scripts/dev-up.sh --no-kafka), so do not try to publish
+    del CELERY_BEAT_SCHEDULE["relay-outbox"]
 
 # ── Messaging / integrations ─────────────────────────────────────────────────────────────────────────────
 KAFKA_BOOTSTRAP_SERVERS = env("KAFKA_BOOTSTRAP_SERVERS", default="localhost:9092")

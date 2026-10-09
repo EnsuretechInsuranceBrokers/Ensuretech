@@ -40,7 +40,7 @@ a{color:var(--brand)}details{background:var(--card);border:1px solid var(--line)
 <main>
 <h1>Run Ensuretech locally</h1>
 <p>Every component, in the order to start it. Files used: <code>setup.sql</code> (databases), <code>seed.sql</code> (brokers), <code>local.env</code> (all environment), <code>docker-compose.infra.yml</code> (optional infrastructure). All commands are run from the repository root unless a step says otherwise. Each block has a <em>Copy</em> button.</p>
-<div class="note"><strong>Honest status.</strong> The service-by-service steps and every environment value were verified by running the whole stack in a Linux sandbox (native PostgreSQL, Redis, FerretDB, Kafka, no Docker). <code>docker-compose.infra.yml</code> could not be run there, so treat it as a convenience that is untested (that includes the Docker test-database command in §2). Checked for this version of the page, on Linux: <code>\\i setup.sql</code> on a fresh PostgreSQL 16 (about 2 s, the reset and error cases, a seeded login and the seeded service account against it), and the §11 and §12 commands against identity, the engine and integration-service plus the BFF on that seeded database. <strong>Not</strong> checked: the install commands for a clean laptop, macOS, native Windows, and starting all ten processes together with Kafka in this latest pass. Nothing here talks to a real TPA, insurer, SMS gateway or payment gateway; see <code>docs/runtime-dependencies.md</code>.</div>
+<div class="note"><strong>Honest status.</strong> The service-by-service steps and every environment value were verified by running the whole stack in a Linux sandbox (native PostgreSQL, Redis, FerretDB, Kafka, no Docker). <code>docker-compose.infra.yml</code> could not be run there, so treat it as a convenience that is untested (that includes the Docker test-database command in §2). Checked for this version of the page, on Linux: the engine's Celery pipeline end to end (Redis broker, three worker groups, beat, Flower: an upload reached <code>ENDORSED</code>, every task visible in Flower and its metrics scraped by Prometheus), <code>\\i setup.sql</code> on a fresh PostgreSQL 16 (about 2 s, the reset and error cases, a seeded login and the seeded service account against it), and the §11 and §12 commands against identity, the engine and integration-service plus the BFF on that seeded database. <strong>Not</strong> checked: RabbitMQ as the broker (so dead-letter queues and priorities), the install commands for a clean laptop, macOS, native Windows, and starting all ten processes together with Kafka in this latest pass. Nothing here talks to a real TPA, insurer, SMS gateway or payment gateway; see <code>docs/runtime-dependencies.md</code>.</div>
 
 <h2 id="qa">0. For the QA run: read this first</h2>
 <div class="ok"><strong>Order for a clean run, about 45 minutes the first time:</strong>
@@ -142,7 +142,8 @@ docker rm -f ensuretech-test-pg</code></pre></div>
 <tr><td>Spring Boot (Java 21)</td><td>organization, policy, billing, integration, sheet-generator</td><td>Build once, then run the jar: <code>mvn -DskipTests package</code> and <code>java -jar target/NAME-0.1.0.jar</code>. The development alternative is <code>mvn spring-boot:run</code> (compiles and runs; slower start). <strong>There is no <code>./mvnw</code></strong> in this repository, so use the <code>mvn</code> you installed.</td></tr>
 <tr><td>Django</td><td>identity, read-service</td><td><code>python manage.py runserver 127.0.0.1:PORT --noreload</code> (after <code>migrate</code> for identity).</td></tr>
 <tr><td>Django, ASGI</td><td>endorsement engine</td><td><strong>Not</strong> <code>runserver</code>: <code>uvicorn config.asgi:application --port 8083</code>, because the live progress stream would block a plain worker.</td></tr>
-<tr><td>Django workers (no port)</td><td>engine outbox relay, read-service projector, notification consumer and sender</td><td><code>python scripts/relay_loop.py</code>, <code>python manage.py run_projector</code>, <code>run_consumer</code>, <code>run_sender</code>.</td></tr>
+<tr><td>Celery (engine)</td><td>three worker groups, beat, Flower</td><td><code>celery -A config worker -n ingest@%h -Q csv.ingestion,gui.batch,maintenance</code> and the validation and computation equivalents, <code>celery -A config beat</code>, <code>celery -A config flower</code> (§8.5). Needs a broker: RabbitMQ (designed for) or Redis.</td></tr>
+<tr><td>Django workers (no port)</td><td>read-service projector, notification consumer and sender</td><td><code>python manage.py run_projector</code>, <code>run_consumer</code>, <code>run_sender</code>.</td></tr>
 <tr><td>Laravel</td><td>BFF + portal</td><td><code>PHP_CLI_SERVER_WORKERS=4 php artisan serve --port 8090</code> (after <code>composer install</code> and <code>key:generate</code>).</td></tr>
 </table>
 <h3>The processes, and how many terminals</h3>
@@ -153,17 +154,19 @@ docker rm -f ensuretech-test-pg</code></pre></div>
 <tr><td>3</td><td>policy-service</td><td>8082 + gRPC 9090</td><td>yes</td></tr>
 <tr><td>4</td><td>billing-service</td><td>8084 + gRPC 9091</td><td>yes</td></tr>
 <tr><td>5</td><td>endorsement engine (uvicorn)</td><td>8083</td><td>yes</td></tr>
-<tr><td>6</td><td>engine outbox relay</td><td>-</td><td>yes (without it, events never reach Kafka)</td></tr>
-<tr><td>7</td><td>integration-service</td><td>8085</td><td>yes (TPA sync and the offline upload)</td></tr>
-<tr><td>8</td><td>read-service API</td><td>8087</td><td>for dashboards and the assistant</td></tr>
-<tr><td>9</td><td>read-service projector</td><td>-</td><td>for dashboards</td></tr>
-<tr><td>10</td><td>BFF + portal</td><td>8090</td><td>yes: this is what you open</td></tr>
-<tr><td>11-12</td><td>notification consumer and sender</td><td>-</td><td>optional (emails)</td></tr>
-<tr><td>13</td><td>sheet-generator-service</td><td>8086</td><td>optional (not wired into the portal)</td></tr>
+<tr><td>6-8</td><td>Celery workers: <code>ingest</code> (csv.ingestion, gui.batch, maintenance), <code>validation</code> (validation.high, validation.standard), <code>computation</code></td><td>-</td><td>yes: without them an upload never leaves REQUEST_RAISED. Three groups on purpose: a person waiting on a screen never sits behind a million-row file.</td></tr>
+<tr><td>9</td><td>Celery beat</td><td>-</td><td>yes: publishes the engine's outbox to Kafka every 5 s and expires GUI sessions</td></tr>
+<tr><td>10</td><td><strong>Flower</strong> (Celery dashboard)</td><td>5555</td><td>recommended: <a href="http://127.0.0.1:5555">127.0.0.1:5555</a></td></tr>
+<tr><td>11</td><td>integration-service</td><td>8085</td><td>yes (TPA sync and the offline upload)</td></tr>
+<tr><td>12</td><td>read-service API</td><td>8087</td><td>for dashboards and the assistant</td></tr>
+<tr><td>13</td><td>read-service projector</td><td>-</td><td>for dashboards</td></tr>
+<tr><td>14</td><td>BFF + portal</td><td>8090</td><td>yes: this is what you open</td></tr>
+<tr><td>15-16</td><td>notification consumer and sender</td><td>-</td><td>optional (emails)</td></tr>
+<tr><td>17</td><td>sheet-generator-service</td><td>8086</td><td>optional (not wired into the portal)</td></tr>
 </table>
-<p>So <strong>ten terminals for the whole main flow</strong>, twelve with email, thirteen with everything. Each Spring service logs <em>Started ... in N seconds</em> when ready; each Django service prints <em>Starting development server</em>. A terminal multiplexer (<code>tmux</code>) is the easy way to hold that many; or open them as tabs.</p>
+<p>So <strong>fourteen processes for the whole main flow</strong> (with Flower), sixteen with email, seventeen with everything. Each Spring service logs <em>Started ... in N seconds</em> when ready; each Django service prints <em>Starting development server</em>. A terminal multiplexer (<code>tmux</code>) is the easy way to hold that many; or open them as tabs.</p>
 <p><strong>What every terminal needs.</strong> From the repository root, <code>set -a; source local.env; set +a</code> (it holds the database URLs, the gateway secret, the service-account credentials and the Kafka/Redis addresses). The service then refuses to start if <code>GATEWAY_SECRET</code> is missing (§9), which is the signal you forgot it. The services listen on <code>127.0.0.1</code> only, so nothing on your network can reach them.</p>
-<p><strong>Order.</strong> identity first (the others fetch tokens from it), then organization, policy, billing, then the engine and its relay, then integration, read-service, then the BFF last. After the first run any order works as long as PostgreSQL, Kafka and identity are up.</p>
+<p><strong>Order.</strong> identity first (the others fetch tokens from it), then organization, policy, billing, then the engine and its Celery workers and beat, then integration, read-service, then the BFF last. After the first run any order works as long as PostgreSQL, Kafka and identity are up.</p>
 
 <h3 id="tmux">3a. One command: the tmux launcher</h3>
 <p>You do not have to open ten terminals by hand. <code>scripts/dev-up.sh</code> checks your laptop, the infrastructure and the databases, prepares everything the first time (virtual environments, Maven builds when sources are newer than the jar, migrations, the gRPC stubs, the BFF's dependencies and <code>.env</code>, the five Kafka topics), then starts every process in its own <strong>tmux window</strong> in the right order, waits for identity, and opens a <code>status</code> window showing each port go green.</p>
@@ -171,11 +174,11 @@ docker rm -f ensuretech-test-pg</code></pre></div>
 scripts/dev-up.sh                  # start everything that can run, then attach to tmux
 scripts/dev-up.sh --no-kafka       # Kafka is not running: portal works, but no cross-service events (dashboards, policy-to-billing hand-offs)
 scripts/dev-up.sh --with-mail --with-sheet      # also the notification workers and the sheet generator
-scripts/dev-up.sh --skip read,projector         # leave components out   (identity org policy billing engine relay integration read projector bff ...)
+scripts/dev-up.sh --skip read,projector         # leave components out   (identity org policy billing engine worker-ingest worker-validation worker-computation beat flower integration read projector bff ...)
 scripts/dev-up.sh --devtools --ray              # debugging tools (section 16)
 DB_PORT=5433 scripts/dev-up.sh     # against the second, throwaway PostgreSQL (section 2)
 scripts/dev-down.sh                # stop everything it started (leaves PostgreSQL, Kafka, Redis, Mongo and your data alone)</code></pre></div>
-<p>In tmux: <code>Ctrl-b w</code> lists the windows (identity, org, policy, billing, engine, relay, integration, read, projector, bff), <code>Ctrl-b n</code>/<code>p</code> moves between them, the mouse works, <code>Ctrl-b d</code> detaches and leaves everything running (<code>tmux attach -t ensuretech</code> comes back). Every window also writes <code>.dev/logs/NAME.log</code>. If a process exits, its window stays open with the reason. Infrastructure is <em>not</em> started by the script: start PostgreSQL, Redis, Kafka and MongoDB first (§5).</p>
+<p>In tmux: <code>Ctrl-b w</code> lists the windows (identity, org, policy, billing, engine, worker-ingest, worker-validation, worker-computation, beat, flower, integration, read, projector, bff), <code>Ctrl-b n</code>/<code>p</code> moves between them, the mouse works, <code>Ctrl-b d</code> detaches and leaves everything running (<code>tmux attach -t ensuretech</code> comes back). Every window also writes <code>.dev/logs/NAME.log</code>. If a process exits, its window stays open with the reason. Infrastructure is <em>not</em> started by the script: start PostgreSQL, Redis, Kafka and MongoDB first (§5).</p>
 <p><strong>What was and was not tested.</strong> I ran the script's first-run path in a Linux sandbox without Kafka or MongoDB: tool/infra/database checks, venv creation, dependency install, migrations, stale-jar rebuild, tmux windows and the status page, with <code>--no-kafka</code>. The Kafka-topic step, the read-service and projector windows, <code>--with-mail</code>, and macOS were not run. The first start of a Spring service takes 10-30 s after its window opens.</p>
 
 <h2 id="map">4. What runs where</h2>
@@ -186,7 +189,7 @@ scripts/dev-down.sh                # stop everything it started (leaves PostgreS
 <tr><td>identity-service</td><td>Django</td><td>8000</td><td><code>ensuretech_identity</code></td><td>PostgreSQL, RSA keys</td></tr>
 <tr><td>organization-service</td><td>Spring Boot</td><td>8081</td><td><code>ensuretech_org</code></td><td>PostgreSQL, Kafka</td></tr>
 <tr><td>policy-service</td><td>Spring Boot + gRPC</td><td>8082, gRPC 9090</td><td><code>ensuretech_policy</code></td><td>PostgreSQL, Redis, Kafka</td></tr>
-<tr><td>endorsement engine</td><td>Django (ASGI) + Celery</td><td>8083</td><td><code>ensuretech_endorsement</code></td><td>PostgreSQL, Kafka, policy + billing gRPC, identity</td></tr>
+<tr><td>endorsement engine</td><td>Django (ASGI) + Celery workers, beat, Flower</td><td>8083 (Flower 5555)</td><td><code>ensuretech_endorsement</code></td><td>PostgreSQL, a Celery broker (RabbitMQ or Redis), Kafka, policy + billing gRPC, identity</td></tr>
 <tr><td>billing-service</td><td>Spring Boot + gRPC</td><td>8084, gRPC 9091</td><td><code>ensuretech_billing</code></td><td>PostgreSQL, Kafka</td></tr>
 <tr><td>integration-service</td><td>Spring Boot</td><td>8085</td><td><code>ensuretech_integration</code></td><td>PostgreSQL, Kafka, engine, policy, identity</td></tr>
 <tr><td>sheet-generator-service</td><td>Spring Boot + static page</td><td>8086</td><td><code>ensuretech_sheetgen</code></td><td>PostgreSQL, policy</td></tr>
@@ -274,7 +277,7 @@ mvn -DskipTests package
 DATABASE_URL="$BILLING_JDBC" PORT=8084 GRPC_PORT=9091 java -jar target/billing-service-0.1.0.jar</code></pre></div>
 
 <h3 id="engine">8.5 endorsement engine <span class="tag">port 8083</span></h3>
-<p>Takes CSV/GUI endorsements through validation, premium calculation, deposit check and execution. Two processes: the web app and the outbox relay.</p>
+<p>Takes CSV/GUI endorsements through validation, premium calculation, deposit check and execution. The web app, plus the Celery workers, beat and Flower below.</p>
 <div class="pre"><button class="copy">Copy</button><pre><code>cd services/endorsement-service
 python3.13 -m venv .venv && source .venv/bin/activate
 python ../../scripts/install_python_deps.py
@@ -284,11 +287,15 @@ export DATABASE_URL="$ENDORSEMENT_DB" SERVICE_CLIENT_ID="$ENGINE_CLIENT_ID" SERV
 python manage.py genproto          # gRPC stubs (git-ignored, must be generated once)
 python manage.py migrate
 uvicorn config.asgi:application --host 127.0.0.1 --port 8083</code></pre></div>
-<p>It must run under <strong>uvicorn (ASGI)</strong>, not <code>runserver</code>, or live progress streaming would block a worker. In a second terminal, with the same exports, publish its outbox to Kafka every 2 seconds (stand-in for the Celery beat schedule, since there is no RabbitMQ):</p>
-<div class="pre"><button class="copy">Copy</button><pre><code>cd services/endorsement-service && source .venv/bin/activate
-cd ../..; set -a; source local.env; set +a; cd services/endorsement-service
-DATABASE_URL="$ENDORSEMENT_DB" SERVICE_CLIENT_ID="$ENGINE_CLIENT_ID" SERVICE_CLIENT_SECRET="$ENGINE_CLIENT_SECRET" python scripts/relay_loop.py</code></pre></div>
-<div class="note">With RabbitMQ you would instead set <code>CELERY_BROKER_URL</code>, drop <code>CELERY_TASK_ALWAYS_EAGER</code>, and run <code>celery -A config worker</code> and <code>celery -A config beat</code>. Not exercised here.</div>
+<p>It must run under <strong>uvicorn (ASGI)</strong>, not <code>runserver</code>, or live progress streaming would block a worker. The pipeline itself (ingest the file, validate chunks, price chunks, check the deposit, apply chunks) is <strong>Celery</strong>: the web process only queues tasks, workers do them. Start these in their own terminals, each with the same exports as above (<code>source local.env</code>, <code>DATABASE_URL</code>, <code>SERVICE_CLIENT_ID/SECRET</code>), from <code>services/endorsement-service</code> with the virtual environment active:</p>
+<div class="pre"><button class="copy">Copy</button><pre><code>celery -A config worker -n ingest@%h     -Q csv.ingestion,gui.batch,maintenance        -c 2 -l info
+celery -A config worker -n validation@%h -Q validation.high,validation.standard         -c 2 -l info
+celery -A config worker -n computation@%h -Q computation                                -c 2 -l info
+celery -A config beat -l info -s ../../.dev/celerybeat-schedule        # the schedule: outbox to Kafka every 5 s, expire GUI sessions every 5 min
+celery -A config flower --address=127.0.0.1 --port=5555 --basic-auth="$FLOWER_BASIC_AUTH"     # the dashboard</code></pre></div>
+<p><strong>Broker.</strong> <code>CELERY_BROKER_URL</code> in <code>local.env</code> defaults to Redis (<code>redis://localhost:6379/1</code>), which is already running for policy-service. The engine is <em>designed</em> for <strong>RabbitMQ</strong> (<code>amqp://guest:guest@localhost:5672//</code>): its six queues carry priorities and dead-letter queues, which are RabbitMQ features. On Redis the pipeline runs but there are no dead-letter queues. <code>docker compose -f docker-compose.infra.yml up -d rabbitmq</code> starts RabbitMQ (management page <a href="http://localhost:15672">localhost:15672</a>, guest/guest); <code>scripts/dev-up.sh</code> uses it automatically when it answers on 5672. Without Kafka, set <code>RELAY_OUTBOX=false</code> (the script does with <code>--no-kafka</code>) so beat does not try to publish.</p>
+<p><strong>Flower</strong> (<a href="http://127.0.0.1:5555">127.0.0.1:5555</a>, login in <code>local.env</code> <code>FLOWER_BASIC_AUTH</code>) shows each worker and the queues it serves, every task with its arguments, state, runtime, retries and which worker took it, and lets you revoke or retry. Upload an endorsement and watch: <code>ingest_csv</code> on the <code>ingest</code> worker, <code>validate_chunk</code> on <code>validation</code>, then <code>start_premium_calculation</code>, <code>price_chunk</code>, <code>check_cd_balance</code> and <code>apply_chunk</code> on <code>computation</code>. Flower can revoke tasks and stop workers: keep it on <code>127.0.0.1</code> behind its login, never on a public address.</p>
+<div class="note"><code>CELERY_TASK_ALWAYS_EAGER=true</code> still exists as a shortcut that runs every task inline inside the web process (no workers, no broker, no Flower; <code>scripts/dev-up.sh --eager</code>). Use it only to debug a single task in a debugger; it hides exactly what Celery is for (parallel chunks, retries, queue isolation).</div>
 
 <h3 id="integration">8.6 integration-service <span class="tag">port 8085</span></h3>
 <p>TPA connections, push of endorsements to TPAs, reconciliation of TPA rosters. Calls the engine and policy-service. Scheduled reconciliation is off unless <code>RECONCILE_ENABLED=true</code>.</p>
@@ -358,10 +365,10 @@ PHP_CLI_SERVER_WORKERS=4 php artisan serve --host 127.0.0.1 --port 8090</code></
 <li><strong>CD balance</strong>: the live policy has an account. Record a deposit as the broker. Then, in a private window, sign in as <code>priya.menon@acme.example</code> (HR) and request a top-up; the broker approves it via the API: <code>POST /api/v1/broker/cd/accounts/POLICY_ID/replenishments/ID/approve</code>.</li>
 <li><strong>Add or remove people</strong> (as HR or the broker): choose the policy, operation Add, and say how many employees. Up to 100 you get the live grid; above it, a pre-filled spreadsheet. Try both. For a file upload use <strong>Endorsements</strong> and this sample (codes 2001+ so they do not clash with the seeded members):
 <div class="pre"><button class="copy">Copy</button><pre><code>Emp Code,Relationship,Member Name,DOB,Gender,Sum Insured,Effective Date,PAN
-2001,Self,Asha Pillai,17/05/1985,F,500000,,ABCDE1234F
+2001,Self,Asha Pillai,17/05/1985,F,500000,,LMNOP2001Q
 2001,Spouse,Ravi Pillai,02-Feb-1983,M,500000,,
 2001,SON,Kid Pillai,01/01/2015,M,500000,,
-2002,Self,Meera Nair,1990-03-03,F,300000,,PQRST5678K</code></pre></div>
+2002,Self,Meera Nair,1990-03-03,F,300000,,LMNOP2002R</code></pre></div>
 The job page shows progress live and ends at <code>ENDORSED</code>; the CD balance drops by the premium. With too little deposit it stops at <code>CD_INSUFFICIENT</code>: deposit, then press <em>Retry</em>. Bad dates, PANs or relations stop it at <code>VALIDATION_PARTIAL</code> with a line-by-line list; the good rows can still go ahead.</li>
 <li><strong>Employers</strong> (broker): five seeded, one parent with a child, one deactivated. <strong>Dashboard</strong> and <strong>Assistant</strong> (add knowledge with <code>POST /api/v1/broker/assistant/knowledge</code>).</li>
 <li>Sign in as <code>nisha.rao@northwind.example</code> (read-only broker) and confirm the write buttons are refused; sign in as <code>admin@southbridge.example</code> and confirm you cannot see Northwind's policies (404, not 403).</li>
@@ -448,12 +455,14 @@ curl -s -o /dev/null -w "wrong secret at sign-in                       -> %{http
 <tr><td>Creating an employer: <em>409 Duplicate or invalid reference</em></td><td>No row in <code>organization.brokers</code> for the broker in your token. Run <code>seed.sql</code> (§6.3).</td></tr>
 <tr><td>Creating a policy: <em>Employer not found</em></td><td>policy-service has not received the employer event. Kafka must be up and organization-service's relay running; wait a few seconds and retry.</td></tr>
 <tr><td>CD balance page empty after approving a policy</td><td>billing-service did not get <code>policy.events</code>. Check Kafka and billing's log.</td></tr>
-<tr><td>Dashboards empty, or <em>Unknown topic</em> in the projector log</td><td>Create the topics (§5) and restart <code>run_projector</code>. Also check the engine <code>relay_loop.py</code> is running.</td></tr>
+<tr><td>Dashboards empty, or <em>Unknown topic</em> in the projector log</td><td>Create the topics (§5) and restart <code>run_projector</code>. Also check Celery beat is running (it publishes the engine's outbox) and Kafka is up.</td></tr>
 <tr><td>read-service: 500 / 502, <em>client_encoding is SQL_ASCII</em></td><td>The FerretDB database was not created UTF-8. Drop and recreate it with <code>ENCODING 'UTF8' TEMPLATE template0</code>.</td></tr>
 <tr><td>Portal shows 403 or 502 for a section</td><td>Gateway secret differs between the BFF and that service, or the service is down. Compare <code>GATEWAY_SECRET</code> values; <code>curl localhost:PORT/actuator/health</code> for Spring services.</td></tr>
 <tr><td>Login says too many attempts</td><td>Rate limit protecting login; wait a minute.</td></tr>
 <tr><td>Endorsement stuck at <code>CD_INSUFFICIENT</code></td><td>Not enough deposit. Credit the account, then <em>Retry</em>.</td></tr>
 <tr><td>Engine: <em>cannot import policy_validation_pb2</em></td><td>Run <code>python manage.py genproto</code> (stubs are not committed).</td></tr>
+<tr><td>An upload stays at <code>REQUEST_RAISED</code> / <code>VALIDATION_QUEUED</code>; Flower shows no workers</td><td>No Celery worker is running or it cannot reach the broker. Check the <code>worker-*</code> tmux windows and that Redis (or RabbitMQ) is up; <code>CELERY_BROKER_URL</code> must be the same in the engine and every worker.</td></tr>
+<tr><td>Beat logs Kafka errors every 5 s</td><td>Kafka is not running. Start it, or set <code>RELAY_OUTBOX=false</code> for beat (the launcher does with <code>--no-kafka</code>).</td></tr>
 <tr><td>Engine/integration log <em>service token</em> or 401 errors calling policy/billing</td><td>The <code>*_CLIENT_ID/SECRET</code> in <code>local.env</code> are empty or stale. Recreate the account (§6.1) or rotate: <code>manage.py service_account rotate engine</code>.</td></tr>
 <tr><td>Spring service: <em>Connection refused 5432</em> / Flyway error</td><td>PostgreSQL down, or the database does not exist. Re-run <code>setup.sql</code>.</td></tr>
 <tr><td>Spring service fails on gRPC port in use</td><td>policy uses 9090 and billing 9091; make sure two copies are not running.</td></tr>
@@ -485,11 +494,13 @@ psql -h localhost -U postgres -v reset=1 -f setup.sql
 <tr><td><strong>Django Silk</strong></td><td>every request a Django service handled, its SQL queries and how long each took, optional profiling. Stored in a throwaway SQLite file under <code>.dev/</code>, never in the service's database. Headers with tokens and cookies are masked and the sign-in calls are not recorded.</td><td><code>scripts/dev-up.sh --devtools</code></td><td>identity <code>:8000/silk/</code>, engine <code>:8083/silk/</code>, read <code>:8087/silk/</code></td></tr>
 <tr><td><strong>Django Debug Toolbar</strong></td><td>SQL, cache, headers, timing in a panel injected into <em>HTML</em> pages. The services mostly return JSON, so for the API itself use Silk; the toolbar shows on Silk's own pages and DRF's browsable API.</td><td><code>--devtools</code></td><td>appears on HTML pages</td></tr>
 <tr><td><strong>Ray</strong> (Spatie)</td><td>a desktop app: in PHP call <code>ray($x)</code>, in Python <code>from config.devtools import ray; ray($x)</code>. With <code>--ray</code> also every BFF request, call to a core service and log line, and every SQL query of the Django services with its time, are sent to it.</td><td>install the app from <a href="https://myray.app">myray.app</a> (a paid app with a trial; check its licence), start it, then <code>scripts/dev-up.sh --ray</code></td><td>the Ray window</td></tr>
+<tr><td><strong>Celery Flower</strong></td><td>the engine's Celery cluster: workers and their queues, every task (name, arguments, state, runtime, retries, worker), failures, a broker page. Its metrics also feed the Grafana dashboard.</td><td><code>scripts/dev-up.sh</code> (on by default; <code>--no-flower</code> to skip)</td><td><a href="http://127.0.0.1:5555">127.0.0.1:5555</a> (login <code>FLOWER_BASIC_AUTH</code>)</td></tr>
 <tr><td><strong>Prometheus + Grafana</strong></td><td>request rate, latency, errors, JVM heap, database connections for each Spring service, and the TPA offline upload (lines by outcome, time taken). A dashboard "Ensuretech services" is preloaded.</td><td><code>scripts/observability-up.sh</code> (Docker)</td><td>Grafana <a href="http://localhost:3000">:3000</a> (admin/admin), Prometheus <a href="http://localhost:9099">:9099</a></td></tr>
 <tr><td><strong>Kafka UI</strong></td><td>topics, messages, consumer groups and their lag.</td><td><code>scripts/observability-up.sh</code></td><td><a href="http://localhost:8088">localhost:8088</a></td></tr>
+<tr><td>RabbitMQ management</td><td>queues, message rates and dead-letter queues, when RabbitMQ is the broker.</td><td><code>docker compose -f docker-compose.infra.yml up -d rabbitmq</code></td><td><a href="http://localhost:15672">:15672</a> (guest/guest)</td></tr>
 <tr><td>Mailpit</td><td>the emails notification-service sends.</td><td>already in <code>docker-compose.infra.yml</code></td><td><a href="http://localhost:8025">:8025</a></td></tr>
 </table>
-<div class="warn"><strong>Not included, on purpose.</strong> <em>Laravel Horizon</em> watches Redis queues, and the BFF has no queued jobs (every job would run inline), so its dashboard would always be empty. <em>Celery Flower</em> is the same: locally the engine runs tasks inline (<code>CELERY_TASK_ALWAYS_EAGER</code>). <em>Distributed tracing</em> (OpenTelemetry/Jaeger) is not wired. Each becomes useful when the thing it watches exists; ask and I will add it then.</div>
+<div class="warn"><strong>Not included, on purpose.</strong> <em>Laravel Horizon</em> watches Redis queues, and the BFF has no queued jobs (every job would run inline), so its dashboard would always be empty. <em>Distributed tracing</em> (OpenTelemetry/Jaeger) is not wired. Each becomes useful when the thing it watches exists; ask and I will add it then.</div>
 <div class="note"><strong>How this fits the lock (§9).</strong> Metrics are read through one extra door: <code>GET /actuator/prometheus</code> with the read-only <code>METRICS_TOKEN</code> (in <code>local.env</code>). The Silk and Debug Toolbar pages are opened past the lock only while <code>DEV_TOOLS=true</code> and <code>DEBUG=true</code>, and the service refuses to start with <code>DEV_TOOLS</code> and no <code>DEBUG</code>. Do not use these switches for the QA run in §12, which proves the lock.</div>
 
 <p style="margin-top:3rem;color:var(--mut);font-size:.9rem">Deeper reading: <code>docs/full-stack-local.md</code> (what a full run found), <code>docs/runtime-dependencies.md</code> (free vs paid), each service's own <code>README.md</code>, <code>services/bff/README.md</code> (public API).</p>

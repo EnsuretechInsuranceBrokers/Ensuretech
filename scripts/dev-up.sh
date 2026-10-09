@@ -6,10 +6,12 @@
 #   scripts/dev-up.sh --no-kafka      no cross-service events (Kafka is not running): the portal works, dashboards and policy-to-billing hand-offs do not
 #   scripts/dev-up.sh --with-mail     also the notification consumer and sender
 #   scripts/dev-up.sh --with-sheet    also sheet-generator-service
-#   scripts/dev-up.sh --skip read,notification     leave named components out   (names: identity org policy billing engine relay integration read projector bff notify-consumer notify-sender sheet)
+#   scripts/dev-up.sh --skip read,notification     leave named components out   (names: identity org policy billing engine worker-ingest worker-validation worker-computation beat flower integration read projector bff notify-consumer notify-sender sheet)
 #   scripts/dev-up.sh --only identity,engine,integration,bff   start only these
 #   scripts/dev-up.sh --devtools      also Django Silk + Debug Toolbar on identity, engine, read-service, notification (http://127.0.0.1:PORT/silk/); needs DEBUG, laptop only
 #   scripts/dev-up.sh --ray           send debug output to the Ray desktop app (myray.app): BFF requests, calls to core services, and every SQL query of the Django services
+#   scripts/dev-up.sh --eager         the old shortcut: Celery tasks run inline in the engine's web process (no broker, no workers, no Flower)
+#   scripts/dev-up.sh --no-flower     do not start the Flower dashboard (http://127.0.0.1:5555)
 #   scripts/dev-up.sh --no-telescope  leave Laravel Telescope (http://localhost:8090/telescope) off
 #   scripts/dev-up.sh --rebuild       rebuild the Spring jars even if they exist
 #   scripts/dev-up.sh --no-attach     start and return (CI, or if you attach later with: tmux attach -t ensuretech)
@@ -20,9 +22,9 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
 SESSION="${ENSURETECH_TMUX_SESSION:-ensuretech}"
 DEV="$ROOT/.dev"; mkdir -p "$DEV/logs" "$DEV/run"
-TELESCOPE=1; DEVTOOLS=0; RAY=0; CHECK=0; NO_KAFKA=0; REBUILD=0; ATTACH=1; WITH_MAIL=0; WITH_SHEET=0; SKIP=","; ONLY=""
+EAGER=0; FLOWER=1; TELESCOPE=1; DEVTOOLS=0; RAY=0; CHECK=0; NO_KAFKA=0; REBUILD=0; ATTACH=1; WITH_MAIL=0; WITH_SHEET=0; SKIP=","; ONLY=""
 while [ $# -gt 0 ]; do case "$1" in
-  --check) CHECK=1;; --no-telescope) TELESCOPE=0;; --devtools) DEVTOOLS=1;; --ray) RAY=1;; --no-kafka) NO_KAFKA=1;; --rebuild) REBUILD=1;; --no-attach) ATTACH=0;; --with-mail) WITH_MAIL=1;; --with-sheet) WITH_SHEET=1;;
+  --check) CHECK=1;; --eager) EAGER=1;; --no-flower) FLOWER=0;; --no-telescope) TELESCOPE=0;; --devtools) DEVTOOLS=1;; --ray) RAY=1;; --no-kafka) NO_KAFKA=1;; --rebuild) REBUILD=1;; --no-attach) ATTACH=0;; --with-mail) WITH_MAIL=1;; --with-sheet) WITH_SHEET=1;;
   --skip) shift; SKIP=",$1,";; --only) shift; ONLY=",$1,";; -h|--help) sed -n '2,17p' "$0"; exit 0;;
   *) echo "unknown option: $1 (try --help)"; exit 2;; esac; shift; done
 
@@ -46,6 +48,12 @@ tcp "$DB_PORT" "$DB_HOST" && ok "PostgreSQL on $DB_HOST:$DB_PORT" || bad "Postgr
 tcp "$REDIS_PORT" && ok "Redis on $REDIS_PORT" || { want policy && bad "Redis is not running on $REDIS_PORT (policy-service needs it)"; }
 KAFKA_UP=0; tcp 9092 && { KAFKA_UP=1; ok "Kafka on 9092"; } || { [ $NO_KAFKA = 1 ] && warn "Kafka is not running: starting without events (--no-kafka)" || bad "Kafka is not running on 9092 (start it, or use --no-kafka)"; }
 MONGO_UP=0; tcp 27017 && { MONGO_UP=1; ok "MongoDB/FerretDB on 27017"; } || { warn "no MongoDB/FerretDB on 27017: read-service and its projector are left out (dashboards stay empty)"; SKIP="$SKIP,read,projector,"; }
+BROKER=none
+if [ $EAGER = 0 ] && { want engine || want worker-computation; }; then
+  if tcp 5672; then BROKER=rabbitmq; ok "RabbitMQ on 5672: the Celery broker the engine is designed for"; [ "$CELERY_BROKER_URL" = "redis://localhost:6379/1" ] && export CELERY_BROKER_URL="amqp://guest:guest@localhost:5672//"
+  elif tcp "$REDIS_PORT"; then BROKER=redis; warn "no RabbitMQ on 5672: using Redis as the Celery broker. The pipeline runs, but the dead-letter queues and queue priorities (RabbitMQ features) do not exist."
+  else bad "no Celery broker: start RabbitMQ (5672) or Redis, or use --eager (tasks run inline, no workers)"; fi
+fi
 tcp 1025 && ok "SMTP (Mailpit) on 1025" || { [ $WITH_MAIL = 1 ] && warn "nothing is listening on SMTP 1025: emails will fail to send"; }
 
 echo "3. Databases (built by  \\i setup.sql )"
@@ -60,7 +68,7 @@ done
 [ $CHECK = 1 ] && { [ $FAIL = 0 ] && { grn "Everything needed is in place."; exit 0; } || { red "Fix the ✗ lines above, then run again."; exit 1; }; }
 [ $FAIL = 0 ] || { red "Not starting: fix the ✗ lines above (or run with --check to see them again)."; exit 1; }
 tmux has-session -t "$SESSION" 2>/dev/null && { red "tmux session '$SESSION' already exists. Stop it with scripts/dev-down.sh, or attach: tmux attach -t $SESSION"; exit 1; }
-for p in 8000 8081 8082 8083 8084 8085 8086 8087 8090 9090 9091; do tcp "$p" && { red "port $p is already in use (a previous run? scripts/dev-down.sh)"; exit 1; }; done
+for p in 8000 8081 8082 8083 8084 8085 8086 8087 8090 9090 9091 5555; do tcp "$p" && { red "port $p is already in use (a previous run? scripts/dev-down.sh)"; exit 1; }; done
 
 # ── 4. prepare (first run is slow: dependencies, builds, migrations) ─────────────────────────────────────────────────────────
 echo "4. Preparing (first run downloads dependencies; output in .dev/logs/prepare-*.log)"
@@ -115,8 +123,24 @@ want identity && { mk identity services/identity-service "${DJ}DATABASE_URL='$ID
 want org && { spring org organization-service x 8081 "DATABASE_URL='$ORG_JDBC' PORT=8081"; add org; }
 want policy && { spring policy policy-service x 8082 "DATABASE_URL='$POLICY_JDBC' PORT=8082 GRPC_PORT=9090"; add policy; }
 want billing && { spring billing billing-service x 8084 "DATABASE_URL='$BILLING_JDBC' PORT=8084 GRPC_PORT=9091"; add billing; }
-want engine && { mk engine services/endorsement-service "${DJ}DATABASE_URL='$ENDORSEMENT_DB' SERVICE_CLIENT_ID='$ENGINE_CLIENT_ID' SERVICE_CLIENT_SECRET='$ENGINE_CLIENT_SECRET' .venv/bin/uvicorn config.asgi:application --host 127.0.0.1 --port 8083"; add engine; }
-[ $NO_KAFKA = 0 ] && want relay && { mk relay services/endorsement-service "${DJ}DATABASE_URL='$ENDORSEMENT_DB' SERVICE_CLIENT_ID='$ENGINE_CLIENT_ID' SERVICE_CLIENT_SECRET='$ENGINE_CLIENT_SECRET' .venv/bin/python scripts/relay_loop.py"; add relay; }
+ENG_ENV="DATABASE_URL='$ENDORSEMENT_DB' SERVICE_CLIENT_ID='$ENGINE_CLIENT_ID' SERVICE_CLIENT_SECRET='$ENGINE_CLIENT_SECRET' CELERY_BROKER_URL='$CELERY_BROKER_URL'"
+[ $NO_KAFKA = 1 ] && ENG_ENV="$ENG_ENV RELAY_OUTBOX=false"
+[ $EAGER = 1 ] && ENG_ENV="$ENG_ENV CELERY_TASK_ALWAYS_EAGER=true"
+want engine && { mk engine services/endorsement-service "${DJ}$ENG_ENV .venv/bin/uvicorn config.asgi:application --host 127.0.0.1 --port 8083"; add engine; }
+if [ $EAGER = 1 ]; then
+  [ $NO_KAFKA = 0 ] && want relay && { mk relay services/endorsement-service "$ENG_ENV .venv/bin/python scripts/relay_loop.py"; add relay; }
+else
+  # Celery for real: three worker groups (the design's bulkheads: a person waiting on a screen never sits behind a 1M-row file), beat for the schedule, Flower to watch it
+  wk(){ mk "$1" services/endorsement-service "${DJ}$ENG_ENV .venv/bin/celery -A config worker -n $2@%h -Q $3 -c ${4:-2} -l info"; add "$1"; }
+  want worker-ingest && wk worker-ingest ingest csv.ingestion,gui.batch,maintenance 2
+  want worker-validation && wk worker-validation validation validation.high,validation.standard 2
+  want worker-computation && wk worker-computation computation computation 2
+  want beat && { mk beat services/endorsement-service "$ENG_ENV .venv/bin/celery -A config beat -l info -s '$DEV/celerybeat-schedule'"; add beat; }
+  if [ $FLOWER = 1 ] && want flower; then
+    FL_API=""; [ "$BROKER" = rabbitmq ] && FL_API="--broker-api=http://guest:guest@localhost:15672/api/"
+    mk flower services/endorsement-service "$ENG_ENV .venv/bin/celery -A config flower --address=127.0.0.1 --port=5555 --basic-auth='$FLOWER_BASIC_AUTH' --persistent=True --db='$DEV/flower.db' $FL_API"; add flower
+  fi
+fi
 want integration && { spring integration integration-service x 8085 "DATABASE_URL='$INTEGRATION_JDBC' PORT=8085 SERVICE_CLIENT_ID='$INTEGRATION_CLIENT_ID' SERVICE_CLIENT_SECRET='$INTEGRATION_CLIENT_SECRET'"; add integration; }
 want read && { mk read services/read-service "${DJ}.venv/bin/python manage.py runserver 127.0.0.1:8087 --noreload"; add read; }
 want projector && [ $NO_KAFKA = 0 ] && { mk projector services/read-service "${DJ}.venv/bin/python manage.py run_projector"; add projector; }
@@ -129,6 +153,7 @@ tmux select-window -t "$SESSION:status"
 
 echo; grn "Started in tmux session '$SESSION'."
 echo "  Portal:      http://localhost:8090/login       (meera.kapoor@northwind.example / Str0ng-Pass-123!)"
+[ $EAGER = 0 ] && [ $FLOWER = 1 ] && echo "  Flower:      http://127.0.0.1:5555  (login: $FLOWER_BASIC_AUTH)   Celery workers, queues, every task and its retries"
 echo "  Windows:     Ctrl-b n / Ctrl-b p (next/previous), Ctrl-b w (list), mouse works. Detach: Ctrl-b d. Logs: .dev/logs/"
 echo "  Spring services take 10-30 s to start; the 'status' window shows each one turn green."
 [ $DEVTOOLS = 1 ] && echo "  Silk:        http://127.0.0.1:8000/silk/ (identity)  :8083/silk/ (engine)  :8087/silk/ (read)   Debug Toolbar appears on their HTML pages"

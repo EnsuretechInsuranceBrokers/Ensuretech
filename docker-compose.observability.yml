@@ -14,6 +14,7 @@ services:
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/metrics-token:/etc/prometheus/metrics-token:ro
+      - ./observability/flower-password:/etc/prometheus/flower-password:ro
   grafana:
     image: grafana/grafana-oss:11.3.0
     network_mode: host

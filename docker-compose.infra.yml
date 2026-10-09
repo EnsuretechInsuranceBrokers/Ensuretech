@@ -16,6 +16,9 @@ services:
     image: mongo:7
     ports: ["127.0.0.1:27017:27017"]
     volumes: [mongodata:/data/db]
+  rabbitmq:                                  # the Celery broker the engine is designed for (priority queues, dead-letter queues). Management UI: http://localhost:15672 (guest / guest)
+    image: rabbitmq:3.13-management
+    ports: ["127.0.0.1:5672:5672", "127.0.0.1:15672:15672"]
   kafka:
     image: apache/kafka:3.9.1
     ports: ["127.0.0.1:9092:9092"]

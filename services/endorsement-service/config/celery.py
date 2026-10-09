@@ -32,6 +32,7 @@ app.conf.task_queues = [_q(n) for n in (
 )]
 app.conf.task_default_queue = "maintenance"
 app.conf.task_routes = {
+    "apps.intake.tasks.ingest_csv": {"queue": "csv.ingestion"},        # the bulkhead the queue list above promises: a big file must not sit in the maintenance queue
     "apps.validation.tasks.validate_chunk": {"queue": "validation.standard"},
     "apps.validation.tasks.finalize_validation": {"queue": "validation.standard"},
     "apps.computation.tasks.*": {"queue": "computation"},

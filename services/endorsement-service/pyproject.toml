@@ -8,6 +8,7 @@ dependencies = [
     "djangorestframework>=3.17",
     "celery>=5.6",
     "redis>=7",
+    "flower>=2.0",                  # the Celery dashboard (run.html §16, docs/observability.md)
     "pandas>=3",
     "numpy>=2",
     "grpcio>=1.80",

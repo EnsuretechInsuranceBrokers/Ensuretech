@@ -330,6 +330,183 @@
      "legendFormat": "log errors {{service}}"
     }
    ]
+  },
+  {
+   "id": 13,
+   "type": "row",
+   "title": "Celery (endorsement pipeline, from Flower)",
+   "gridPos": {
+    "x": 0,
+    "y": 28,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false,
+   "panels": []
+  },
+  {
+   "id": 14,
+   "type": "stat",
+   "title": "Celery workers online",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 29,
+    "w": 4,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(flower_worker_online)"
+    }
+   ]
+  },
+  {
+   "id": 15,
+   "type": "stat",
+   "title": "Task failures (last hour)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 29,
+    "w": 4,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(increase(flower_events_total{type=\"task-failed\"}[1h]))"
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "type": "timeseries",
+   "title": "Tasks completed per second, by task",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 29,
+    "w": 8,
+    "h": 6
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (task)(rate(flower_events_total{type=\"task-succeeded\"}[1m]))",
+     "legendFormat": "{{task}}"
+    }
+   ]
+  },
+  {
+   "id": 17,
+   "type": "timeseries",
+   "title": "Failures and retries (last 5 min)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 29,
+    "w": 8,
+    "h": 6
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (task)(increase(flower_events_total{type=\"task-failed\"}[5m]))",
+     "legendFormat": "failed {{task}}"
+    },
+    {
+     "refId": "B",
+     "expr": "sum by (task)(increase(flower_events_total{type=\"task-retried\"}[5m]))",
+     "legendFormat": "retried {{task}}"
+    }
+   ]
+  },
+  {
+   "id": 18,
+   "type": "timeseries",
+   "title": "Task run time (average), by task",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (task)(rate(flower_task_runtime_seconds_sum[5m])) / sum by (task)(rate(flower_task_runtime_seconds_count[5m]))",
+     "legendFormat": "{{task}}"
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "type": "timeseries",
+   "title": "Tasks running right now, by worker",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 35,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "flower_worker_number_of_currently_executing_tasks",
+     "legendFormat": "{{worker}}"
+    },
+    {
+     "refId": "B",
+     "expr": "flower_worker_prefetched_tasks",
+     "legendFormat": "prefetched {{worker}}"
+    }
+   ]
   }
  ]
 }

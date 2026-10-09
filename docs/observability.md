@@ -9,6 +9,7 @@ Everything here is for a developer's or a QA engineer's machine. None of it is i
 | Django Silk | identity, engine, read, notification: `/silk/` | `dev-up.sh --devtools` | tested end to end (requests recorded, SQL counted, headers masked, sign-in calls not recorded, nothing in the service database) |
 | Django Debug Toolbar | same services, HTML pages only | `--devtools` | installs and loads; JSON responses carry no HTML, so it appears on Silk's pages and the browsable API, not on API calls |
 | Ray | BFF (`ray()`), Django (`from config.devtools import ray`), SQL via `RAY_QUERIES` | `--ray` | the payloads sent were captured from a local listener and match what Spatie's own PHP client sends; the Ray desktop app itself was **not** available here, so the display is untested |
+| Celery Flower | the engine's Celery cluster, `http://127.0.0.1:5555` | `dev-up.sh` (default on), `--no-flower` | tested live: three worker groups, every pipeline task seen, UI rendered, metrics scraped by a real Prometheus; RabbitMQ not available here (Redis broker tested) |
 | Prometheus + Grafana | `scripts/observability-up.sh` | Docker | scrape config verified against a real Prometheus; the compose file and the Grafana dashboard were **not** run (see below) |
 | Kafka UI | same | Docker | not run (no Docker, no Kafka in the build sandbox) |
 
@@ -45,9 +46,18 @@ Dashboard "Ensuretech services": services up, requests per second and average la
 
 No Docker? Download Prometheus and run it with `observability/prometheus.yml` (change the token path to a local file, `--web.listen-address=127.0.0.1:9099`), and use `kafka-consumer-groups.sh --describe` for lag.
 
+## Celery Flower
+
+The endorsement engine is a Celery pipeline: `ingest_csv` -> `validate_chunk` (one task per ~500-row chunk, in parallel) -> `start_premium_calculation` -> `price_chunk` -> `check_cd_balance` -> `apply_chunk`, with retries (`countdown` back-off, `acks_late`, `reject_on_worker_lost`) and six isolated queues
+(`csv.ingestion`, `validation.high`, `validation.standard`, `gui.batch`, `computation`, `maintenance`; each with a dead-letter queue on RabbitMQ). Flower is how you see it: which worker took which task, how long it ran, what failed and was retried, what is waiting.
+- Locally `scripts/dev-up.sh` runs three worker groups (`ingest`, `validation`, `computation`), beat and Flower. An upload through the portal shows `ingest_csv` on the ingest worker, `validate_chunk` on the validation worker, and the pricing and apply tasks on the computation worker.
+- Broker: RabbitMQ when it answers on 5672 (`docker compose -f docker-compose.infra.yml up -d rabbitmq`), else Redis. The queue priorities and dead-letter queues exist only on RabbitMQ; on Redis the pipeline runs without them. Only the Redis path was run in the build sandbox.
+- The workers emit task events (`CELERY_EVENTS`, on by default). Flower serves `/metrics`; Prometheus scrapes it and the Grafana dashboard has a Celery row (workers online, completions, failures and retries, run time per task, tasks running per worker).
+- Flower can revoke tasks and shut workers down. It listens on `127.0.0.1` with basic auth (`FLOWER_BASIC_AUTH` in `local.env`, a development value); on a real server put it on a private network behind your own authentication, never on a public address.
+- `CELERY_TASK_ALWAYS_EAGER=true` (`dev-up.sh --eager`) runs tasks inline in the web process: no workers, no Flower. It exists for stepping through one task in a debugger and hides everything Celery is for.
+
 ## Not included, and why
 
 - **Laravel Horizon**: it is the dashboard for Redis queues. The BFF has none (every job would run inline), so the page would always be empty. It makes sense the day something is queued, for example sending the uploaded offline sheets' audit export.
-- **Celery Flower**: locally the engine runs tasks inline (`CELERY_TASK_ALWAYS_EAGER`), so there is nothing to watch.
 - **OpenTelemetry / Jaeger tracing**: planned in the architecture, not wired. It needs trace headers passed through the BFF and every service.
 - **Metrics from the Django services and the BFF**: only the Spring services expose Prometheus metrics today; Silk and Telescope cover the others for development.

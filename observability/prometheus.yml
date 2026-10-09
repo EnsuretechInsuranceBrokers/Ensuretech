@@ -12,3 +12,10 @@ scrape_configs:
       - { targets: ["127.0.0.1:8084"], labels: { service: billing } }
       - { targets: ["127.0.0.1:8085"], labels: { service: integration } }
       - { targets: ["127.0.0.1:8086"], labels: { service: sheet-generator } }
+  # Celery: Flower's metrics (task events by type, runtime, workers online, tasks being executed). Flower has its own basic-auth login; the password file is written
+  # by scripts/observability-up.sh from FLOWER_BASIC_AUTH in local.env.
+  - job_name: ensuretech-celery
+    metrics_path: /metrics
+    basic_auth: { username: flower, password_file: /etc/prometheus/flower-password }
+    static_configs:
+      - { targets: ["127.0.0.1:5555"], labels: { service: engine-celery } }

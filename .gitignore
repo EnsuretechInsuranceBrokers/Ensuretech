@@ -4,3 +4,4 @@ observability/metrics-token
 __pycache__/
 *.pyc
 services/bff/storage/telescope.sqlite
+observability/flower-password
