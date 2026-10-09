@@ -35,12 +35,12 @@ HELP = {
     "designation": "Optional. Only if the policy's rate card depends on designation.",
     "annual_salary": "Optional. A number.",
     "sum_insured": "A number, no currency sign. Required when adding people unless the rater works it out from salary.",
-    "effective_date": "The day cover starts. Filled in for you; change it for a row that differs.",
+    "effective_date": "The day cover starts. Leave empty to use the date you give when you upload; fill it for a row that differs.",
 }
 
 
 def build(op: str, count: int, *, effective_date: str | None, policy_number: str = "") -> bytes:
-    """An .xlsx for `op` sized for `count` employees (one SELF row each; add dependant rows beneath their employee)."""
+    """An .xlsx for `op`, with drop-downs and type checks covering `count` employees' rows (plus spare rows for dependants). Data rows are empty."""
     if op not in OPS:
         raise ValueError("operation must be one of " + ", ".join(OPS))
     n = max(1, min(int(count), MAX_TEMPLATE_ROWS))
@@ -57,12 +57,8 @@ def build(op: str, count: int, *, effective_date: str | None, policy_number: str
         ws.column_dimensions[_col(idx)].width = WIDTH[h]
     ws.append([LABELS.get(h, h) for h in HEADERS])
     col = {h: _col(i) for i, h in enumerate(HEADERS, start=1)}
-    for i in range(n):
-        row = [None] * len(HEADERS)
-        row[HEADERS.index("effective_date")] = effective_date or None
-        if op == "ADD":
-            row[HEADERS.index("relation")] = "SELF"
-        ws.append(row)
+    # The data rows are left EMPTY on purpose. The file reader skips a fully empty row but would check a row with anything in it, so a pre-filled
+    # "SELF" or start date on a row nobody used would come back as an error for every unused row.
     last = n + 1 + 200                                       # validation also covers 200 spare rows for dependants
 
     def add(dv, field):
@@ -84,7 +80,8 @@ def build(op: str, count: int, *, effective_date: str | None, policy_number: str
     guide.append(["Ensuretech endorsement sheet"])
     guide.append(["Policy", policy_number or ""])
     guide.append(["Operation", {"ADD": "Add people", "REMOVE": "Remove people", "UPDATE": "Change details"}[op]])
-    guide.append(["Prepared for", f"{n} employee(s). One SELF row each is ready; put each dependant on their own row under the employee, with the same employee code."])
+    guide.append(["Prepared for", f"{n} employee(s). Fill one row per person: the employee first (relation SELF), then each dependant on their own row beneath, with the same employee code. Rows you leave empty are ignored."])
+    guide.append(["Cover starts", effective_date or "Give the date when you upload, or fill the Effective date column on each row."])
     guide.append([])
     guide.append(["Column", "What goes in it"])
     required = {f"{'relation' if f == 'relation_code' else f}" for f in REQUIRED[op]}

@@ -176,7 +176,7 @@ def test_template_downloads_and_our_reader_understands_every_column(world):
     assert r.status_code == 200 and r["Content-Type"].endswith("spreadsheetml.sheet") and "attachment" in r["Content-Disposition"]
     wb = openpyxl.load_workbook(io.BytesIO(r.content))
     ws = wb["Endorsement"]
-    assert ws.max_row == 251 and [c.value for c in ws[2]][1] == "SELF" and ws["N2"].value == "2030-07-01"
+    assert ws.max_row == 1                                              # the data rows are empty: an unused pre-filled row would be reported as an error
     sug = suggest_mapping([c.value for c in ws[1]])
     assert all(s.confidence == 1.0 and s.field for s in sug) and is_auto_confirmable(sug, "ADD")
     assert len(ws.data_validations.dataValidation) >= 5 and "Instructions" in wb.sheetnames
@@ -187,9 +187,9 @@ def test_a_filled_template_goes_straight_through_the_file_path(world):
     wb = openpyxl.load_workbook(io.BytesIO(c.get(B + "intake/template/", {"policy_id": 100, "op_type": "ADD", "employee_count": 2, "effective_date": "2030-07-01"}).content))
     ws = wb["Endorsement"]
     for r, (code, first, dob) in enumerate([("7001", "Asha", "1985-05-17"), ("7002", "Meera", "1990-03-03")], start=2):
-        ws.cell(r, 1, code); ws.cell(r, 3, first); ws.cell(r, 5, dob); ws.cell(r, 13, 500000)
+        ws.cell(r, 1, code); ws.cell(r, 2, "SELF"); ws.cell(r, 3, first); ws.cell(r, 5, dob); ws.cell(r, 13, 500000)
     buf = io.BytesIO(); wb.save(buf)
-    up = c.post(B + "csv/upload/", {"file": SimpleUploadedFile("t.xlsx", buf.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), "op_type": "ADD", "policy_id": 100}, format="multipart")
+    up = c.post(B + "csv/upload/", {"file": SimpleUploadedFile("t.xlsx", buf.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), "op_type": "ADD", "policy_id": 100, "effective_date": "2030-07-01"}, format="multipart")
     assert up.status_code == 202, up.content
     job = EndorsementJob.objects.get(pk=up.json()["job_id"])
     assert job.status == "VALIDATION_PASSED" and job.total_rows == 2 and job.failed_rows == 0

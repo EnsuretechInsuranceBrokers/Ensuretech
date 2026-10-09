@@ -5,7 +5,7 @@ The endorsement page asks one question first: **how many employees are you chang
 | Count | Way in | What happens |
 |---|---|---|
 | 1 to `GRID_MAX_EMPLOYEES` (default 100) | **Live grid** | A grid session opens, sized for the count (one SELF row per employee, up to 8 rows each). The engine holds the grid; on a pause in typing **only the row that changed is sent**, and the verdict for it, for any other row it affected, and a summary come back. Nothing becomes an endorsement until Submit. |
-| More than that | **Spreadsheet** | The engine builds an `.xlsx` for the policy and count; the user fills it in and uploads it through the normal chunked file path. |
+| More than that | **Spreadsheet** | The engine builds an `.xlsx` for the policy (drop-downs and type checks covering the count's rows plus spares; **data rows left empty on purpose**: the reader skips a fully empty row but checks any row with something in it, so pre-filled placeholders would be reported as errors). The user fills it in, gives the cover start date at upload, and it goes through the normal chunked file path. |
 
 ## Services
 
