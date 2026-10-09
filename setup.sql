@@ -32,6 +32,11 @@
 --   engine service account           client id svc_e3135bae0ed7b7b6   secret 65-c-MbjEwBeCikrBCZRbSFNpRv6ZgRQbtFUMCfjMTam7wBNEiv4Chr_0faEUvTX
 --   endorsement admin (Django)       ops.reader / ops.support, password Str0ng-Pass-123!
 --
+-- Newer than this file (applied by the services themselves the first time they start, so nothing needs doing by hand)
+--   * integration-service Flyway V4  integration.offline_uploads, integration.offline_upload_rows   (TPA member ids and e-cards by spreadsheet)
+--   * endorsement engine migration jobs.0006   endorsement_members.tpa_member_name, ecard_url, tpa_id_source, tpa_id_assigned_at
+--   The two are additions only: the rows above stay valid, and the new tables start empty.
+--
 -- Careful: the Spring and engine test suites TRUNCATE tables. Point them at a scratch database (DATABASE_URL), never at these.
 --
 -- Contents (rows per table)

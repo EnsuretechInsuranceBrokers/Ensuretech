@@ -77,3 +77,10 @@ Rounding is blocked on the question of which policies round premiums (legacy rou
   **Not ported**: parent/base policy chains and top-up base policies (they need employee-policy data this service does not hold), the whitelabel `Portal::` switches, the mail/WhatsApp triggers on window change, bulk extension from a spreadsheet (the bulk endpoint takes a list instead), and rollback logs.
   **Not yet wired**: the engine does not yet refuse an upload for an employee whose window is closed. The check exists (`/evaluate`); calling it from validation is the next step and needs a decision on whether a closed window blocks or only warns.
 - **Announcements** (organization-service V4): banners / carousels / notices, targeted at all employers or a list, with a start date and a time to live; employers see only what is live and meant for them. **Not ported**: image upload and the media library (an image URL is stored instead), the module / sub-module placement mapping, Excel bulk create.
+
+## 9. TPA offline member-id upload (ported)
+The legacy "Offline TPA Member" format (employee code, relationship, TPA member id and name, e-card URL, cover start date, endorsement id) is ported as a
+synchronous check-then-save flow for both the TPA's own users and the broker uploading for the TPA, with every legacy validation (see `docs/tpa-offline.md`
+for the code-by-code table). Added beyond legacy: a board of who is waiting with hours-waiting urgency, a pre-filled template, per-line results with line
+numbers, partial apply, an audit trail with the file hash, and `ID_IN_USE`. **Not ported**: claim re-keying on an id change, the 48-hour emailed result,
+the employee-facing member-id/e-card email and WhatsApp, per-TPA claim columns.

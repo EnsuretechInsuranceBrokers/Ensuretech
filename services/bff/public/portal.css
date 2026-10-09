@@ -124,3 +124,5 @@ button.mini{padding:.15rem .45rem;font-size:.75rem;background:transparent;color:
 .note{padding:.6rem .8rem;border-radius:var(--radius-sm);font-size:.85rem}.note.warn{background:var(--warn-soft);color:var(--warn)}
 
 .issues{margin:.7rem 0 0;padding:0;list-style:none;display:grid;gap:.25rem;font-size:.86rem}.issues li{display:flex;gap:.5rem;align-items:baseline}.issues a{cursor:pointer;color:var(--brand)}.issues .sev-error{color:var(--err)}.issues .sev-warn{color:var(--warn)}.issues .more{color:var(--mut)}
+
+label.check{display:flex;flex-direction:row;align-items:flex-start;gap:.5rem;font-weight:400}label.check input{width:auto;margin-top:.2rem}

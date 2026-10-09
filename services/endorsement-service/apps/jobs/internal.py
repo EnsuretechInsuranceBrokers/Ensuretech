@@ -67,7 +67,8 @@ def _assign(policy_id, items, source):
     from django.utils import timezone
     if source not in SOURCES:
         raise ValidationError({"source": "must be one of " + ", ".join(sorted(SOURCES)) + "."})
-    now, updated = timezone.now(), 0
+    now = timezone.now()
+    wanted = {}
     for it in items:
         if not isinstance(it, dict) or not isinstance(it.get("id"), int):
             raise ValidationError("each item needs an integer id.")
@@ -82,7 +83,28 @@ def _assign(policy_id, items, source):
             raise ValidationError("each item needs a tpa_member_id and/or an ecard_url.")
         if "tpa_member_id" in fields:
             fields.update(tpa_id_source=source, tpa_id_assigned_at=now)
-        updated += EndorsementMember.objects.filter(id=it["id"], policy_id=policy_id).update(**fields, updated_at=now)
+        wanted.setdefault(it["id"], {}).update(fields)               # the same member twice in one request: the later line wins
+    # one statement per few hundred people, not a query per person: a 10,000-person sheet must not take long while a card is awaited
+    from django.db import connection
+    table = connection.ops.quote_name(EndorsementMember._meta.db_table)
+    ids = sorted(wanted)
+    updated = 0
+    with connection.cursor() as cur:
+        for i in range(0, len(ids), 500):
+            chunk = ids[i:i + 500]
+            values = ",".join(["(%s::bigint,%s::text,%s::text,%s::text)"] * len(chunk))
+            params = []
+            for mid in chunk:
+                f = wanted[mid]
+                params += [mid, f.get("tpa_member_id"), f.get("tpa_member_name"), f.get("ecard_url")]
+            cur.execute(
+                f"UPDATE {table} m SET tpa_member_id = COALESCE(v.tid, m.tpa_member_id), tpa_member_name = COALESCE(v.tname, m.tpa_member_name), "
+                f"ecard_url = COALESCE(v.ecard, m.ecard_url), "
+                f"tpa_id_source = CASE WHEN v.tid IS NOT NULL THEN %s ELSE m.tpa_id_source END, "
+                f"tpa_id_assigned_at = CASE WHEN v.tid IS NOT NULL THEN %s::timestamptz ELSE m.tpa_id_assigned_at END, updated_at = %s::timestamptz "
+                f"FROM (VALUES {values}) AS v(id, tid, tname, ecard) WHERE m.id = v.id AND m.policy_id = %s",
+                [source, now, now, *params, policy_id])
+            updated += cur.rowcount
     return updated, len(items) - updated
 
 

@@ -7,7 +7,7 @@
 @endphp
 <p><a href="/app/member-ids">← All policies</a></p>
 <h1>{{ $d['policy_number'] ?? ('Policy '.$d['policy_id']) }}</h1>
-<p class="sub">Cover {{ $d['policy_start'] }} → {{ $d['policy_end'] }}. {{ $d['pending_ids'] }} waiting for a member id{{ $d["pending_ids"] ? ", the longest for ".$fmt($d["oldest_hours"]) : "" }}.</p>
+<p class="sub">{{ $d['policy_start'] ? 'Cover '.$d['policy_start'].' → '.$d['policy_end'].'. ' : '' }}{{ $d['pending_ids'] }} waiting for a member id{{ $d["pending_ids"] ? ", the longest for ".$fmt($d["oldest_hours"]) : "" }}.</p>
 
 @if($report)
 <div class="card">
@@ -19,7 +19,7 @@
   @foreach($report['warnings'] as $w)<p class="hint">{{ $w }}</p>@endforeach
   @if(! $report['applied'] && $token && ($report['assigned'] + $report['reassigned'] + $report['updated']) > 0)
   <form method="post" action="/app/member-ids/{{ $d['policy_id'] }}/apply">@csrf<input type="hidden" name="token" value="{{ $token }}">
-    <div class="actions"><button>Save {{ $report['assigned'] + $report['reassigned'] + $report['updated'] }} line(s)</button> <a class="btn alt" href="/app/member-ids/{{ $d['policy_id'] }}">Cancel</a></div></form>
+    <div class="actions">@php $n = $report['assigned'] + $report['reassigned'] + $report['updated']; @endphp<button>Save {{ $n }} {{ $n === 1 ? 'line' : 'lines' }}</button> <a class="btn alt" href="/app/member-ids/{{ $d['policy_id'] }}">Cancel</a></div></form>
   @endif
 </div>
 @if(count($report['lines']))
