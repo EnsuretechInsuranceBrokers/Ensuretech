@@ -144,6 +144,10 @@ class EndorsementMember(models.Model):
     is_active = models.BooleanField(default=True)
     source_type = models.CharField(max_length=20)
     tpa_member_id = models.CharField(max_length=60, null=True, blank=True)
+    tpa_member_name = models.CharField(max_length=160, null=True, blank=True)          # the name the TPA holds (it can differ from ours)
+    ecard_url = models.CharField(max_length=500, null=True, blank=True)
+    tpa_id_source = models.CharField(max_length=20, null=True, blank=True)             # TPA_SYNC | TPA_PORTAL | BROKER_FOR_TPA: who gave us the id
+    tpa_id_assigned_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -157,6 +161,7 @@ class EndorsementMember(models.Model):
             models.Index(fields=["policy_id", "employee_code"], name="idx_members_policy_emp"),
             models.Index(fields=["broker_id", "is_active"], name="idx_members_broker_active"),
             models.Index(fields=["pan"], name="idx_members_pan", condition=models.Q(pan__isnull=False)),
+            models.Index(fields=["policy_id", "created_at"], name="idx_members_awaiting_tpa", condition=models.Q(is_active=True, tpa_member_id__isnull=True)),
         ]
 
 

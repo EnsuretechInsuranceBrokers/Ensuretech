@@ -39,6 +39,7 @@ final class FakeWorld {
     volatile String activeLivesJson = "{\"members\":[]}";          // what the fake TPA answers to GET /active-lives
     final Map<Long, List<String>> policyRoster = new ConcurrentHashMap<>();   // policy -> roster member JSON objects
     final Map<Long, String> policyNumbers = new ConcurrentHashMap<>();
+    final List<String> assignCalls = Collections.synchronizedList(new ArrayList<>());      // "source|body" for every policy-level assignment
     final List<String> lifecycle = Collections.synchronizedList(new ArrayList<>());
     final AtomicInteger engineMemberCalls = new AtomicInteger();
     // identity
@@ -60,7 +61,7 @@ final class FakeWorld {
 
     void reset() {
         tpaCalls.clear(); tpaStatus = 200; failFromCall = Integer.MAX_VALUE; rejectRefs.clear();
-        rosters.clear(); tpaIdsRecorded.clear(); lifecycle.clear(); policyRoster.clear(); policyNumbers.clear(); activeLivesJson = "{\"members\":[]}"; engineStatus = 200; engineMemberCalls.set(0);
+        rosters.clear(); tpaIdsRecorded.clear(); lifecycle.clear(); policyRoster.clear(); policyNumbers.clear(); assignCalls.clear(); activeLivesJson = "{\"members\":[]}"; engineStatus = 200; engineMemberCalls.set(0);
         tokenCalls.set(0); identityStatus = 200;
     }
 
@@ -117,21 +118,31 @@ final class FakeWorld {
     }
 
     private void engineHandle(HttpExchange x) throws IOException {
+        try { engineHandle0(x); } catch (RuntimeException e) { e.printStackTrace(); throw e; }
+    }
+
+    private void engineHandle0(HttpExchange x) throws IOException {
         if (!("Bearer " + TOKEN).equals(x.getRequestHeaders().getFirst("Authorization"))) { reply(x, 401, "{}"); return; }
         if (engineStatus != 200) { reply(x, engineStatus, "{}"); return; }
         String path = x.getRequestURI().getPath();
+        if (path.equals("/api/v1/internal/members/pending-summary/")) { pendingSummary(x); return; }
         Matcher pm = Pattern.compile("/api/v1/internal/policies/(\\d+)/(members|tpa-member-ids)/").matcher(path);
         if (pm.matches()) {
             long policy = Long.parseLong(pm.group(1));
-            if (pm.group(2).equals("tpa-member-ids")) {
-                Matcher ids = Pattern.compile("\"id\":(\\d+),\"tpa_member_id\":\"([^\"]+)\"").matcher(read(x));
-                while (ids.find()) tpaIdsRecorded.put(Long.parseLong(ids.group(1)), ids.group(2));
-                reply(x, 200, "{\"updated\":1,\"ignored\":0}");
-                return;
+            if (pm.group(2).equals("tpa-member-ids")) { assign(x, policy); return; }
+            String q = x.getRequestURI().getQuery() == null ? "" : x.getRequestURI().getQuery();
+            Matcher pq = Pattern.compile("pending=(\\w+)").matcher(q);
+            String pending = pq.find() ? pq.group(1) : null;
+            List<String> members = new ArrayList<>();
+            for (String raw : policyRoster.getOrDefault(policy, List.of())) {
+                var n = JSON.readTree(raw);
+                boolean noId = n.path("tpa_member_id").isNull() || n.path("tpa_member_id").isMissingNode();
+                boolean noCard = n.path("ecard_url").isNull() || n.path("ecard_url").isMissingNode();
+                if (pending == null || (pending.equals("ids") && noId) || (pending.equals("ecards") && !noId && noCard) || (pending.equals("any") && (noId || noCard))) members.add(raw);
             }
-            List<String> members = policyRoster.getOrDefault(policy, List.of());
             String pn = policyNumbers.get(policy);
-            reply(x, 200, "{\"policy_id\":" + policy + ",\"policy_number\":" + (pn == null ? "null" : "\"" + pn + "\"") + ",\"members\":[" + String.join(",", members) + "],\"next_after\":null}");
+            reply(x, 200, "{\"policy_id\":" + policy + ",\"policy_number\":" + (pn == null ? "null" : "\"" + pn + "\"") + ",\"policy_start\":\"2030-04-01\",\"policy_end\":\"2031-03-31\","
+                    + "\"policy_is_inception\":false,\"members\":[" + String.join(",", members) + "],\"next_after\":null}");
             return;
         }
         Matcher m = Pattern.compile("/api/v1/internal/endorsements/([0-9a-f-]+)/(members|tpa-member-ids|lifecycle)/").matcher(path);
@@ -168,6 +179,56 @@ final class FakeWorld {
         boolean more = page.size() == limit && page.getLast() < all.getLast();
         sb.append("],\"next_after\":").append(more ? page.getLast() : "null").append('}');
         reply(x, 200, sb.toString());
+    }
+
+    private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
+
+    /** The engine's policy-level assignment: records the call and rewrites the stored roster so a second upload sees what the first one saved. */
+    private void assign(HttpExchange x, long policy) throws IOException {
+        String body = read(x);
+        assignCalls.add(body);
+        var req = JSON.readTree(body);
+        String source = req.path("source").asString("");
+        List<String> roster = policyRoster.get(policy) == null ? null : new ArrayList<>(policyRoster.get(policy));
+        int updated = 0, ignored = 0;
+        for (var item : req.path("members")) {
+            boolean hit = false;
+            for (int i = 0; roster != null && i < roster.size(); i++) {
+                var n = (tools.jackson.databind.node.ObjectNode) JSON.readTree(roster.get(i));
+                if (n.path("id").asLong() != item.path("id").asLong()) continue;
+                hit = true;
+                if (item.has("tpa_member_id")) { n.put("tpa_member_id", item.path("tpa_member_id").asString()); n.put("tpa_id_source", source); tpaIdsRecorded.put(n.path("id").asLong(), item.path("tpa_member_id").asString()); }
+                if (item.has("tpa_member_name")) n.put("tpa_member_name", item.path("tpa_member_name").asString());
+                if (item.has("ecard_url")) n.put("ecard_url", item.path("ecard_url").asString());
+                roster.set(i, JSON.writeValueAsString(n));
+            }
+            if (hit) updated++; else ignored++;
+        }
+        if (roster != null) policyRoster.put(policy, roster);
+        reply(x, 200, "{\"updated\":" + updated + ",\"ignored\":" + ignored + "}");
+    }
+
+    private void pendingSummary(HttpExchange x) throws IOException {
+        Matcher m = Pattern.compile("policy_ids=([0-9,]+)").matcher(x.getRequestURI().getQuery());
+        StringBuilder sb = new StringBuilder("{\"policies\":[");
+        boolean first = true;
+        if (m.find()) for (String id : m.group(1).split(",")) {
+            int ids = 0, cards = 0;
+            String oldest = null;
+            for (String raw : policyRoster.getOrDefault(Long.parseLong(id), List.of())) {
+                var n = JSON.readTree(raw);
+                boolean noId = n.path("tpa_member_id").isNull() || n.path("tpa_member_id").isMissingNode();
+                boolean noCard = n.path("ecard_url").isNull() || n.path("ecard_url").isMissingNode();
+                if (noId) { ids++; String at = n.path("endorsed_at").asString(null); if (at != null && (oldest == null || at.compareTo(oldest) < 0)) oldest = at; }
+                else if (noCard) cards++;
+            }
+            if (ids + cards == 0) continue;
+            if (!first) sb.append(',');
+            first = false;
+            sb.append("{\"policy_id\":").append(id).append(",\"pending_ids\":").append(ids).append(",\"pending_ecards\":").append(cards)
+              .append(",\"oldest_id_waiting_since\":").append(oldest == null ? "null" : "\"" + oldest + "\"").append(",\"oldest_ecard_waiting_since\":null}");
+        }
+        reply(x, 200, sb.append("]}").toString());
     }
 
     private void identityHandle(HttpExchange x) throws IOException {

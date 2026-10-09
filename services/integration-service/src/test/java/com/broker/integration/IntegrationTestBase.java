@@ -45,7 +45,7 @@ abstract class IntegrationTestBase {
 
     @BeforeEach
     void reset() {
-        jdbc.sql("TRUNCATE integration.reconcile_misses, integration.reconcile_runs, integration.tpa_relation_mappings, integration.tpa_reconcile_settings, integration.sync_rejections, integration.sync_jobs, integration.policy_routes, integration.tpa_configs RESTART IDENTITY CASCADE").update();
+        jdbc.sql("TRUNCATE integration.offline_upload_rows, integration.offline_uploads, integration.reconcile_misses, integration.reconcile_runs, integration.tpa_relation_mappings, integration.tpa_reconcile_settings, integration.sync_rejections, integration.sync_jobs, integration.policy_routes, integration.tpa_configs RESTART IDENTITY CASCADE").update();
         jdbc.sql("DELETE FROM outbox.outbox_events").update();
         sender.sent.clear();
         sender.failing = false;

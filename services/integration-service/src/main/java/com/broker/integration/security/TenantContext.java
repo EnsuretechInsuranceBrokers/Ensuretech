@@ -7,6 +7,10 @@ public record TenantContext(String userId, String role, Long brokerId, Long empl
         return role != null && role.startsWith("BROKER_");
     }
 
+    public boolean isTpaScoped() {
+        return "TPA_USER".equals(role);
+    }
+
     public boolean isEmployerScoped() {
         return role != null && role.startsWith("EMPLOYER_");
     }

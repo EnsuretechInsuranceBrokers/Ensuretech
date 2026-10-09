@@ -26,8 +26,17 @@ final class TestTokens {
         return build(KEYS, ISSUER, "access", role, brokerId, employerId, 600);
     }
 
+    static String tpaToken(Long brokerId, Long tpaId) {
+        return build(KEYS, ISSUER, "access", "TPA_USER", brokerId, null, 600, tpaId);
+    }
+
     static String build(KeyPair kp, String issuer, String tokenType, String role, Long brokerId,
                         Long employerId, long ttlSeconds) {
+        return build(kp, issuer, tokenType, role, brokerId, employerId, ttlSeconds, null);
+    }
+
+    static String build(KeyPair kp, String issuer, String tokenType, String role, Long brokerId,
+                        Long employerId, long ttlSeconds, Long tpaId) {
         try {
             JWTClaimsSet.Builder c = new JWTClaimsSet.Builder()
                     .issuer(issuer)
@@ -38,6 +47,7 @@ final class TestTokens {
                     .expirationTime(new Date(System.currentTimeMillis() + ttlSeconds * 1000));
             if (brokerId != null) c.claim("broker_id", brokerId);
             if (employerId != null) c.claim("employer_id", employerId);
+            if (tpaId != null) c.claim("tpa_id", tpaId);
             SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), c.build());
             jwt.sign(new RSASSASigner((RSAPrivateKey) kp.getPrivate()));
             return jwt.serialize();

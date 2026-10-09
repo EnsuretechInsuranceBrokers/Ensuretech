@@ -144,3 +144,72 @@ def test_an_operator_can_close_an_applied_endorsement_but_not_one_still_being_pr
     early = _walk(make_job(), "FILE_STREAMED", "VALIDATION_QUEUED")
     assert broker.post(f"/api/v1/broker/endorsements/{early.id}/close/", {}, format="json").status_code == 409          # not applied yet
     assert client_for("BROKER_ADMIN", 2).post(f"/api/v1/broker/endorsements/{waiting.id}/close/", {}, format="json").status_code == 404
+
+
+# ── what the TPA tells us: a member id, the name it holds, an e-card link ────────────────────────────────────────────────────
+P = "/api/v1/internal/policies/"
+
+
+def test_a_member_can_get_an_id_a_name_and_an_ecard_and_we_remember_who_told_us(make_job):
+    job = make_job()
+    a, b = roster(job, 2)
+    c = client_for("SYSTEM", None)
+    r = c.post(f"{P}{job.policy_id}/tpa-member-ids/", {"source": "TPA_PORTAL", "members": [
+        {"id": a.id, "tpa_member_id": " CH-1001 ", "tpa_member_name": "Asha  Rao", "ecard_url": "https://tpa.example/card/1001.pdf"},
+        {"id": b.id, "tpa_member_id": "CH-1002"}]}, format="json")
+    assert r.status_code == 200 and r.json() == {"updated": 2, "ignored": 0}
+    a.refresh_from_db(); b.refresh_from_db()
+    assert (a.tpa_member_id, a.tpa_member_name, a.ecard_url, a.tpa_id_source) == ("CH-1001", "Asha  Rao", "https://tpa.example/card/1001.pdf", "TPA_PORTAL")
+    assert a.tpa_id_assigned_at is not None and b.ecard_url is None
+    m = c.get(f"{P}{job.policy_id}/members/").json()["members"][0]
+    assert m["tpa_member_id"] == "CH-1001" and m["ecard_url"].endswith("1001.pdf") and m["tpa_id_source"] == "TPA_PORTAL"
+    assert m["endorsement_ref"] == str(job.id)[:8] and m["endorsed_at"]
+
+
+def test_an_ecard_can_arrive_later_without_touching_the_id(make_job):
+    job = make_job()
+    (a,) = roster(job, 1)
+    c = client_for("SYSTEM", None)
+    c.post(f"{P}{job.policy_id}/tpa-member-ids/", {"source": "TPA_SYNC", "members": [{"id": a.id, "tpa_member_id": "X1"}]}, format="json")
+    a.refresh_from_db(); stamp = a.tpa_id_assigned_at
+    r = c.post(f"{P}{job.policy_id}/tpa-member-ids/", {"source": "TPA_PORTAL", "members": [{"id": a.id, "ecard_url": "https://tpa.example/c.pdf"}]}, format="json")
+    a.refresh_from_db()
+    assert r.status_code == 200 and a.ecard_url and a.tpa_member_id == "X1"
+    assert a.tpa_id_source == "TPA_SYNC" and a.tpa_id_assigned_at == stamp               # the id's provenance is the id's, not the card's
+
+
+def test_the_pending_filters_find_who_is_still_waiting(make_job):
+    job = make_job()
+    a, b, c3 = roster(job, 3)
+    c = client_for("SYSTEM", None)
+    c.post(f"{P}{job.policy_id}/tpa-member-ids/", {"source": "TPA_SYNC", "members": [{"id": a.id, "tpa_member_id": "X1", "ecard_url": "https://t/1"}, {"id": b.id, "tpa_member_id": "X2"}]}, format="json")
+    ids = lambda q: [m["employee_code"] for m in c.get(f"{P}{job.policy_id}/members/?pending={q}").json()["members"]]       # noqa: E731
+    assert ids("ids") == [c3.employee_code] and ids("ecards") == [b.employee_code] and ids("any") == [b.employee_code, c3.employee_code]
+    assert c.get(f"{P}{job.policy_id}/members/?pending=nonsense").status_code == 400
+
+
+def test_bad_assignments_are_refused_and_other_policies_are_untouched(make_job):
+    job, other = make_job(), make_job(policy_id=101)
+    (a,), (foreign,) = roster(job, 1), roster(other, 1)
+    c = client_for("SYSTEM", None)
+    for bad in ({"members": [{"id": a.id}]}, {"members": [{"id": a.id, "tpa_member_name": "only a name"}]}, {"members": [{"tpa_member_id": "x"}]},
+                {"source": "ANYONE", "members": [{"id": a.id, "tpa_member_id": "x"}]}):
+        assert c.post(f"{P}{job.policy_id}/tpa-member-ids/", bad, format="json").status_code == 400, bad
+    r = c.post(f"{P}{job.policy_id}/tpa-member-ids/", {"members": [{"id": foreign.id, "tpa_member_id": "STOLEN"}]}, format="json")
+    foreign.refresh_from_db()
+    assert r.json() == {"updated": 0, "ignored": 1} and foreign.tpa_member_id is None
+
+
+def test_pending_summary_counts_waiting_members_per_policy_in_one_call(make_job):
+    j1, j2 = make_job(), make_job(policy_id=101)
+    a, b, c3 = roster(j1, 3)
+    (d,) = roster(j2, 1)
+    c = client_for("SYSTEM", None)
+    c.post(f"{P}{j1.policy_id}/tpa-member-ids/", {"source": "TPA_SYNC", "members": [{"id": a.id, "tpa_member_id": "X1", "ecard_url": "https://t/1"}, {"id": b.id, "tpa_member_id": "X2"}]}, format="json")
+    body = c.get(f"/api/v1/internal/members/pending-summary/?policy_ids={j1.policy_id},{j2.policy_id},999").json()["policies"]
+    by = {r["policy_id"]: r for r in body}
+    assert (by[j1.policy_id]["pending_ids"], by[j1.policy_id]["pending_ecards"]) == (1, 1) and by[j1.policy_id]["oldest_id_waiting_since"]
+    assert by[j2.policy_id]["pending_ids"] == 1 and 999 not in by                      # nothing pending, nothing listed
+    for bad in ("", "x", ",".join(str(i) for i in range(501))):
+        assert c.get(f"/api/v1/internal/members/pending-summary/?policy_ids={bad}").status_code == 400
+    assert client_for("BROKER_ADMIN", 1).get("/api/v1/internal/members/pending-summary/?policy_ids=1").status_code == 403

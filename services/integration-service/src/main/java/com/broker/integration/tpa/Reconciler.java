@@ -40,14 +40,14 @@ public final class Reconciler {
             Map.entry("mother-in-law", "MOTHER_IN_LAW"), Map.entry("mother in law", "MOTHER_IN_LAW"),
             Map.entry("brother", "BROTHER"), Map.entry("sister", "SISTER"), Map.entry("partner", "DOMESTIC_PARTNER"));
 
-    static String key(String code, boolean stripLeadingZeros) {
+    public static String key(String code, boolean stripLeadingZeros) {
         String k = code == null ? "" : code.trim().toLowerCase(Locale.ROOT);
         if (stripLeadingZeros) k = k.replaceFirst("^0+(?=.)", "");
         return k;
     }
 
     /** SPOUSE covers HUSBAND/WIFE, SON covers SON_II..., so a TPA's "wife" finds a roster row stored as WIFE. */
-    static String family(String relationCode) {
+    public static String family(String relationCode) {
         if (relationCode == null) return "";
         return switch (relationCode) {
             case "HUSBAND", "WIFE" -> "SPOUSE";
@@ -60,10 +60,12 @@ public final class Reconciler {
     static String words(String s) { return s == null ? "" : s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").trim().replaceAll("\\s+", " "); }
 
     /** Full-name equality, or the roster first name appearing as a whole word in the TPA's name. */
-    static boolean nameMatches(RosterMember m, String tpaName) {
-        String t = words(tpaName), first = words(m.firstName());
+    static boolean nameMatches(RosterMember m, String tpaName) { return nameMatches(m.firstName(), m.lastName(), tpaName); }
+
+    static boolean nameMatches(String firstName, String lastName, String tpaName) {
+        String t = words(tpaName), first = words(firstName);
         if (t.isEmpty() || first.isEmpty()) return false;
-        if (t.equals(words((m.firstName() + " " + (m.lastName() == null ? "" : m.lastName())).trim()))) return true;
+        if (t.equals(words((firstName + " " + (lastName == null ? "" : lastName)).trim()))) return true;
         String firstWord = first.split(" ")[0];
         return (" " + t + " ").contains(" " + firstWord + " ");
     }

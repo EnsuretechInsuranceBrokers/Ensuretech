@@ -36,7 +36,7 @@ public class GatewaySecretFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String p = request.getRequestURI();
-        return secret == null || !(p.startsWith("/api/v1/broker/") || p.startsWith("/api/v1/employer/"));
+        return secret == null || !(p.startsWith("/api/v1/broker/") || p.startsWith("/api/v1/employer/") || p.startsWith("/api/v1/tpa/"));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.broker.integration.engine;
 
+import com.broker.integration.tpa.OfflineMatcher;
 import com.broker.integration.tpa.TpaAdapter.RosterMember;
 import java.io.IOException;
 import java.net.URI;
@@ -87,6 +88,59 @@ public class EngineClient {
         send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/policies/" + policyId + "/tpa-member-ids/"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(Map.of("members", items)))));
+    }
+
+    // ── offline member-id sheets ───────────────────────────────────────────────────────────────────────────────────────────────
+    public record DetailedPage(String policyNumber, String policyStart, String policyEnd, boolean inception, List<OfflineMatcher.Member> members, Long nextAfter) {}
+
+    /** The policy's ACTIVE roster with what the TPA has told us so far. pending: ids | ecards | any | null (everyone). */
+    public DetailedPage policyMembersDetailed(long policyId, long after, int limit, String pending) {
+        JsonNode n = send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/policies/" + policyId + "/members/?after=" + after + "&limit=" + limit
+                + (pending == null ? "" : "&pending=" + pending))).GET());
+        List<OfflineMatcher.Member> out = new ArrayList<>();
+        for (JsonNode m : n.path("members")) {
+            out.add(new OfflineMatcher.Member(m.path("id").asLong(), m.path("employee_code").asString(""), m.path("relation_code").asString(""), m.path("first_name").asString(""),
+                    m.path("last_name").asString(""), m.path("effective_date").asString(""), nullable(m, "tpa_member_id"), nullable(m, "tpa_member_name"), nullable(m, "ecard_url"),
+                    nullable(m, "endorsement_ref"), nullable(m, "endorsed_at")));
+        }
+        JsonNode next = n.path("next_after");
+        return new DetailedPage(nullable(n, "policy_number"), nullable(n, "policy_start"), nullable(n, "policy_end"), n.path("policy_is_inception").asBoolean(false), out,
+                next.isNull() || next.isMissingNode() ? null : next.asLong());
+    }
+
+    public record AssignItem(long id, String tpaMemberId, String tpaMemberName, String ecardUrl) {}
+
+    /** Records what a TPA told us. source: TPA_SYNC | TPA_PORTAL | BROKER_FOR_TPA. */
+    public void assign(long policyId, String source, List<AssignItem> items) {
+        if (items.isEmpty()) return;
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (AssignItem i : items) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", i.id());
+            if (i.tpaMemberId() != null) m.put("tpa_member_id", i.tpaMemberId());
+            if (i.tpaMemberName() != null) m.put("tpa_member_name", i.tpaMemberName());
+            if (i.ecardUrl() != null) m.put("ecard_url", i.ecardUrl());
+            list.add(m);
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("source", source);
+        body.put("members", list);
+        send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/policies/" + policyId + "/tpa-member-ids/")).header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))));
+    }
+
+    public record Pending(long policyId, int pendingIds, int pendingEcards, String oldestIdWaitingSince, String oldestEcardWaitingSince) {}
+
+    public List<Pending> pendingSummary(List<Long> policyIds) {
+        if (policyIds.isEmpty()) return List.of();
+        List<Pending> out = new ArrayList<>();
+        for (int i = 0; i < policyIds.size(); i += 500) {
+            String ids = String.join(",", policyIds.subList(i, Math.min(policyIds.size(), i + 500)).stream().map(String::valueOf).toList());
+            JsonNode n = send(HttpRequest.newBuilder(URI.create(base + "/api/v1/internal/members/pending-summary/?policy_ids=" + ids)).GET());
+            for (JsonNode p : n.path("policies")) out.add(new Pending(p.path("policy_id").asLong(), p.path("pending_ids").asInt(), p.path("pending_ecards").asInt(),
+                    nullable(p, "oldest_id_waiting_since"), nullable(p, "oldest_ecard_waiting_since")));
+        }
+        return out;
     }
 
     private JsonNode send(HttpRequest.Builder rb) {

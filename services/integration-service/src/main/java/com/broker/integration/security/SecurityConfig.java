@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/actuator/health/**").permitAll()
                 .requestMatchers("/api/v1/broker/**")
                     .hasAnyRole("BROKER_ADMIN", "BROKER_SPECIALIZER", "BROKER_NON_ADMIN")
+                .requestMatchers("/api/v1/tpa/**").hasRole("TPA_USER")
                 .requestMatchers("/api/v1/employer/**").hasAnyRole("EMPLOYER_ADMIN", "EMPLOYER_NON_ADMIN")
                 .anyRequest().denyAll())   // fail closed
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())))
