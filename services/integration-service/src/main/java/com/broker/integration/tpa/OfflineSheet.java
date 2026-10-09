@@ -121,6 +121,8 @@ public final class OfflineSheet {
             return out;
         } catch (SheetException e) {
             throw e;
+        } catch (org.apache.poi.EncryptedDocumentException e) {
+            throw new SheetException("That file is password-protected. Remove the password in Excel (File, Info, Protect Workbook) and upload it again.");
         } catch (IOException | RuntimeException e) {
             throw new SheetException("That does not look like an Excel or CSV file I can read (" + e.getClass().getSimpleName() + "). Save it as .xlsx or .csv and try again.");
         }

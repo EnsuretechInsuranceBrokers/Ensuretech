@@ -40,6 +40,9 @@ management:
         include: health,info,prometheus
 
 app:
+  offline:
+    urgent-hours: ${OFFLINE_URGENT_HOURS:4}        # a member waiting this long for a TPA id is HIGH on the board
+    critical-hours: ${OFFLINE_CRITICAL_HOURS:24}   # and CRITICAL from here: pro-rata is running and a mid-term endorsement is close
   jwt:
     public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:../identity-service/keys/jwt-public.pem}
     issuer: ${JWT_ISSUER:ensuretech-identity}

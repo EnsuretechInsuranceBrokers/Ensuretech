@@ -67,6 +67,21 @@ class OfflineSheetAndMatcherTest {
     }
 
     @Test
+    void aPasswordProtectedWorkbookSaysSo() throws Exception {
+        var fs = new org.apache.poi.poifs.filesystem.POIFSFileSystem();
+        var info = new org.apache.poi.poifs.crypt.EncryptionInfo(org.apache.poi.poifs.crypt.EncryptionMode.agile);
+        var enc = info.getEncryptor();
+        enc.confirmPassword("secret");
+        try (var wb = new XSSFWorkbook(); var os = enc.getDataStream(fs); var out = new ByteArrayOutputStream()) {
+            wb.createSheet("a").createRow(0).createCell(0).setCellValue("x");
+            wb.write(os);
+            os.close();
+            fs.writeFilesystem(out);
+            assertThatThrownBy(() -> OfflineSheet.parse(out.toByteArray(), "p.xlsx")).isInstanceOf(OfflineSheet.SheetException.class).hasMessageContaining("password");
+        }
+    }
+
+    @Test
     void theLegacyChecksAreAllThere() {
         List<Member> roster = List.of(m(1, "E1", "SELF", "Asha", "2030-04-01", null), m(2, "E1", "SON", "Arjun", "2030-04-01", null), m(3, "E1", "SON_II", "Ishan", "2030-04-01", null),
                 m(4, "E2", "SELF", "Ravi", "2030-04-01", "OLD"), m(5, "E3", "SELF", "Neha", "2030-04-01", "T-X"), m(6, "E1", "DAUGHTER", "Diya", "2030-04-01", null));
