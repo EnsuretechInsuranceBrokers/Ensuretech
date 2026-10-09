@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 12MB          # the parser itself refuses more than 10 MB / 50,000 rows with a plain message
+      max-request-size: 13MB
   application:
     name: integration-service
   datasource:

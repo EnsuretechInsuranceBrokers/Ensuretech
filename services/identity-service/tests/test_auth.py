@@ -54,3 +54,15 @@ def test_change_password(make_user, login):
     r = c.post("/api/v1/auth/change-password/",
                {"old_password": PASSWORD, "new_password": "An0ther-Str0ng-One!"}, format="json")
     assert r.status_code == 204
+
+
+def test_broker_admin_can_create_a_tpa_login_only_inside_its_own_broker(make_user, login):
+    make_user("ba@b.com", "BROKER_ADMIN", broker_id=7)
+    c, _ = login("ba@b.com")
+    body = {"email": "tpa@t.com", "first_name": "T", "last_name": "P", "role": "TPA_USER", "password": "Str0ng-Passw0rd!x", "tpa_id": 3, "broker_id": 99}
+    r = c.post("/api/v1/users/", body, format="json")
+    assert r.status_code == 201, r.content
+    u = User.objects.get(email="tpa@t.com")
+    assert (u.broker_id, u.tpa_id, u.role) == (7, 3, "TPA_USER")           # the broker in the request is ignored
+    r = c.post("/api/v1/users/", {**body, "email": "tpa2@t.com", "tpa_id": None}, format="json")
+    assert r.status_code == 400                                              # a TPA login must name its TPA

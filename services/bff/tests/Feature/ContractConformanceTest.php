@@ -112,7 +112,7 @@ class ContractConformanceTest extends TestCase
                 continue;                                             // covered in UploadAndStreamTest
             }
             foreach ($e['scope'] === 'gateway' ? $e['gateways'] : ['broker'] as $gw) {
-                $role = $gw === 'employer' ? 'EMPLOYER_ADMIN' : 'BROKER_ADMIN';
+                $role = $gw === 'employer' ? 'EMPLOYER_ADMIN' : ($gw === 'tpa' ? 'TPA_USER' : 'BROKER_ADMIN');
                 $status = in_array('POST', $e['methods']) && ! $e['kind'] === 'download' ? 201 : 200;
                 if ($e['kind'] === 'download') {
                     $this->fake(['*' => Http::response('a,b', 200, ['Content-Type' => $e['download']['types'][0], 'Content-Disposition' => 'attachment; filename="x.csv"'])]);
@@ -125,7 +125,7 @@ class ContractConformanceTest extends TestCase
                 }
                 $call = fn () => $this->call(
                     $e['methods'][0], $this->url($e, $gw), [], [], [],
-                    ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'] + ($e['scope'] === 'public' ? [] : ['HTTP_AUTHORIZATION' => 'Bearer '.$this->token($role)]),
+                    ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'] + ($e['scope'] === 'public' ? [] : ['HTTP_AUTHORIZATION' => 'Bearer '.$this->token($role, $role === 'TPA_USER' ? ['tpa_id' => 3] : [])]),
                     isset($e['input']) ? json_encode($this->sampleBody($e['input'])) : null,
                 );
                 $r = $call();

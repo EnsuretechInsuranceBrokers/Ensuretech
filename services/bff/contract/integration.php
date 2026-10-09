@@ -2,6 +2,8 @@
 
 $ID = '[0-9]+';
 $UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+$XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+$both = ['broker', 'tpa'];
 $cfg = ['tpa_id' => ['to' => 'tpaId', 'type' => 'int', 'required' => true, 'min' => 1], 'adapter' => ['type' => 'string', 'required' => true, 'enum' => ['GENERIC_REST']],
     'base_url' => ['to' => 'baseUrl', 'type' => 'string', 'required' => true, 'max' => 300, 'pattern' => '#^https?://#i'],
     'auth_type' => ['to' => 'authType', 'type' => 'string', 'required' => true, 'enum' => ['NONE', 'BASIC', 'BEARER']],
@@ -24,6 +26,26 @@ return [
         'reconcile_miss' => ['employeeCode' => 'employee_code', 'relation' => 'relation', 'memberId' => 'tpa_member_id', 'reason' => 'reason'],
         'reconcile_detail' => ['run' => ['as' => 'run', 'schema' => 'reconcile_run'], 'misses' => ['as' => 'misses', 'list' => 'reconcile_miss']],
         'reconcile_settings' => ['stripLeadingZeros' => 'strip_leading_zeros', 'relationLabels' => ['as' => 'relation_labels', 'raw' => true, 'obj' => true]],
+        // member ids and e-cards that arrive on a spreadsheet instead of from the TPA's server (broker uploading for the TPA, or the TPA's own user)
+        'tpa_waiting_policy' => ['policyId' => 'policy_id', 'policyNumber' => 'policy_number', 'tpaId' => 'tpa_id', 'employerId' => 'employer_id', 'pendingIds' => 'pending_ids',
+            'pendingEcards' => 'pending_ecards', 'oldestHours' => 'oldest_hours', 'urgency' => 'urgency'],
+        'tpa_waiting_board' => ['policies' => ['as' => 'policies', 'list' => 'tpa_waiting_policy'], 'totalPendingIds' => 'total_pending_ids', 'totalPendingEcards' => 'total_pending_ecards',
+            'oldestHours' => 'oldest_hours'],
+        'tpa_waiting_member' => ['id' => 'id', 'employeeCode' => 'employee_code', 'relationCode' => 'relation', 'name' => 'name', 'coverStart' => 'cover_start', 'endorsementRef' => 'endorsement_ref',
+            'tpaMemberId' => 'tpa_member_id', 'ecardUrl' => 'ecard_url', 'endorsedAt' => 'endorsed_at', 'hoursWaiting' => 'hours_waiting', 'urgency' => 'urgency'],
+        'tpa_waiting_detail' => ['policyId' => 'policy_id', 'policyNumber' => 'policy_number', 'tpaId' => 'tpa_id', 'policyStart' => 'policy_start', 'policyEnd' => 'policy_end',
+            'inception' => 'inception', 'pendingIds' => 'pending_ids', 'pendingEcards' => 'pending_ecards', 'oldestHours' => 'oldest_hours', 'urgency' => 'urgency',
+            'members' => ['as' => 'members', 'list' => 'tpa_waiting_member'], 'nextAfter' => 'next_after'],
+        'offline_line' => ['line' => 'line', 'employeeCode' => 'employee_code', 'relation' => 'relation', 'tpaMemberId' => 'tpa_member_id', 'tpaMemberName' => 'tpa_member_name',
+            'ecardUrl' => 'ecard_url', 'outcome' => 'outcome', 'reasonCode' => 'reason_code', 'reason' => 'reason', 'rosterId' => 'member_id', 'previousTpaMemberId' => 'previous_tpa_member_id'],
+        'offline_report' => ['uploadId' => 'upload_id', 'applied' => 'applied', 'policyId' => 'policy_id', 'tpaId' => 'tpa_id', 'source' => 'source', 'filename' => 'filename',
+            'sha256' => 'sha256', 'rowsTotal' => 'rows_total', 'assigned' => 'assigned', 'reassigned' => 'reassigned', 'updated' => 'updated', 'ecardsAdded' => 'ecards_added',
+            'unchanged' => 'unchanged', 'rejected' => 'rejected', 'longestWaitHours' => 'longest_wait_hours', 'warnings' => ['as' => 'warnings', 'raw' => true],
+            'lines' => ['as' => 'lines', 'list' => 'offline_line'], 'tookMs' => 'took_ms'],
+        'offline_upload' => ['id' => 'id', 'policyId' => 'policy_id', 'tpaId' => 'tpa_id', 'source' => 'source', 'uploadedBy' => 'uploaded_by', 'uploadedByRole' => 'uploaded_by_role',
+            'filename' => 'filename', 'status' => 'status', 'rowsTotal' => 'rows_total', 'assigned' => 'assigned', 'reassigned' => 'reassigned', 'ecardsAdded' => 'ecards_added',
+            'unchanged' => 'unchanged', 'rejected' => 'rejected', 'longestWaitHours' => 'longest_wait_hours', 'createdAt' => 'created_at'],
+        'offline_upload_detail' => ['upload' => ['as' => 'upload', 'schema' => 'offline_upload'], 'lines' => ['as' => 'lines', 'list' => 'offline_line']],
     ],
     'inputs' => [
         'tpa_config_in' => $cfg,
@@ -51,5 +73,19 @@ return [
             'upstream' => '/api/v1/broker/integration/reconcile-runs', 'query' => ['policy_id' => 'policyId'], 'response' => ['list' => 'reconcile_run']],
         'tpa.reconcile_run' => ['methods' => ['GET'], 'path' => 'integration/reconcile-runs/{id}', 'gateways' => ['broker'], 'service' => 'integration',
             'upstream' => '/api/v1/broker/integration/reconcile-runs/{id}', 'where' => ['id' => $UUID], 'response' => 'reconcile_detail'],
+
+        'offline.board' => ['methods' => ['GET'], 'path' => 'integration/tpa-pending', 'gateways' => $both, 'service' => 'integration', 'upstream' => '/api/v1/{gw}/integration/tpa-pending',
+            'response' => 'tpa_waiting_board'],
+        'offline.waiting' => ['methods' => ['GET'], 'path' => 'integration/policies/{policy_id}/tpa-pending', 'gateways' => $both, 'service' => 'integration',
+            'upstream' => '/api/v1/{gw}/integration/policies/{policy_id}/tpa-pending', 'where' => ['policy_id' => $ID], 'query' => ['after' => 'after', 'limit' => 'limit'], 'response' => 'tpa_waiting_detail'],
+        'offline.template' => ['methods' => ['GET'], 'path' => 'integration/policies/{policy_id}/offline-template', 'gateways' => $both, 'service' => 'integration',
+            'upstream' => '/api/v1/{gw}/integration/policies/{policy_id}/offline-template', 'where' => ['policy_id' => $ID], 'download' => ['types' => [$XLSX], 'max_bytes' => 20 * 1024 * 1024]],
+        'offline.upload' => ['methods' => ['POST'], 'path' => 'integration/policies/{policy_id}/offline-sheet', 'gateways' => $both, 'service' => 'integration', 'heavy' => true,
+            'upstream' => '/api/v1/{gw}/integration/policies/{policy_id}/offline-sheet', 'where' => ['policy_id' => $ID],
+            'multipart' => ['file' => 'file', 'fields' => ['mode', 'ignore_cover_date' => 'ignoreCoverDate']], 'response' => 'offline_report'],
+        'offline.uploads' => ['methods' => ['GET'], 'path' => 'integration/offline-uploads', 'gateways' => $both, 'service' => 'integration',
+            'upstream' => '/api/v1/{gw}/integration/offline-uploads', 'query' => ['policy_id' => 'policyId'], 'response' => ['list' => 'offline_upload']],
+        'offline.upload_detail' => ['methods' => ['GET'], 'path' => 'integration/offline-uploads/{id}', 'gateways' => $both, 'service' => 'integration',
+            'upstream' => '/api/v1/{gw}/integration/offline-uploads/{id}', 'where' => ['id' => $UUID], 'query' => ['rejected_only' => 'rejectedOnly'], 'response' => 'offline_upload_detail'],
     ],
 ];

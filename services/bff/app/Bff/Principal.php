@@ -10,9 +10,10 @@ final class Principal
         public readonly string $role,
         public readonly ?int $brokerId,
         public readonly ?int $employerId,
+        public readonly ?int $tpaId = null,
     ) {}
 
-    /** broker | employer | null (SYSTEM, TPA users and anything unknown belong to no public gateway). */
+    /** broker | employer | tpa | null (SYSTEM and anything unknown belong to no public gateway). */
     public function gateway(): ?string
     {
         foreach (config('bff.gateways') as $gateway => $roles) {
@@ -32,6 +33,10 @@ final class Principal
     /** The unit a tenant-wide rate limit is shared by. */
     public function tenantKey(): string
     {
+        if ($this->tpaId !== null) {
+            return "t:{$this->tpaId}:".($this->brokerId ?? 0);
+        }
+
         return $this->employerId !== null ? "e:{$this->brokerId}:{$this->employerId}" : "b:{$this->brokerId}";
     }
 }

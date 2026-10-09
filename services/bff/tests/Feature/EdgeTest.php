@@ -61,7 +61,7 @@ class EdgeTest extends TestCase
             }
             $this->assertContains($e['service'], array_keys(config('bff.upstreams')), "$name: unknown service");
             foreach ($e['gateways'] as $gw) {
-                $this->assertContains($gw, ['broker', 'employer']);
+                $this->assertContains($gw, ['broker', 'employer', 'tpa']);
             }
             preg_match_all('/\{(\w+)\}/', $e['path'], $in);
             foreach ($in[1] as $param) {

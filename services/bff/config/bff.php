@@ -42,6 +42,7 @@ return [
     'gateways' => [
         'broker' => ['BROKER_ADMIN', 'BROKER_SPECIALIZER', 'BROKER_NON_ADMIN'],
         'employer' => ['EMPLOYER_ADMIN', 'EMPLOYER_NON_ADMIN'],
+        'tpa' => ['TPA_USER'],
     ],
 
     // Production-operations staff (README s.10). identity-service does not issue these roles yet; until it does, /ops is closed to everyone.

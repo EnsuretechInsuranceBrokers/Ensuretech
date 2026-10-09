@@ -62,6 +62,11 @@ class CreateUserView(generics.CreateAPIView):
         role = data.get("role")
         if actor.role == Role.SYSTEM:
             return data
+        if actor.role == Role.BROKER_ADMIN and role == Role.TPA_USER:
+            # a broker can give its TPA's contact a login; it only ever sees this broker's policies (tpa_id comes from the request, broker_id from the actor)
+            data["broker_id"] = actor.broker_id
+            data.pop("employer_id", None)
+            return data
         if actor.role == Role.BROKER_ADMIN and role in (BROKER_ROLES | EMPLOYER_ROLES):
             data["broker_id"] = actor.broker_id
             if role in BROKER_ROLES:

@@ -51,6 +51,7 @@ final class JwtVerifier
             $claims['role'],
             self::int($claims['broker_id'] ?? null),
             self::int($claims['employer_id'] ?? null),
+            self::int($claims['tpa_id'] ?? null),
         );
     }
 

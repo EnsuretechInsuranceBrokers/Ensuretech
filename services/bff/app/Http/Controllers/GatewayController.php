@@ -129,10 +129,10 @@ final class GatewayController extends Controller
         }
         $name = preg_replace('/[^A-Za-z0-9._ -]/', '_', basename($file->getClientOriginalName())) ?: 'upload';
         $fields = [];
-        foreach ($spec['fields'] as $f) {
-            $v = $request->input($f);
+        foreach ($spec['fields'] as $public => $f) {                // 'name', or 'public_name' => 'upstreamName'
+            $v = $request->input(is_int($public) ? $f : $public);
             if ($v !== null && is_scalar($v)) {
-                $fields[] = ['name' => $f, 'contents' => (string) $v];
+                $fields[] = ['name' => $f, 'contents' => is_bool($v) ? ($v ? 'true' : 'false') : (string) $v];
             }
         }
         $stream = fopen($file->getRealPath(), 'r');

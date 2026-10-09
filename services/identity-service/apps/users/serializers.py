@@ -43,7 +43,11 @@ class CreateUserSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        from django.core.exceptions import ValidationError as ModelValidationError
+        try:
+            return User.objects.create_user(**validated_data)
+        except ModelValidationError as e:                      # e.g. a TPA login without its tpa_id: the caller's mistake, not a server error
+            raise serializers.ValidationError(getattr(e, "message_dict", None) or {"detail": e.messages})
 
 
 class ChangePasswordSerializer(serializers.Serializer):
