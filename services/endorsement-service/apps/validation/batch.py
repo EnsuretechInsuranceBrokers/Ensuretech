@@ -29,15 +29,16 @@ def _age(dob: date, on: date) -> int:
 
 
 def validate_rows(job: EndorsementJob, staged: list, policy_facts: dict, client: PolicyClient,
-                  today: date | None = None) -> list[RowIssue]:
-    """staged: StagedRow instances of ONE chunk, ordered by row_index."""
+                  today: date | None = None, *, persist: bool = True) -> list[RowIssue]:
+    """staged: StagedRow instances of ONE chunk, ordered by row_index. persist=False is for the interactive grid, whose rows are not
+    database rows: mid-term start dates are still worked out (in memory) but nothing is written."""
     today = today or date.today()
     if not staged:
         return []
     op = job.op_type
     # mid-term dependants get their cover start from the policy's rules BEFORE the row rules look at dates
     midterm_issues, changed = apply_midterm_rules(job, staged, policy_facts, today)
-    if changed:
+    if changed and persist:
         from apps.intake.models import StagedRow
         StagedRow.objects.bulk_update(changed, ["normalised_payload"])
     payloads = [s.normalised_payload for s in staged]

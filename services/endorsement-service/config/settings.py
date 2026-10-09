@@ -108,6 +108,10 @@ PIPELINE_AUTO_CONTINUE = env.bool("PIPELINE_AUTO_CONTINUE", default=True)
 
 GUI_SESSION_TTL_HOURS = env.int("GUI_SESSION_TTL_HOURS", default=4)
 GUI_VALIDATE_RATE_PER_MINUTE = env.int("GUI_VALIDATE_RATE_PER_MINUTE", default=100)
+# Intake routing: up to this many employees are entered in the live grid; more than this go by spreadsheet.
+GRID_MAX_EMPLOYEES = env.int("GRID_MAX_EMPLOYEES", default=100)
+GRID_ROWS_PER_EMPLOYEE = env.int("GRID_ROWS_PER_EMPLOYEE", default=8)            # an employee plus up to seven dependants
+GRID_VALIDATE_RATE_PER_MINUTE = env.int("GRID_VALIDATE_RATE_PER_MINUTE", default=600)   # whole-grid checks run on every pause in typing
 SSE_POLL_SECONDS = env.float("SSE_POLL_SECONDS", default=0.5)
 SSE_MAX_SECONDS = env.int("SSE_MAX_SECONDS", default=600)
 SSE_HEARTBEAT_SECONDS = env.int("SSE_HEARTBEAT_SECONDS", default=15)

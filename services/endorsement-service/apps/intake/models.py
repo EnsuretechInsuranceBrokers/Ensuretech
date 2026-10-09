@@ -60,6 +60,7 @@ class GuiSession(models.Model):
     actor_user_id = models.CharField(max_length=64, blank=True, default="")
     state = models.CharField(max_length=12, choices=GuiSessionState.choices, default=GuiSessionState.OPEN)
     effective_date = models.DateField(null=True, blank=True)
+    expected_employees = models.PositiveIntegerField(null=True, blank=True)    # what the user said they would enter (sizes the grid, caps its rows)
     policy_facts = models.JSONField(default=dict)
     submitted_jobs = models.JSONField(default=list, blank=True)       # [{"job_id", "op_type", "rows"}] once submitted
     expires_at = models.DateTimeField()
