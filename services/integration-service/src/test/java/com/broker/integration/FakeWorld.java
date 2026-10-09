@@ -29,6 +29,7 @@ final class FakeWorld {
 
     // TPA behaviour
     final List<Call> tpaCalls = Collections.synchronizedList(new ArrayList<>());
+    volatile int tpaDelayMs = 0;                        // how long the fake TPA takes to answer (to hold a worker thread on a slow call)
     volatile int tpaStatus = 200;                       // forced status for every call (200 = behave)
     volatile int failFromCall = Integer.MAX_VALUE;      // calls numbered >= this answer 503
     final Set<Long> rejectRefs = Collections.synchronizedSet(new HashSet<>());
@@ -60,7 +61,7 @@ final class FakeWorld {
     }
 
     void reset() {
-        tpaCalls.clear(); tpaStatus = 200; failFromCall = Integer.MAX_VALUE; rejectRefs.clear();
+        tpaCalls.clear(); tpaDelayMs = 0; tpaStatus = 200; failFromCall = Integer.MAX_VALUE; rejectRefs.clear();
         rosters.clear(); tpaIdsRecorded.clear(); lifecycle.clear(); policyRoster.clear(); policyNumbers.clear(); assignCalls.clear(); activeLivesJson = "{\"members\":[]}"; engineStatus = 200; engineMemberCalls.set(0);
         tokenCalls.set(0); identityStatus = 200;
     }
@@ -101,6 +102,7 @@ final class FakeWorld {
         x.getRequestHeaders().forEach((k, v) -> h.put(k.toLowerCase(), v.getFirst()));
         tpaCalls.add(new Call(x.getRequestURI().getPath() + (x.getRequestURI().getRawQuery() == null ? "" : "?" + x.getRequestURI().getRawQuery()), h, body));
         if (x.getRequestURI().getPath().endsWith("/active-lives") && tpaStatus == 200) { reply(x, 200, activeLivesJson); return; }
+        if (tpaDelayMs > 0) { try { Thread.sleep(tpaDelayMs); } catch (InterruptedException e) { return; } }
         int n = tpaCalls.size();
         if (tpaStatus != 200) { reply(x, tpaStatus, "{}"); return; }
         if (n >= failFromCall) { reply(x, 503, "{}"); return; }

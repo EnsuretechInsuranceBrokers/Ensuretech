@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico").permitAll()
                 .requestMatchers("/api/v1/broker/**")
                     .hasAnyRole("BROKER_ADMIN", "BROKER_SPECIALIZER", "BROKER_NON_ADMIN")
+                .requestMatchers("/actuator/**").hasRole("SYSTEM")                        // loggers, threaddump, scheduledtasks, metrics: service accounts only (health and prometheus are matched above)
                 .requestMatchers("/api/v1/employer/**").hasAnyRole("EMPLOYER_ADMIN", "EMPLOYER_NON_ADMIN")
                 .anyRequest().denyAll())   // fail closed
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())))

@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: admin-service
+  boot:
+    admin:
+      ui:
+        title: Ensuretech operations
+        external-views:
+          - { label: "Jobs", url: "/jobs.html", order: 2000 }
+      monitor:
+        default-timeout: 10000
+server:
+  address: ${BIND_ADDRESS:127.0.0.1}          # loopback only; put it on a private interface deliberately, never 0.0.0.0 on a public network
+  port: ${PORT:8100}
+  max-http-request-header-size: 16KB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+admin:
+  ui:
+    user: ${ADMIN_UI_USER:admin}
+    password: ${ADMIN_UI_PASSWORD:}            # required, 12+ characters
+  identity:
+    token-url: ${IDENTITY_TOKEN_URL:http://127.0.0.1:8000/api/v1/auth/service-token/}
+    client-id: ${SERVICE_CLIENT_ID:}
+    client-secret: ${SERVICE_CLIENT_SECRET:}
+  integration:
+    url: ${INTEGRATION_URL:http://127.0.0.1:8085}

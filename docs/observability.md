@@ -9,6 +9,7 @@ Everything here is for a developer's or a QA engineer's machine. None of it is i
 | Django Silk | identity, engine, read, notification: `/silk/` | `dev-up.sh --devtools` | tested end to end (requests recorded, SQL counted, headers masked, sign-in calls not recorded, nothing in the service database) |
 | Django Debug Toolbar | same services, HTML pages only | `--devtools` | installs and loads; JSON responses carry no HTML, so it appears on Silk's pages and the browsable API, not on API calls |
 | Ray | BFF (`ray()`), Django (`from config.devtools import ray`), SQL via `RAY_QUERIES` | `--ray` | the payloads sent were captured from a local listener and match what Spatie's own PHP client sends; the Ray desktop app itself was **not** available here, so the display is untested |
+| Operations console (Spring Boot Admin + Jobs) | `admin-service`, `http://127.0.0.1:8100` | `dev-up.sh` (default on), `--no-admin` | tested live: four services registered, log level changed at runtime, jobs killed and requeued, password lockout; looked at in a browser |
 | Celery Flower | the engine's Celery cluster, `http://127.0.0.1:5555` | `dev-up.sh` (default on), `--no-flower` | tested live: three worker groups, every pipeline task seen, UI rendered, metrics scraped by a real Prometheus; RabbitMQ not available here (Redis broker tested) |
 | Prometheus + Grafana | `scripts/observability-up.sh` | Docker | scrape config verified against a real Prometheus; the compose file and the Grafana dashboard were **not** run (see below) |
 | Kafka UI | same | Docker | not run (no Docker, no Kafka in the build sandbox) |
@@ -45,6 +46,27 @@ Dashboard "Ensuretech services": services up, requests per second and average la
 (`ensuretech_offline_lines_total{outcome}` for lines saved or refused, `ensuretech_offline_upload_seconds` for time taken; both appear after the first applied upload).
 
 No Docker? Download Prometheus and run it with `observability/prometheus.yml` (change the token path to a local file, `--web.listen-address=127.0.0.1:9099`), and use `kafka-consumer-groups.sh --describe` for lag.
+
+## Operations console: Spring Boot Admin and the Jobs page
+
+Flower's counterpart for the Java services. `admin-service` (port 8100, loopback, one login: `ADMIN_UI_USER` / `ADMIN_UI_PASSWORD` in `local.env`; it refuses to start without a 12+ character password) runs Spring Boot Admin over organization, policy, billing, integration and sheet-generator:
+health with component details, JVM memory and threads, a **thread dump** to find what a stuck worker is doing, HTTP and DB-pool metrics, the list of `@Scheduled` jobs, and **log levels you can change at runtime** (no restart), which is the answer to "aggressive logging when you need it, quiet when you do not".
+It does not cover the Django services or the BFF (use Flower, Silk and Telescope for those).
+
+**It sits behind the lock.** The services' `/actuator/loggers`, `threaddump`, `scheduledtasks` and `metrics` answer only a SYSTEM token (service account); `health` is open without details, `prometheus` needs the metrics token. The console signs in to identity as a service account (`ENGINE_CLIENT_ID/SECRET` in `local.env`, a development value) and sends that token on every call.
+`heapdump`, `env` and `shutdown` are not exposed at all: a heap dump contains tokens and passwords in memory.
+
+**Job controls (integration-service).** The TPA sync queue is a PostgreSQL table with leases, retries and a dead-letter state. The controls live next to it, under `/api/v1/ops/jobs`, for SYSTEM tokens only:
+- list and show (with whether a worker thread is on it right now), the audit trail;
+- **kill** a pending or running job: a waiting one never starts; for a running one the worker thread is interrupted (its HTTP call to the TPA is cut short) and the job is marked `CANCELLED`, so it is neither retried nor dead-lettered. Whatever was already sent to the TPA stays sent; batches carry idempotency keys, so a later requeue does not duplicate them;
+- **requeue** a `DEAD` or `CANCELLED` job with a fresh set of attempts.
+Kill and requeue need the **job-killer password** in the `X-Job-Killer-Password` header (a header, so it is not in URLs or access logs). It exists only as a bcrypt hash (`integration.job_control_credentials`); on a first start it is hashed from `JOB_KILLER_BOOTSTRAP_PASSWORD` (a dev value in `local.env`) and the variable is then ignored; change it with `PUT /api/v1/ops/jobs/password`.
+Five wrong passwords in a row lock the controls for 15 minutes, for everyone, even against the right password. Every attempt (wrong, locked, allowed, refused) is in `integration.job_control_audit`, with the service account and address.
+Use it from the **Jobs** tab of the console, or `scripts/jobctl.sh list | show | audit | kill ID "reason" | requeue ID | set-password` (the password is prompted, never an argument).
+
+**Why not JobRunr or Quartz.** Both would run a second job system beside the one we have: their own tables, their own worker threads, and a rewrite of the sync worker to fit them, for features (retries, back-off, a dead-letter state, leases that survive a crash, a circuit breaker per TPA) that the sync queue already has. JobRunr's open-source dashboard has only basic-auth protection and Quartz has no dashboard at all, so we would still have built the locked-down controls ourselves. The scheduled sweeps (outbox relay, reservation and policy expiry, the six-hourly reconcile) are listed in the console; they cannot be paused from outside, which is acceptable for jobs that take milliseconds. If a future job queue needs priorities, scheduling in the future or thousands of jobs per second, JobRunr is the one to revisit.
+
+**Not covered.** Kafka consumers are controlled from Kafka UI (pause, offsets, lag). A single stuck thread outside the sync worker can be seen in the thread dump but not killed from outside the JVM. The sheet-generator and the other services' `@Scheduled` sweeps have no kill; only sync jobs do.
 
 ## Celery Flower
 

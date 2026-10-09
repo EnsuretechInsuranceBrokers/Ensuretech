@@ -44,9 +44,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health,info,metrics,loggers,threaddump,scheduledtasks,prometheus     # all but health and prometheus need a SYSTEM token (the lock); never heapdump, env or shutdown
+  endpoint:
+    health:
+      show-details: when-authorized
+      roles: SYSTEM
 
 app:
+  job-control:
+    bootstrap-password: ${JOB_KILLER_BOOTSTRAP_PASSWORD:}   # first start only: hashed into the database when no password exists yet (development). Change it with PUT /api/v1/ops/jobs/password
   offline:
     urgent-hours: ${OFFLINE_URGENT_HOURS:4}        # a member waiting this long for a TPA id is HIGH on the board
     critical-hours: ${OFFLINE_CRITICAL_HOURS:24}   # and CRITICAL from here: pro-rata is running and a mid-term endorsement is close

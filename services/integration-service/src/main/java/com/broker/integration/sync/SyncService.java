@@ -104,10 +104,21 @@ public class SyncService {
             fail(id, e.getMessage(), e.isRetryable());
         } catch (EngineException e) {
             fail(id, e.getMessage(), e.isRetryable());
+        } catch (JobCancelled e) {
+            log.info("sync job {} was cancelled by an operator; stopping", id);
         } catch (RuntimeException e) {
             log.error("sync job {} failed unexpectedly", id, e);
             fail(id, "unexpected error: " + e.getClass().getSimpleName(), true);        // counts attempts, so a bug cannot spin forever
         }
+    }
+
+    /** Thrown inside the work loop when an operator has cancelled the job. */
+    private static final class JobCancelled extends RuntimeException {
+        JobCancelled() { super("cancelled", null, false, false); }
+    }
+
+    boolean isCancelled(UUID id) {
+        return Boolean.TRUE.equals(tx.execute(s -> jobs.findById(id).map(j -> j.getStatus() == SyncJob.Status.CANCELLED).orElse(false)));
     }
 
     private void run(UUID id) {
@@ -128,6 +139,7 @@ public class SyncService {
         report(job.getEndorsementJobId(), "TPA_SYNC_QUEUED");
         long cursor = job.getCursorId();
         while (true) {
+            if (isCancelled(id)) throw new JobCancelled();                                // an operator stopped it between batches
             EngineClient.Page page = engine.members(job.getEndorsementJobId(), cursor, cfg.getBatchSize());
             if (page.members().isEmpty()) break;
             long first = page.members().getFirst().id(), last = page.members().getLast().id();
@@ -145,6 +157,7 @@ public class SyncService {
                     if (!r.accepted() && !rejections.existsBySyncJobIdAndMemberId(id, r.id())) rejections.save(new SyncRejection(id, r.id(), r.reason()));
                 }
                 SyncJob j = jobs.findById(id).orElseThrow();
+                if (j.getStatus() == SyncJob.Status.CANCELLED) return;                    // cancelled mid-batch: keep what was sent, change nothing else
                 j.progress(newCursor, tpaIds.size(), rejected);
                 j.setLeaseUntil(Instant.now().plusSeconds(leaseSeconds));                 // still alive
             });
@@ -164,6 +177,7 @@ public class SyncService {
     private void finish(UUID id, java.util.function.Consumer<SyncJob> change, String event) {
         tx.executeWithoutResult(s -> {
             SyncJob j = jobs.findById(id).orElseThrow();
+            if (j.getStatus() == SyncJob.Status.CANCELLED) return;                        // an operator's decision outranks the worker's result
             change.accept(j);
             j.setLeaseUntil(null);
             if (event != null) emit(event, j, null);
@@ -174,6 +188,7 @@ public class SyncService {
         java.util.concurrent.atomic.AtomicReference<UUID> dead = new java.util.concurrent.atomic.AtomicReference<>();
         tx.executeWithoutResult(s -> {
             SyncJob j = jobs.findById(id).orElseThrow();
+            if (j.getStatus() == SyncJob.Status.CANCELLED) return;                        // killed: do not retry, do not dead-letter
             j.setAttempts(j.getAttempts() + 1);
             j.setLastError(error);
             j.setLeaseUntil(null);
@@ -194,6 +209,7 @@ public class SyncService {
     private void reschedule(UUID id, String why, long seconds, boolean countAttempt) {
         tx.executeWithoutResult(s -> {
             SyncJob j = jobs.findById(id).orElseThrow();
+            if (j.getStatus() == SyncJob.Status.CANCELLED) return;
             if (countAttempt) j.setAttempts(j.getAttempts() + 1);
             j.setStatus(SyncJob.Status.PENDING);
             j.setLastError(why);

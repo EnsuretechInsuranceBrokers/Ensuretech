@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()      // only reachable with the METRICS_TOKEN: the gateway filter refuses everyone else first
                 .requestMatchers("/api/v1/broker/**")
                     .hasAnyRole("BROKER_ADMIN", "BROKER_SPECIALIZER", "BROKER_NON_ADMIN")
+                .requestMatchers("/actuator/**").hasRole("SYSTEM")                        // loggers, threaddump, scheduledtasks, metrics: service accounts only (health and prometheus are matched above)
                 .requestMatchers("/api/v1/employer/**").hasAnyRole("EMPLOYER_ADMIN", "EMPLOYER_NON_ADMIN")
                 .requestMatchers("/api/v1/admin/**").hasRole("SYSTEM")
                 .anyRequest().denyAll())   // fail closed

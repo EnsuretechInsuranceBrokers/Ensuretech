@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jobs · Ensuretech operations</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b2430;--mut:#667085;--line:#e4e7ec;--brand:#1f5eff;--ok:#067647;--warn:#b54708;--err:#b42318}
+@media(prefers-color-scheme:dark){:root{--bg:#10151c;--card:#171e28;--ink:#e6eaf0;--mut:#98a2b3;--line:#27313f;--brand:#6c93ff;--ok:#47cd89;--warn:#fdb022;--err:#f97066}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}main{max-width:1200px;margin:0 auto;padding:1.2rem}
+h1{font-size:1.4rem;margin:.2rem 0}h2{font-size:1.05rem;margin:1.6rem 0 .4rem}.sub{color:var(--mut);margin:0 0 1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem;margin:.8rem 0}
+table{width:100%;border-collapse:collapse;font-size:.88rem}th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:600;font-size:.75rem;text-transform:uppercase}
+.pill{display:inline-block;padding:.05rem .55rem;border-radius:99px;font-size:.75rem;font-weight:600;border:1px solid var(--line)}
+.IN_PROGRESS{color:var(--brand)}.SUCCEEDED{color:var(--ok)}.DEAD{color:var(--err)}.CANCELLED{color:var(--warn)}.PENDING{color:var(--mut)}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;padding:.2rem .6rem;cursor:pointer}button.danger{border-color:var(--err);color:var(--err)}
+input,select{font:inherit;padding:.3rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.bar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}.msg{margin:.6rem 0;padding:.5rem .8rem;border-radius:6px;border-left:4px solid var(--brand);background:var(--card)}.msg.err{border-color:var(--err)}.msg.ok{border-color:var(--ok)}
+.mut{color:var(--mut)}.run{color:var(--brand);font-weight:700}
+</style></head><body><main>
+<h1>Background jobs</h1>
+<p class="sub">The TPA sync queue in integration-service. A job that is stuck on a TPA that never answers can be stopped; one that died or was stopped can be put back. Both need the <strong>job-killer password</strong>, which is checked against a hash in the database, and every attempt is recorded below.
+Back to <a href="/">the console</a>.</p>
+<div class="card bar"><label>Job-killer password <input id="pw" type="password" autocomplete="off" size="26" placeholder="needed to kill or requeue"></label>
+<label>Show <select id="status"><option value="">active first, everything</option><option>IN_PROGRESS</option><option>PENDING</option><option>DEAD</option><option>CANCELLED</option><option>SUCCEEDED</option></select></label>
+<button id="refresh">Refresh</button><span class="mut" id="stamp"></span></div>
+<div id="msg"></div>
+<div class="card"><table><thead><tr><th>Job</th><th>Status</th><th>Policy / TPA</th><th>Progress</th><th>Attempts</th><th>Age</th><th>Last error</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="8" class="mut">Loading…</td></tr></tbody></table></div>
+<h2>Who did what</h2>
+<div class="card"><table><thead><tr><th>When</th><th>Action</th><th>Outcome</th><th>Job</th><th>By</th><th>From</th><th>Detail</th></tr></thead><tbody id="audit"></tbody></table></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const xsrf = () => (document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN=')) || '').split('=')[1] || '';
+function say(text, kind) { $('#msg').innerHTML = '<div class="msg ' + (kind || '') + '">' + esc(text) + '</div>'; }
+function age(s) { s = Number(s); return s < 90 ? s + ' s' : s < 5400 ? Math.round(s / 60) + ' min' : s < 172800 ? (s / 3600).toFixed(1) + ' h' : Math.round(s / 86400) + ' d'; }
+async function api(path, opt) {
+  const r = await fetch('/ops-api/jobs' + path, Object.assign({credentials: 'same-origin'}, opt));
+  let b = null; try { b = await r.json(); } catch (e) {}
+  return {ok: r.ok, status: r.status, body: b};
+}
+async function load() {
+  const s = $('#status').value, r = await api(s ? '?status=' + s : '');
+  if (!r.ok) { $('#rows').innerHTML = '<tr><td colspan="8" class="mut">Could not load jobs (' + r.status + '). Is integration-service running and the console\'s service account valid?</td></tr>'; return; }
+  $('#rows').innerHTML = r.body.length ? r.body.map(j => '<tr><td title="' + esc(j.id) + '"><code>' + esc(j.id.slice(0, 8)) + '</code></td>'
+    + '<td><span class="pill ' + j.status + '">' + j.status + '</span>' + (j.runningNow ? ' <span class="run" title="a worker thread is on it right now">● running</span>' : '') + '</td>'
+    + '<td>policy ' + j.policyId + ' · TPA ' + (j.tpaId ?? '-') + '<br><span class="mut">' + esc(j.opType) + ', broker ' + j.brokerId + '</span></td>'
+    + '<td>' + j.syncedCount + ' / ' + j.membersExpected + (j.rejectedCount ? '<br><span class="mut">' + j.rejectedCount + ' rejected</span>' : '') + '</td>'
+    + '<td>' + j.attempts + '</td><td>' + age(j.ageSeconds) + '</td><td class="mut">' + esc((j.lastError || '').slice(0, 140)) + '</td>'
+    + '<td>' + (j.status === 'IN_PROGRESS' || j.status === 'PENDING' ? '<button class="danger" data-kill="' + j.id + '">Kill</button>' : '')
+    + (j.status === 'DEAD' || j.status === 'CANCELLED' ? '<button data-requeue="' + j.id + '">Requeue</button>' : '') + '</td></tr>').join('')
+    : '<tr><td colspan="8" class="mut">No jobs.</td></tr>';
+  $('#stamp').textContent = 'updated ' + new Date().toLocaleTimeString();
+  const a = await api('/audit');
+  $('#audit').innerHTML = a.ok ? a.body.slice(0, 25).map(x => '<tr><td>' + new Date(x.at).toLocaleString() + '</td><td>' + esc(x.action) + '</td><td>' + esc(x.outcome) + '</td><td><code>' + esc((x.jobId || '').toString().slice(0, 8)) + '</code></td><td>' + esc(x.actor) + '</td><td>' + esc(x.remoteAddr) + '</td><td class="mut">' + esc(x.detail) + '</td></tr>').join('') : '';
+}
+async function act(kind, id) {
+  const pw = $('#pw').value;
+  if (!pw) { say('Type the job-killer password first.', 'err'); $('#pw').focus(); return; }
+  let opt, path;
+  if (kind === 'kill') {
+    const reason = prompt('Why is this job being killed? (recorded in the audit trail)'); if (!reason) return;
+    path = '/' + id + '/kill'; opt = {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Job-Killer-Password': pw, 'X-XSRF-TOKEN': xsrf()}, body: JSON.stringify({reason})};
+  } else { path = '/' + id + '/requeue'; opt = {method: 'POST', headers: {'X-Job-Killer-Password': pw, 'X-XSRF-TOKEN': xsrf()}}; }
+  const r = await api(path, opt);
+  $('#pw').value = '';                                                // never kept: the next action asks again
+  if (r.ok) say(kind === 'kill' ? 'Killed ' + id.slice(0, 8) + (r.body.interrupted ? ' (its worker thread was interrupted).' : '.') : 'Requeued ' + id.slice(0, 8) + '.', 'ok');
+  else say(({403: 'Wrong job-killer password.', 423: 'Locked after repeated wrong passwords. Try again in 15 minutes.', 409: (r.body && r.body.detail) || 'Not allowed in this state.', 422: 'A reason is required.'})[r.status] || 'Failed (' + r.status + ').', 'err');
+  load();
+}
+document.addEventListener('click', e => { const t = e.target; if (t.dataset.kill) act('kill', t.dataset.kill); else if (t.dataset.requeue) act('requeue', t.dataset.requeue); });
+$('#refresh').onclick = load; $('#status').onchange = load; load(); setInterval(load, 5000);
+</script></main></body></html>

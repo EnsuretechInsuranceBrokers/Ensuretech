@@ -9,7 +9,7 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(name = "sync_jobs")
 public class SyncJob {
-    public enum Status { PENDING, IN_PROGRESS, SUCCEEDED, DEAD, SKIPPED }
+    public enum Status { PENDING, IN_PROGRESS, SUCCEEDED, DEAD, SKIPPED, CANCELLED }
 
     @Id private UUID id = UUID.randomUUID();
     @Column(name = "event_id", nullable = false, updatable = false) private UUID eventId;

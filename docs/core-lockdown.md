@@ -27,6 +27,11 @@ on identity to narrow who may even knock on the second.
 - gRPC (policy and billing): service accounts only (`app.grpc.system-only`, default true). Nothing a person holds gets in.
 - Django admin (`/django-admin/`) is behind the same rule, so it is closed to browsers; reach it from a private network with an operator proxy if you need it.
 
+## Controls: a second secret for the dangerous ones
+
+Reading how the services are doing and changing how they behave are different powers. `/actuator/loggers`, `threaddump`, `scheduledtasks`, `metrics` and `/api/v1/ops/**` answer only a SYSTEM token. On top of that, stopping or requeuing a background job needs the **job-killer password**, a second secret that exists only as a bcrypt hash in the database,
+audited on every use and locked out after five wrong guesses (`docs/observability.md`). So a leaked service-account secret alone cannot kill jobs, and a leaked job-killer password alone cannot reach the endpoint.
+
 ## Network (the layer code cannot replace)
 
 - Spring services listen on `BIND_ADDRESS` (default `127.0.0.1`); set it to the private interface the BFF reaches them on. Run Django behind gunicorn bound the same way.

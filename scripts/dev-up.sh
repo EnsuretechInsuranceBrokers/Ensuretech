@@ -6,11 +6,12 @@
 #   scripts/dev-up.sh --no-kafka      no cross-service events (Kafka is not running): the portal works, dashboards and policy-to-billing hand-offs do not
 #   scripts/dev-up.sh --with-mail     also the notification consumer and sender
 #   scripts/dev-up.sh --with-sheet    also sheet-generator-service
-#   scripts/dev-up.sh --skip read,notification     leave named components out   (names: identity org policy billing engine worker-ingest worker-validation worker-computation beat flower integration read projector bff notify-consumer notify-sender sheet)
+#   scripts/dev-up.sh --skip read,notification     leave named components out   (names: admin identity org policy billing engine worker-ingest worker-validation worker-computation beat flower integration read projector bff notify-consumer notify-sender sheet)
 #   scripts/dev-up.sh --only identity,engine,integration,bff   start only these
 #   scripts/dev-up.sh --devtools      also Django Silk + Debug Toolbar on identity, engine, read-service, notification (http://127.0.0.1:PORT/silk/); needs DEBUG, laptop only
 #   scripts/dev-up.sh --ray           send debug output to the Ray desktop app (myray.app): BFF requests, calls to core services, and every SQL query of the Django services
 #   scripts/dev-up.sh --eager         the old shortcut: Celery tasks run inline in the engine's web process (no broker, no workers, no Flower)
+#   scripts/dev-up.sh --no-admin      do not start the operations console (http://127.0.0.1:8100: Spring Boot Admin + Jobs)
 #   scripts/dev-up.sh --no-flower     do not start the Flower dashboard (http://127.0.0.1:5555)
 #   scripts/dev-up.sh --no-telescope  leave Laravel Telescope (http://localhost:8090/telescope) off
 #   scripts/dev-up.sh --rebuild       rebuild the Spring jars even if they exist
@@ -22,9 +23,9 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
 SESSION="${ENSURETECH_TMUX_SESSION:-ensuretech}"
 DEV="$ROOT/.dev"; mkdir -p "$DEV/logs" "$DEV/run"
-EAGER=0; FLOWER=1; TELESCOPE=1; DEVTOOLS=0; RAY=0; CHECK=0; NO_KAFKA=0; REBUILD=0; ATTACH=1; WITH_MAIL=0; WITH_SHEET=0; SKIP=","; ONLY=""
+EAGER=0; FLOWER=1; ADMIN=1; TELESCOPE=1; DEVTOOLS=0; RAY=0; CHECK=0; NO_KAFKA=0; REBUILD=0; ATTACH=1; WITH_MAIL=0; WITH_SHEET=0; SKIP=","; ONLY=""
 while [ $# -gt 0 ]; do case "$1" in
-  --check) CHECK=1;; --eager) EAGER=1;; --no-flower) FLOWER=0;; --no-telescope) TELESCOPE=0;; --devtools) DEVTOOLS=1;; --ray) RAY=1;; --no-kafka) NO_KAFKA=1;; --rebuild) REBUILD=1;; --no-attach) ATTACH=0;; --with-mail) WITH_MAIL=1;; --with-sheet) WITH_SHEET=1;;
+  --check) CHECK=1;; --eager) EAGER=1;; --no-flower) FLOWER=0;; --no-admin) ADMIN=0;; --no-telescope) TELESCOPE=0;; --devtools) DEVTOOLS=1;; --ray) RAY=1;; --no-kafka) NO_KAFKA=1;; --rebuild) REBUILD=1;; --no-attach) ATTACH=0;; --with-mail) WITH_MAIL=1;; --with-sheet) WITH_SHEET=1;;
   --skip) shift; SKIP=",$1,";; --only) shift; ONLY=",$1,";; -h|--help) sed -n '2,17p' "$0"; exit 0;;
   *) echo "unknown option: $1 (try --help)"; exit 2;; esac; shift; done
 
@@ -68,7 +69,7 @@ done
 [ $CHECK = 1 ] && { [ $FAIL = 0 ] && { grn "Everything needed is in place."; exit 0; } || { red "Fix the ✗ lines above, then run again."; exit 1; }; }
 [ $FAIL = 0 ] || { red "Not starting: fix the ✗ lines above (or run with --check to see them again)."; exit 1; }
 tmux has-session -t "$SESSION" 2>/dev/null && { red "tmux session '$SESSION' already exists. Stop it with scripts/dev-down.sh, or attach: tmux attach -t $SESSION"; exit 1; }
-for p in 8000 8081 8082 8083 8084 8085 8086 8087 8090 9090 9091 5555; do tcp "$p" && { red "port $p is already in use (a previous run? scripts/dev-down.sh)"; exit 1; }; done
+for p in 8000 8081 8082 8083 8084 8085 8086 8087 8090 9090 9091 5555 8100; do tcp "$p" && { red "port $p is already in use (a previous run? scripts/dev-down.sh)"; exit 1; }; done
 
 # ── 4. prepare (first run is slow: dependencies, builds, migrations) ─────────────────────────────────────────────────────────
 echo "4. Preparing (first run downloads dependencies; output in .dev/logs/prepare-*.log)"
@@ -76,9 +77,9 @@ prep(){ local name="$1"; shift; if "$@" >"$DEV/logs/prepare-$name.log" 2>&1; the
 venv(){ local svc="$1" extra="${2:-}"; local d="services/$svc"
   [ -x "$d/.venv/bin/python" ] || python3.13 -m venv "$d/.venv" || return 1
   ( cd "$d" && .venv/bin/python ../../scripts/install_python_deps.py $([ $DEVTOOLS = 1 ] && echo --devtools) && { [ -z "$extra" ] || .venv/bin/pip install $extra; } ); }
-for s in organization policy billing integration sheet-generator; do
+for s in organization policy billing integration sheet-generator admin; do
   case "$s" in organization) n=org;; sheet-generator) n=sheet;; *) n=$s;; esac
-  want "$n" || continue; [ "$s" = sheet-generator ] && [ $WITH_SHEET = 0 ] && continue
+  want "$n" || continue; [ "$s" = sheet-generator ] && [ $WITH_SHEET = 0 ] && continue; [ "$s" = admin ] && [ $ADMIN = 0 ] && continue
   jar="services/$s-service/target/$s-service-0.1.0.jar"
   stale=0; [ -f "$jar" ] && [ -n "$(find "services/$s-service/src" "services/$s-service/pom.xml" -newer "$jar" -type f 2>/dev/null | head -1)" ] && stale=1
   if [ $REBUILD = 1 ] || [ ! -f "$jar" ] || [ $stale = 1 ]; then prep "build-$s" bash -c "cd services/$s-service && mvn -q -DskipTests package"; else ok "build-$s (jar is up to date)"; fi
@@ -117,7 +118,7 @@ tmux set-option -t "$SESSION" -g remain-on-exit off; tmux set-option -t "$SESSIO
 
 DJ=""; [ $DEVTOOLS = 1 ] && DJ="DEV_TOOLS=true DEBUG=true "; [ $RAY = 1 ] && DJ="${DJ}RAY_QUERIES=true "
 spring(){ # name dir jar port extra-env
-  mk "$1" "services/$2" "$5 java -jar target/$2-0.1.0.jar $SP_KAFKA"; }
+  mk "$1" "services/$2" "$([ $ADMIN = 1 ] && echo ADMIN_CLIENT_ENABLED=true) $5 java -jar target/$2-0.1.0.jar $SP_KAFKA"; }
 want identity && { mk identity services/identity-service "${DJ}DATABASE_URL='$IDENTITY_DB' JWT_PRIVATE_KEY_PATH=keys/jwt-private.pem JWT_PUBLIC_KEY_PATH=keys/jwt-public.pem .venv/bin/python manage.py runserver 127.0.0.1:8000 --noreload"; add identity
   echo -n "  waiting for identity "; for i in $(seq 60); do curl -s -o /dev/null localhost:8000/api/v1/auth/me/ && break; sleep 1; echo -n .; done; echo; }
 want org && { spring org organization-service x 8081 "DATABASE_URL='$ORG_JDBC' PORT=8081"; add org; }
@@ -141,6 +142,7 @@ else
     mk flower services/endorsement-service "$ENG_ENV .venv/bin/celery -A config flower --address=127.0.0.1 --port=5555 --basic-auth='$FLOWER_BASIC_AUTH' --persistent=True --db='$DEV/flower.db' $FL_API"; add flower
   fi
 fi
+want admin && [ $ADMIN = 1 ] && { mk admin services/admin-service "SERVICE_CLIENT_ID='$ENGINE_CLIENT_ID' SERVICE_CLIENT_SECRET='$ENGINE_CLIENT_SECRET' PORT=8100 java -jar target/admin-service-0.1.0.jar"; add admin; }
 want integration && { spring integration integration-service x 8085 "DATABASE_URL='$INTEGRATION_JDBC' PORT=8085 SERVICE_CLIENT_ID='$INTEGRATION_CLIENT_ID' SERVICE_CLIENT_SECRET='$INTEGRATION_CLIENT_SECRET'"; add integration; }
 want read && { mk read services/read-service "${DJ}.venv/bin/python manage.py runserver 127.0.0.1:8087 --noreload"; add read; }
 want projector && [ $NO_KAFKA = 0 ] && { mk projector services/read-service "${DJ}.venv/bin/python manage.py run_projector"; add projector; }
@@ -153,6 +155,7 @@ tmux select-window -t "$SESSION:status"
 
 echo; grn "Started in tmux session '$SESSION'."
 echo "  Portal:      http://localhost:8090/login       (meera.kapoor@northwind.example / Str0ng-Pass-123!)"
+[ $ADMIN = 1 ] && echo "  Console:     http://127.0.0.1:8100  (admin / $ADMIN_UI_PASSWORD)   Spring Boot Admin for every Spring service, and the Jobs page to stop rogue sync jobs"
 [ $EAGER = 0 ] && [ $FLOWER = 1 ] && echo "  Flower:      http://127.0.0.1:5555  (login: $FLOWER_BASIC_AUTH)   Celery workers, queues, every task and its retries"
 echo "  Windows:     Ctrl-b n / Ctrl-b p (next/previous), Ctrl-b w (list), mouse works. Detach: Ctrl-b d. Logs: .dev/logs/"
 echo "  Spring services take 10-30 s to start; the 'status' window shows each one turn green."
