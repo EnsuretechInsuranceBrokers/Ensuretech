@@ -50,7 +50,7 @@ Other findings from these runs:
 | Scenario | Legacy (production, measured by you) | New (same-size server) | New (build sandbox, 4 vCPU) |
 |---|---|---|---|
 | 1 × 1000 rows, upload to done | _ s | _ s | 1.03 s |
-| 5 × 1000 rows at once, total | _ s | _ s | about 4 s (8 at once: 4.6 s) |
+| 5 × 1000 rows at once, total | _ s | _ s | not measured at 5 (8 at once: 4.6 s; 10 at once: 6.0 s) |
 | 1 × 10,000 rows | _ s | _ s | 7.4 s |
 
 The new platform's time includes real validation, pricing and the deposit check. Confirm the legacy time includes the same work, or the comparison flatters one side.
