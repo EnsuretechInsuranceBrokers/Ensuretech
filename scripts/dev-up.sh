@@ -150,7 +150,7 @@ if [ $WITH_MAIL = 1 ]; then
   want notify-consumer && { mk notify-consumer services/notification-service "${DJ}DATABASE_URL='$NOTIFICATION_DB' .venv/bin/python manage.py run_consumer"; add notify-consumer; }
   want notify-sender && { mk notify-sender services/notification-service "${DJ}DATABASE_URL='$NOTIFICATION_DB' .venv/bin/python manage.py run_sender"; add notify-sender; }; fi
 [ $WITH_SHEET = 1 ] && want sheet && { spring sheet sheet-generator-service x 8086 "DATABASE_URL='$SHEETGEN_JDBC' PORT=8086"; add sheet; }
-want bff && { mk bff services/bff "SESSION_DRIVER=\${SESSION_DRIVER:-file} APP_ENV=local TELESCOPE_ENABLED=$([ $TELESCOPE = 1 ] && echo true || echo false) RAY_ENABLED=$([ $RAY = 1 ] && echo true || echo false) PHP_CLI_SERVER_WORKERS=4 php artisan serve --host 127.0.0.1 --port 8090"; add bff; }
+want bff && { mk bff services/bff "LOG_STACK=single,stderr SESSION_DRIVER=\${SESSION_DRIVER:-file} APP_ENV=local TELESCOPE_ENABLED=$([ $TELESCOPE = 1 ] && echo true || echo false) RAY_ENABLED=$([ $RAY = 1 ] && echo true || echo false) PHP_CLI_SERVER_WORKERS=4 php artisan serve --host 127.0.0.1 --port 8090"; add bff; }
 tmux select-window -t "$SESSION:status"
 
 echo; grn "Started in tmux session '$SESSION'."

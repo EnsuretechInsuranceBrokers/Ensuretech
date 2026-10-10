@@ -39,3 +39,38 @@ app.conf.task_routes = {
     "apps.core.tasks.*": {"queue": "maintenance"},
 }
 app.autodiscover_tasks()
+
+
+# ── correlation id: a task carries the id of the request that queued it, so the worker's log lines can be matched to that request (config/correlation.py) ──────────────────
+import logging  # noqa: E402
+import time  # noqa: E402
+
+from celery import signals  # noqa: E402
+
+from config import correlation  # noqa: E402
+
+_log = logging.getLogger("celery.tasks")
+_started: dict = {}
+
+
+@signals.before_task_publish.connect
+def _carry_correlation_id(headers=None, **kwargs):
+    cid = correlation.current()
+    if cid and headers is not None:
+        headers["x-correlation-id"] = cid
+
+
+@signals.task_prerun.connect
+def _task_starts(task_id=None, task=None, **kwargs):
+    req = task.request
+    given = req.get("x-correlation-id") or getattr(req, "x-correlation-id", None)        # a custom message header, set by _carry_correlation_id when the task was queued
+    correlation.use(given or f"task-{task_id}")           # a beat task or a retry with no request behind it gets its own id
+    _started[task_id] = time.perf_counter()
+    _log.info("task %s started args=%s", task.name, str(task.request.args)[:200])
+
+
+@signals.task_postrun.connect
+def _task_ends(task_id=None, task=None, state=None, **kwargs):
+    t0 = _started.pop(task_id, None)
+    _log.info("task %s %s in %d ms", task.name, state, (time.perf_counter() - t0) * 1000 if t0 else 0)
+    correlation.clear()

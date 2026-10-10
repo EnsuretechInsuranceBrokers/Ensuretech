@@ -96,6 +96,10 @@ public class SyncService {
     }
 
     public void process(UUID id) {
+        com.broker.integration.logging.CorrelationFilter.runWith("sync-" + id, () -> process0(id));       // a background job has no request: its id is the sync job id (jobctl and the Jobs page show it)
+    }
+
+    private void process0(UUID id) {
         try {
             run(id);
         } catch (CallNotPermittedException e) {

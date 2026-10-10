@@ -3,6 +3,7 @@
 Rules come from apps.validation.rules.issues_scalar (the same rules the bulk path runs, kept in step by a fuzz
 test). Family constraints are not asked per keystroke (that would be a network call per edit); they run in the
 pipeline right after submit, like for CSV."""
+import logging
 import datetime as dt
 
 from django.conf import settings
@@ -119,6 +120,7 @@ def submit(session_id, *, actor: str, actor_ip: str | None) -> tuple[list[dict],
                 broker_id=s.broker_id, employer_id=s.employer_id, policy_id=s.policy_id, source_type="GUI", op_type=op,
                 parent_session_id=s.id, effective_date=s.effective_date, actor_user_id=actor, actor_ip=actor_ip,
                 metadata={"policy": s.policy_facts, "session_id": str(s.id)})
+            logging.getLogger(__name__).info("endorsement job %s created for policy %s (%s); its events carry correlation id %s", job.id, s.policy_id, op, job.correlation_id)
             n = 0
             for ci, chunk in enumerate(_chunk_by_employee(op_rows, target)):
                 StagedRow.objects.bulk_create([

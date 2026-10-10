@@ -143,11 +143,17 @@ public class EngineClient {
         return out;
     }
 
+    /** The id of the request (or background job) this call is part of, so the engine's logs line up with ours. */
+    private static String correlation() {
+        String id = com.broker.integration.logging.CorrelationFilter.current();
+        return id != null ? id : java.util.UUID.randomUUID().toString();
+    }
+
     private JsonNode send(HttpRequest.Builder rb) {
         String token = tokens.get();
         try {
             HttpResponse<String> r = http.send(rb.timeout(Duration.ofMillis(timeoutMs)).header("Authorization", "Bearer " + token)
-                    .header("Accept", "application/json").build(), HttpResponse.BodyHandlers.ofString());
+                    .header("Accept", "application/json").header("X-Correlation-Id", correlation()).build(), HttpResponse.BodyHandlers.ofString());
             int s = r.statusCode();
             if (s == 401) { tokens.invalidate(token); throw new EngineException("engine rejected our token", true); }
             if (s == 404) throw new EngineException("engine has no such job", false);

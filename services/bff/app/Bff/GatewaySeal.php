@@ -40,4 +40,21 @@ final class GatewaySeal
                 ->withHeader('X-Gateway-Signature', self::signature($secret, $ts, $nonce, $r->getMethod(), $uri->getPath() === '' ? '/' : $uri->getPath(), $uri->getQuery(), $r->getHeaderLine('Authorization')));
         };
     }
+
+    /** A Guzzle middleware that logs every call to a core service with its status and time, under the request's correlation id (path only: no query, no headers). */
+    public static function logging(): callable
+    {
+        return function (callable $handler): callable {
+            return function (RequestInterface $request, array $options) use ($handler) {
+                $t0 = microtime(true);
+
+                return $handler($request, $options)->then(function ($response) use ($request, $t0) {
+                    $u = $request->getUri();
+                    \Illuminate\Support\Facades\Log::info('upstream '.$request->getMethod().' '.$u->getHost().':'.$u->getPort().$u->getPath().' -> '.$response->getStatusCode(), ['ms' => (int) round((microtime(true) - $t0) * 1000)]);
+
+                    return $response;
+                });
+            };
+        };
+    }
 }

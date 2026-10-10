@@ -195,6 +195,7 @@ class CsvUploadView(APIView):
                     source_filename=f.name[:255], file_sha256=stored.sha256, effective_date=effective,
                     actor_user_id=request.user.user_id, actor_ip=request.META.get("REMOTE_ADDR"),
                     metadata={"file_key": stored.key, "policy": _policy_facts(policy)})
+                logging.getLogger(__name__).info("endorsement job %s created for policy %s from %s; its events carry correlation id %s", job.id, policy_id, f.name[:80], job.correlation_id)
                 run_after_commit(lambda: ingest_csv.apply_async(args=[str(job.id)]))
         except IntegrityError:                                    # lost an idempotency race: return the winner
             store.delete(stored.key)

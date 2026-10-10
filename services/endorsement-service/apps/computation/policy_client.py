@@ -6,6 +6,8 @@ from typing import Protocol
 
 from django.conf import settings
 
+from config import correlation
+
 from apps.core import service_auth
 from django.utils.module_loading import import_string
 
@@ -120,7 +122,7 @@ class GrpcPolicyClient:
         except service_auth.ServiceAuthError as e:
             raise PolicyUnavailable(str(e)) from e
         try:
-            return method(request, timeout=settings.POLICY_GRPC_DEADLINE_SECONDS, metadata=(("authorization", auth),))
+            return method(request, timeout=settings.POLICY_GRPC_DEADLINE_SECONDS, metadata=(("authorization", auth), *correlation.grpc_metadata()))
         except grpc.RpcError as e:
             code = e.code()
             if code == grpc.StatusCode.UNAUTHENTICATED:

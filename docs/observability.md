@@ -78,6 +78,17 @@ The endorsement engine is a Celery pipeline: `ingest_csv` -> `validate_chunk` (o
 - Flower can revoke tasks and shut workers down. It listens on `127.0.0.1` with basic auth (`FLOWER_BASIC_AUTH` in `local.env`, a development value); on a real server put it on a private network behind your own authentication, never on a public address.
 - `CELERY_TASK_ALWAYS_EAGER=true` (`dev-up.sh --eager`) runs tasks inline in the web process: no workers, no Flower. It exists for stepping through one task in a debugger and hides everything Celery is for.
 
+## Correlation id in every log line
+
+One id follows a request everywhere. The BFF accepts an incoming `X-Correlation-Id` if it matches `^[A-Za-z0-9._-]{8,64}$` (anything else is replaced by a fresh UUID, and never logged), returns it on the response, and passes it on.
+
+- **Spring services** (policy, organization, billing, integration, sheet-generator, admin): `logging/CorrelationFilter` puts it in the MDC and `logging.pattern.level` prints `[id]` on every line; it writes one `access` line per request (`GET /x -> 200 12 ms`, health and Prometheus scrapes at debug). Outbound calls (engine, spec, admin's jobs proxy) forward it. gRPC servers (policy, billing) read `x-correlation-id` metadata and log one `gRPC <method> -> <status> <ms>` line per call.
+- **Django services** (identity, endorsement, read, notification): `config/correlation.py` has the middleware (sync and async), the log filter and the helpers; `LOGGING` prints `[%(correlation_id)s]`. The engine sends the id to gRPC and into Celery message headers; workers restore it (`task-<id>` if there was none) and log task start and end.
+- **BFF**: access line (method, path, status, ms, role, user) and one `upstream` line per outbound call, in `.dev/logs/bff.log` (`LOG_STACK=single,stderr`).
+- **Events**: consumers use the event payload's `correlation_id` (the engine job's `correlation_id`); sync jobs use `sync-<syncJobId>`.
+
+Trace one request: `grep -h "<id>" .dev/logs/*.log | sort`. On a real deployment, ship the logs to one place and search the same way. Tests: `CorrelationFilterTest` in each Spring service, `tests/test_correlation.py` in each Django service, `tests/Feature/CorrelationIdTest.php` in the BFF.
+
 ## Not included, and why
 
 - **Laravel Horizon**: it is the dashboard for Redis queues. The BFF has none (every job would run inline), so the page would always be empty. It makes sense the day something is queued, for example sending the uploaded offline sheets' audit export.

@@ -40,7 +40,7 @@ public class SpecClient {
     public JsonNode fetch(long policyId, String authorizationHeader) {
         String path = "/api/v1/broker/policies/" + policyId + "/sheet-spec";
         HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create(baseUrl + path))
-                .header("Authorization", authorizationHeader).header("Accept", "application/json").timeout(timeout).GET();
+                .header("Authorization", authorizationHeader).header("Accept", "application/json").header("X-Correlation-Id", java.util.Optional.ofNullable(com.broker.sheetgen.logging.CorrelationFilter.current()).orElseGet(() -> java.util.UUID.randomUUID().toString())).timeout(timeout).GET();
         if (seal != null) {
             String ts = String.valueOf(System.currentTimeMillis() / 1000), nonce = java.util.UUID.randomUUID().toString().replace("-", "");
             rb.header("X-Gateway-Timestamp", ts).header("X-Gateway-Nonce", nonce).header("X-Gateway-Signature", seal.sign(ts, nonce, "GET", path, null, authorizationHeader));

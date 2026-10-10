@@ -14,6 +14,7 @@ class EdgeTest extends TestCase
         Log::shouldReceive('channel')->with('security')->once()->andReturnSelf();
         Log::shouldReceive('critical')->once()->withArgs(fn ($m, $ctx) => $m === 'honeypot touched' && $ctx['path'] === 'api/v1/admin/users/export' && $ctx['has_token'] === true);
         Log::shouldReceive('withContext')->zeroOrMoreTimes();
+        Log::shouldReceive('info')->zeroOrMoreTimes();                       // the access line every request now writes
         $r = $this->as()->getJson('/api/v1/admin/users/export')->assertStatus(404);
         $this->assertSame('Not found', $r->json('title'));
     }

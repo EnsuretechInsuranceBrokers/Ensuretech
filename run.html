@@ -492,6 +492,7 @@ psql -h localhost -U postgres -v reset=1 -f setup.sql
 
 <h2 id="watch">16. Watching it run: debugging and analytics</h2>
 <p>All of these are for your laptop only, off by default, and none is installed or enabled on a server. Full notes: <code>docs/observability.md</code>.</p>
+<p><strong>Following one request:</strong> every service logs the request's <code>X-Correlation-Id</code> in square brackets. Send your own (<code>-H "X-Correlation-Id: my-test-001"</code>) and run <code>grep -h my-test-001 .dev/logs/*.log | sort</code> to see it across the BFF, engine, workers, policy and billing.</p>
 <table>
 <tr><th>Tool</th><th>What it shows</th><th>Turn it on</th><th>Open</th></tr>
 <tr><td><strong>Laravel Telescope</strong> (BFF)</td><td>every request the portal and API handle, every call the BFF makes to a core service with its timing, exceptions, logs, cache, rate-limit hits. Tokens, passwords and the gateway signature are hidden.</td><td><code>scripts/dev-up.sh</code> (on by default; <code>--no-telescope</code> to skip)</td><td><a href="http://localhost:8090/telescope">localhost:8090/telescope</a></td></tr>

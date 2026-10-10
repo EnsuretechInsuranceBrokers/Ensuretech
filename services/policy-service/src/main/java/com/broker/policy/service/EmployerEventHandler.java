@@ -32,6 +32,10 @@ public class EmployerEventHandler {
 
     @Transactional
     public void handle(String json) {
+        com.broker.policy.logging.CorrelationFilter.runWith(com.broker.policy.logging.CorrelationFilter.fromEvent(json), () -> handle0(json));      // the logs of this event carry the id of the request that caused it
+    }
+
+    private void handle0(String json) {
         JsonNode e = mapper.readTree(json);
         String type = e.path("event_type").asString("");
         if (!e.hasNonNull("employer_id") || !e.hasNonNull("broker_id")) return;

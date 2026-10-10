@@ -34,6 +34,7 @@ abstract class TestCase extends BaseTestCase
     {
         Http::swap(new \Illuminate\Http\Client\Factory);
         Http::globalRequestMiddleware(\App\Bff\GatewaySeal::middleware());          // a swapped factory has lost the provider's registration
+        Http::globalMiddleware(\App\Bff\GatewaySeal::logging());
         Http::preventStrayRequests();
         Http::fake($stubs);
     }

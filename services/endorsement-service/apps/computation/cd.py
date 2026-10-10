@@ -10,6 +10,8 @@ from typing import Protocol
 
 from django.conf import settings
 
+from config import correlation
+
 from apps.core import service_auth
 from django.utils.module_loading import import_string
 
@@ -67,7 +69,7 @@ class GrpcCdClient:
             r = self._stub.CheckCdBalance(
                 self._pb.CdBalanceRequest(policy_id=policy_id, broker_id=broker_id, required_amount=str(required), job_id=str(job_id)),
                 timeout=settings.CD_GRPC_DEADLINE_SECONDS,
-                metadata=(("authorization", auth),))
+                metadata=(("authorization", auth), *correlation.grpc_metadata()))
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAUTHENTICATED:
                 service_auth.provider.invalidate(auth[7:])

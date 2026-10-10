@@ -28,3 +28,7 @@ admin:
     client-secret: ${SERVICE_CLIENT_SECRET:}
   integration:
     url: ${INTEGRATION_URL:http://127.0.0.1:8085}
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"      # every log line carries the id of the request it belongs to (CorrelationFilter); [] = a background job with no request

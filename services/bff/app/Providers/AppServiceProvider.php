@@ -34,7 +34,8 @@ class AppServiceProvider extends ServiceProvider
         if (! $this->app->environment(['local', 'testing']) && strlen((string) config('bff.gateway_secret')) < 32) {
             throw new \RuntimeException('BFF_GATEWAY_SECRET must be set to at least 32 random characters (php -r \'echo bin2hex(random_bytes(32));\') and be the same as GATEWAY_SECRET in every core service.');
         }
-        \Illuminate\Support\Facades\Http::globalRequestMiddleware(\App\Bff\GatewaySeal::middleware());      // every call to a core service is signed, whoever makes it
+        \Illuminate\Support\Facades\Http::globalRequestMiddleware(\App\Bff\GatewaySeal::middleware());
+        \Illuminate\Support\Facades\Http::globalMiddleware(\App\Bff\GatewaySeal::logging());      // and every call is logged with its status and time      // every call to a core service is signed, whoever makes it
         $cfg = fn (string $k) => (int) config("bff.rate_limits.$k");
         $principal = fn (Request $r) => $r->attributes->get('principal');
 

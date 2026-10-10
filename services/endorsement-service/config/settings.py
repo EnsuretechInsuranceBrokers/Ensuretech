@@ -23,6 +23,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "config.correlation.CorrelationMiddleware",
     "config.gateway.GatewaySecretMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -73,6 +74,7 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = "UTC"
 # Task events: what Flower (the Celery dashboard) and its Prometheus metrics are built from. Small overhead; leave on.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False        # worker output uses LOGGING below, so its lines carry the correlation id
 CELERY_WORKER_SEND_TASK_EVENTS = env.bool("CELERY_EVENTS", default=True)
 CELERY_TASK_SEND_SENT_EVENT = env.bool("CELERY_EVENTS", default=True)
 CELERY_TASK_TRACK_STARTED = True
@@ -136,6 +138,17 @@ GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF 
 import sys as _sys
 GATEWAY_ALLOW_UNGUARDED = env.bool("GATEWAY_ALLOW_UNGUARDED", default="pytest" in _sys.modules)   # true = answer anyone who can reach the port: local development, and the test run
 GATEWAY_OPEN_CIDRS = env("GATEWAY_OPEN_CIDRS", default="")   # optional: networks allowed to reach the open doors (identity: service-token sign-in)
+
+# ── Logging: every line carries the correlation id of the request (or task) it belongs to (config/correlation.py). LOG_LEVEL=DEBUG for more.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {"correlation": {"()": "config.correlation.CorrelationFilter"}},
+    "formatters": {"standard": {"format": "%(asctime)s %(levelname)s [%(correlation_id)s] %(name)s: %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["correlation"], "formatter": "standard"}},
+    "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+    "loggers": {"django.server": {"level": "WARNING"}, "django.utils.autoreload": {"level": "WARNING"}},      # our access line replaces runserver's own
+}
 
 # Development-only debugging tools (Silk, Debug Toolbar, Ray): off unless DEV_TOOLS=true and DEBUG=true. See config/devtools.py and docs/debugging.md.
 DEV_TOOLS = env.bool("DEV_TOOLS", default=False)

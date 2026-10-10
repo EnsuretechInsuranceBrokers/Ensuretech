@@ -82,10 +82,14 @@ if [ $QUICK = 0 ]; then
 echo "5. An endorsement through the real Celery pipeline"
 SUF=$(( RANDOM % 9000 + 1000 )); L=$(python3 -c "import random,string;print(''.join(random.choices(string.ascii_uppercase,k=5)))"); L2=$(python3 -c "import random,string;print(''.join(random.choices(string.ascii_uppercase,k=5)))")
 printf 'Emp Code,Relationship,Member Name,DOB,Gender,Sum Insured,Effective Date,PAN\n%s,Self,Smoke Tester,17/05/1985,F,500000,,%s%sQ\n%s,Spouse,Smoke Spouse,02-Feb-1983,M,500000,,\n%s,SON,Smoke Kid,01/01/2015,M,500000,,\n' "$SUF" "$L" "$SUF" "$SUF" "$SUF" > "$T/e.csv"
-JOB="$(curl -s -m 30 -X POST "$B/broker/endorsements/csv/upload" -H "Authorization: Bearer $BROKER" -H "Idempotency-Key: smoke-$$-$SUF" -F file=@"$T/e.csv" -F policy_id=1 -F op_type=ADD -F effective_date=2026-11-15 | jget 'd["id"]')"
+JOB="$(curl -s -m 30 -X POST "$B/broker/endorsements/csv/upload" -H "Authorization: Bearer $BROKER" -H "Idempotency-Key: smoke-$$-$SUF" -H "X-Correlation-Id: smoke-trace-$$-$SUF" -F file=@"$T/e.csv" -F policy_id=1 -F op_type=ADD -F effective_date=2026-11-15 | jget 'd["id"]')"
 [ -n "$JOB" ] && ok "upload accepted: job ${JOB:0:8}" || no "upload"
 S=""; for i in $(seq 40); do S="$(curl -s -H "Authorization: Bearer $BROKER" "$B/broker/endorsements/$JOB" | jget 'd["status"]')"; case "$S" in ENDORSED|*FAILED*|CD_INSUFFICIENT|VALIDATION_PARTIAL) break;; esac; sleep 1; done
 [ "$S" = ENDORSED ] && ok "the job reached ENDORSED" || no "job ended at '$S' (CD_INSUFFICIENT: credit the deposit; VALIDATION_PARTIAL: see /endorsements/$JOB/errors)"
+if [ -d .dev/logs ]; then
+  sleep 1; TR="smoke-trace-$$-$SUF"; SEEN="$(grep -l -- "$TR" .dev/logs/*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.log$//' | tr '\n' ' ')"
+  case "$SEEN" in *bff*engine*|*bff*endorsement*) ok "one correlation id appears in the logs of: ${SEEN}";; *) [ -n "$SEEN" ] && no "correlation id only reached: $SEEN" || skip "correlation id not found in .dev/logs (stack not started by dev-up.sh?)";; esac
+fi
 if up 5555; then
   W="$(curl -s -u "$FLOWER_BASIC_AUTH" "127.0.0.1:5555/api/tasks?limit=200" | python3 -c "
 import sys,json

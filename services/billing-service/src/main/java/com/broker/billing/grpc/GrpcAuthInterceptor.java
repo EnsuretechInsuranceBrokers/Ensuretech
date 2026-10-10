@@ -36,7 +36,7 @@ public class GrpcAuthInterceptor implements ServerInterceptor {
         }
         if (!"SYSTEM".equals(jwt.getClaimAsString("role"))) return reject(call, Status.PERMISSION_DENIED, "service accounts only");
         TenantContext c = new TenantContext(String.valueOf((Object) jwt.getClaim("user_id")), "SYSTEM", null, null, null);
-        return Contexts.interceptCall(Context.current().withValue(CALLER, c), call, headers, next);
+        return com.broker.billing.logging.GrpcCorrelation.wrap(Contexts.interceptCall(Context.current().withValue(CALLER, c), com.broker.billing.logging.GrpcCorrelation.logged(call), headers, next), headers);
     }
 
     private static <Q, R> ServerCall.Listener<Q> reject(ServerCall<Q, R> call, Status s, String msg) {

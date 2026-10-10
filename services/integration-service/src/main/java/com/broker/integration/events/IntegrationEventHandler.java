@@ -23,6 +23,10 @@ public class IntegrationEventHandler {
     public void onMessage(String json) { handle(json); }
 
     public void handle(String json) {
+        com.broker.integration.logging.CorrelationFilter.runWith(com.broker.integration.logging.CorrelationFilter.fromEvent(json), () -> handle0(json));      // the logs of this event carry the id of the request that caused it
+    }
+
+    private void handle0(String json) {
         try {
             JsonNode e = mapper.readTree(json);
             switch (e.path("event_type").asString("")) {

@@ -20,7 +20,7 @@ class JobsProxy {
     JobsProxy(SystemToken token, @Value("${admin.integration.url}") String base) { this.token = token; this.base = base + "/api/v1/ops/jobs"; }
 
     private ResponseEntity<String> send(org.springframework.http.HttpMethod m, String path, String password, String body) {
-        var req = http.method(m).uri(base + path).headers(h -> { h.setBearerAuth(token.get()); if (password != null && !password.isEmpty()) h.set("X-Job-Killer-Password", password); });
+        var req = http.method(m).uri(base + path).headers(h -> { h.setBearerAuth(token.get()); String cid = com.broker.admin.logging.CorrelationFilter.current(); if (cid != null) h.set("X-Correlation-Id", cid); if (password != null && !password.isEmpty()) h.set("X-Job-Killer-Password", password); });
         if (body != null) req = req.contentType(MediaType.APPLICATION_JSON).body(body);
         return req.exchange((rq, rs) -> ResponseEntity.status(HttpStatusCode.valueOf(rs.getStatusCode().value())).contentType(MediaType.APPLICATION_JSON).body(new String(rs.getBody().readAllBytes())));
     }

@@ -43,7 +43,7 @@ public class GrpcAuthInterceptor implements ServerInterceptor {
         }
         TenantContext t = new TenantContext(String.valueOf((Object) jwt.getClaim("user_id")), role,
                 asLong(jwt.getClaim("broker_id")), asLong(jwt.getClaim("employer_id")), asLong(jwt.getClaim("tpa_id")));
-        return Contexts.interceptCall(Context.current().withValue(TENANT, t), call, headers, next);
+        return com.broker.policy.logging.GrpcCorrelation.wrap(Contexts.interceptCall(Context.current().withValue(TENANT, t), com.broker.policy.logging.GrpcCorrelation.logged(call), headers, next), headers);
     }
 
     private static <Q, R> ServerCall.Listener<Q> reject(ServerCall<Q, R> call, Status s, String msg) {

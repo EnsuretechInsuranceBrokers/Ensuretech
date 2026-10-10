@@ -11,7 +11,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-only-insecure-key" if DEBUG e
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "testserver"])
 
 INSTALLED_APPS = ["rest_framework", "apps.core", "apps.mail"]
-MIDDLEWARE = ["config.gateway.GatewaySecretMiddleware", "django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
+MIDDLEWARE = ["config.correlation.CorrelationMiddleware", "config.gateway.GatewaySecretMiddleware", "django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
@@ -60,6 +60,17 @@ GATEWAY_SECRET = env("GATEWAY_SECRET", default="")        # shared with the BFF 
 import sys as _sys
 GATEWAY_ALLOW_UNGUARDED = env.bool("GATEWAY_ALLOW_UNGUARDED", default="pytest" in _sys.modules)   # true = answer anyone who can reach the port: local development, and the test run
 GATEWAY_OPEN_CIDRS = env("GATEWAY_OPEN_CIDRS", default="")   # optional: networks allowed to reach the open doors (identity: service-token sign-in)
+
+# ── Logging: every line carries the correlation id of the request (or task) it belongs to (config/correlation.py). LOG_LEVEL=DEBUG for more.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {"correlation": {"()": "config.correlation.CorrelationFilter"}},
+    "formatters": {"standard": {"format": "%(asctime)s %(levelname)s [%(correlation_id)s] %(name)s: %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["correlation"], "formatter": "standard"}},
+    "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+    "loggers": {"django.server": {"level": "WARNING"}, "django.utils.autoreload": {"level": "WARNING"}},      # our access line replaces runserver's own
+}
 
 # Development-only debugging tools (Silk, Debug Toolbar, Ray): off unless DEV_TOOLS=true and DEBUG=true. See config/devtools.py and docs/debugging.md.
 DEV_TOOLS = env.bool("DEV_TOOLS", default=False)
