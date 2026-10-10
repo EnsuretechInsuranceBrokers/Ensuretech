@@ -75,8 +75,16 @@ Legacy figures are from your production server (8 vCPU, Horizon queue; details i
 | 996 valid, 4 invalid | more than 3 min (stopped counting) | **1.2 to 2.1 s** to `ENDORSED` (996 members written, 4 errors recorded) after the person continues with the valid rows |
 | 1000 valid | 3 min 52 s to the last member, 4 min 23 s for the whole pipeline | **1.22 to 1.25 s** to `ENDORSED` |
 
-**Is it a fair fight? Not yet, on two counts.**
-1. **The new platform does not produce an error spreadsheet.** The legacy run writes `AddMemberError.xlsx`; here the errors are available only as JSON (`GET /endorsements/{id}/errors`, paged, with line, employee code, field, rule and message) and the portal shows them. Building the workbook is cheap (an 83 ms test for 1000 rows with openpyxl, which the engine already depends on), so adding a download would not change the result, but until it exists the new figure for the failure cases leaves that step out.
-2. **A partly failed upload waits for a person.** The engine stops at `VALIDATION_PARTIAL` and continues only after the broker confirms (`POST /endorsements/{id}/proceed/`). The BFF has no route for that call, so the portal cannot confirm today; the test above made the call straight to the engine with a break-glass token. The measured 1.2 to 2.1 s includes that call being made immediately. Legacy appears to continue on its own.
+**The two gaps found in that comparison are closed:**
+1. **Error spreadsheet.** `GET /api/v1/endorsements/{id}/errors/download` (portal: "Download as a spreadsheet" on the upload's page, `/app/endorsements/{id}/errors.xlsx`) returns an `.xlsx` with sheet "Rows to fix" (each failed line as it was read, so it can be corrected and uploaded again, with a "Problems" column and the rule codes) and sheet "All findings" (every error and warning with line, employee code, field, rule, message and value). Values that start with `=`, `+`, `-` or `@` are written as text. Measured with the BFF on nginx + PHP-FPM, 1000 rows all invalid: 86 KB, 0.26 to 0.34 s to download; 4 invalid of 1000: 6 KB, 0.03 s.
+2. **Partial uploads continue by themselves.** When some rows fail and others pass, the engine now carries on with the valid rows (`PARTIAL_AUTO_CONTINUE`, default true; set false to hold at `VALIDATION_PARTIAL` until someone calls `POST /endorsements/{id}/proceed/`). The failures stay on the job and in the error sheet. A fully failed upload still stops at `VALIDATION_FAILED`.
 
-Both are worth settling before anyone quotes these numbers outside the team: add the error-sheet download, and decide whether a partial upload should continue by itself or wait, then expose whichever it is through the BFF.
+Re-measured, 3 runs each, no manual step, error sheet downloaded afterwards:
+
+| Case (1000 rows) | Legacy (prod) | New (sandbox) |
+|---|---|---|
+| All rows invalid | about 1 min | **0.65 to 0.71 s** to `VALIDATION_FAILED`, plus 0.3 s to download the error sheet |
+| 996 valid, 4 invalid | more than 3 min | **0.93 to 1.3 s** to `ENDORSED` on its own, plus 0.03 s for the error sheet |
+| 1000 valid | 3 min 52 s | **0.92 to 1.25 s** to `ENDORSED` |
+
+A real bug turned up while checking the download: **every file download through the BFF (templates, reports, the new error sheet) arrived empty (HTTP 200, 0 bytes)** on a machine with the Ray or Telescope development packages installed. Both listen for the HTTP client's response event and read the body, and the BFF streamed it from a live socket that can be read only once. Tests used fakes, and `qa/smoke.sh` checked only the status code, so it went unseen. The BFF now takes the file as a seekable stream and rewinds it before sending, and `qa/smoke.sh` checks that downloads are real `.xlsx` files.

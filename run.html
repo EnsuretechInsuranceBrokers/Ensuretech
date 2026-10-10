@@ -52,7 +52,7 @@ a{color:var(--brand)}details{background:var(--card);border:1px solid var(--line)
 <li>Walk through §10 (the main flow with the seeded data), §11 (the TPA offline upload) and §12 (proof that nobody can reach a core service directly).</li>
 </ol></div>
 <p>Everything runs on your own machine and talks only to <code>localhost</code>. Nothing here sends mail, calls a real TPA or insurer, or needs a paid account; <code>docs/runtime-dependencies.md</code> lists what would.</p>
-<div class="ok"><strong>Already running and want to check it?</strong> <code>qa/smoke.sh</code> (57 checks, about 45 s) and <code>node qa/portal-smoke.js</code> automate the sanity run; <code>docs/qa-handbook.md</code> has the manual checklist, how to add automation, and a symptom-to-tool debugging table.</div>
+<div class="ok"><strong>Already running and want to check it?</strong> <code>qa/smoke.sh</code> (59 checks, about 50 s) and <code>node qa/portal-smoke.js</code> automate the sanity run; <code>docs/qa-handbook.md</code> has the manual checklist, how to add automation, and a symptom-to-tool debugging table.</div>
 <div class="note"><strong>Passwords.</strong> Every seeded login uses <code>Str0ng-Pass-123!</code>. Broker: <code>meera.kapoor@northwind.example</code> (admin), <code>arun.joshi@northwind.example</code> (specializer), <code>nisha.rao@northwind.example</code> (read-only). Other broker: <code>admin@southbridge.example</code>. HR: <code>priya.menon@acme.example</code> (admin of employer 1). The full list is in the header of <code>setup.sql</code>.</div>
 
 <h2 id="prereq">1. What to install on a brand-new laptop</h2>

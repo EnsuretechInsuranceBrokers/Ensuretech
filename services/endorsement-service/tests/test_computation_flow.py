@@ -182,7 +182,8 @@ def test_persistent_billing_outage_fails_visibly_then_recovers_on_retry(flow):
 
 
 # ── confirmation and retry API ───────────────────────────────────────────────────────────────────────────────
-def test_partial_validation_waits_for_confirmation_then_endorses_only_the_valid_rows(flow):
+def test_partial_validation_waits_for_confirmation_then_endorses_only_the_valid_rows(flow, settings):
+    settings.PARTIAL_AUTO_CONTINUE = False                       # the opt-in hold; by default a partial upload carries on by itself
     text = csv_text("1,Self,Good,1990-01-01,M,500000,,", "2,Self,,1990-01-01,M,500000,,", "3,Self,Also Good,1990-01-01,M,500000,,")
     c = client_for()
     job = job_from(upload(c, text, effective_date="2030-04-01"))

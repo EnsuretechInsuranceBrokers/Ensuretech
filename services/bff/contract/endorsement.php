@@ -60,6 +60,9 @@ return [
             'upstream' => '/api/v1/{gw}/endorsements/{id}/errors/', 'where' => ['id' => $UUID],
             'query' => ['page' => 'page', 'page_size' => 'page_size', 'severity' => 'severity', 'rule' => 'rule', 'employee_code' => 'employee_code'], 'response' => 'job_errors'],
 
+        'endorsements.errors_download' => ['methods' => ['GET'], 'path' => 'endorsements/{id}/errors/download', 'gateways' => $both, 'service' => 'endorsement',
+            'upstream' => '/api/v1/{gw}/endorsements/{id}/errors/download/', 'where' => ['id' => $UUID],
+            'download' => ['types' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], 'max_bytes' => 50 * 1024 * 1024]],
         'endorsements.intake_plan' => ['methods' => ['POST'], 'path' => 'endorsements/intake/plan', 'gateways' => $both, 'service' => 'endorsement', 'upstream' => '/api/v1/{gw}/endorsements/intake/plan/',
             'input' => 'intake_plan', 'response' => 'intake_plan'],
         'endorsements.intake_template' => ['methods' => ['GET'], 'path' => 'endorsements/intake/template', 'gateways' => $both, 'service' => 'endorsement',

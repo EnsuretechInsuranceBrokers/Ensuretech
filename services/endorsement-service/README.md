@@ -34,6 +34,7 @@ audit trail and an outbox. It asks **policy-service** (gRPC) for family rules an
 
 ## State machine
 `REQUEST_RAISED → FILE_STREAMED → VALIDATION_QUEUED → VALIDATION_IN_PROGRESS → VALIDATION_PASSED | VALIDATION_PARTIAL | VALIDATION_FAILED`
+With `PIPELINE_AUTO_CONTINUE` (default on) a passed upload goes straight on, and so does a partly failed one (`PARTIAL_AUTO_CONTINUE`, default on): only the rows that passed are endorsed, the failures stay on the job (`GET /endorsements/{id}/errors/`, or `.../errors/download/` for an `.xlsx` of the rows to fix). Set `PARTIAL_AUTO_CONTINUE=false` to hold at `VALIDATION_PARTIAL` until `POST /endorsements/{id}/proceed/`.
 `→ PREMIUM_CALC_QUEUED → PREMIUM_CALCULATED → CD_CHECK_INITIATED → CD_SUFFICIENT → ENDORSEMENT_QUEUED → ENDORSEMENT_IN_PROGRESS → ENDORSED`
 Blocked/failed states are recoverable (`CD_INSUFFICIENT`, `CD_PARTIAL_SUFFICIENT`, `CD_CHECK_FAILED`, `PREMIUM_CALC_FAILED`,
 `ENDORSEMENT_FAILED`, `MANUAL_INTERVENTION_REQUIRED`) via `/retry/`; `CANCELLED_BY_HR` is allowed until execution is queued.

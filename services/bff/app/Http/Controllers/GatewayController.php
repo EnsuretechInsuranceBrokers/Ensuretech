@@ -242,7 +242,9 @@ final class GatewayController extends Controller
     {
         $d = $e['download'];
         $method = $request->getMethod();
-        $client = $this->upstream->client($request, $e['service'], (float) config('bff.timeouts.upload'), $e['headers'] ?? [])->withOptions(['stream' => true])->accept('*/*');
+        // Not a live socket stream: any listener on the HTTP client's response event (the Ray and Telescope development packages have one) reads the body, and a socket can be read only once, so
+        // the file arrived empty. Guzzle spools the answer to a seekable temporary stream (memory, then disk), which survives that and is rewound below. The size cap still applies when sending.
+        $client = $this->upstream->client($request, $e['service'], (float) config('bff.timeouts.upload'), $e['headers'] ?? [])->accept('*/*');
         $query = Upstream::query($request, $e['query'] ?? []);
         if ($method === 'POST') {
             $body = isset($e['input']) ? $this->boundBody($request, $e['input']) : [];
@@ -268,6 +270,9 @@ final class GatewayController extends Controller
         }
         $max = (int) ($d['max_bytes'] ?? config('bff.limits.max_download_bytes'));
         $body = $up->toPsrResponse()->getBody();
+        if ($body->isSeekable()) {
+            $body->rewind();
+        }
         $extra = array_filter(['X-Report-Truncated' => $up->header('X-Report-Truncated') ?: null]);
 
         return new StreamedResponse(function () use ($body, $max) {

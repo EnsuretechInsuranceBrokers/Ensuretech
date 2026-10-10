@@ -38,7 +38,8 @@ def test_endorsement_applied_matches_the_shared_sample(flow):
     assert real["event_type"] == "EndorsementApplied" and real["total"] == "1180.00"
 
 
-def test_state_changed_matches_the_shared_sample(flow):
+def test_state_changed_matches_the_shared_sample(flow, settings):
+    settings.PARTIAL_AUTO_CONTINUE = False                  # keep the partly failed upload held so there is something to cancel
     r = upload(client_for(), csv_text("1,Self,A,1990-01-01,M,500000,,", "2,Self,,1990-01-01,M,500000,,"), effective_date="2030-04-01")
     job = EndorsementJob.objects.get(pk=r.json()["job_id"])
     client_for().post(f"/api/v1/broker/endorsements/{job.id}/cancel/")

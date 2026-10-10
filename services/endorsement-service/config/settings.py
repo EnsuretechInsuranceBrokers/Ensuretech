@@ -122,6 +122,9 @@ MAX_UPLOAD_BYTES = env.int("MAX_UPLOAD_BYTES", default=200 * 1024 * 1024)
 # When validation passes CLEANLY, continue straight into premium calculation. Turn off to hold every job for a human
 # to confirm via /proceed/. (Once a job is confirmed or auto-started, the remaining steps always run.)
 PIPELINE_AUTO_CONTINUE = env.bool("PIPELINE_AUTO_CONTINUE", default=True)
+# When some rows of an upload fail validation and others pass, carry on with the rows that passed (the failures stay listed, and downloadable, on the job) instead of waiting for
+# someone to confirm. false = hold at VALIDATION_PARTIAL until a broker or HR admin calls POST /endorsements/{id}/proceed/. Needs PIPELINE_AUTO_CONTINUE.
+PARTIAL_AUTO_CONTINUE = env.bool("PARTIAL_AUTO_CONTINUE", default=True)
 
 GUI_SESSION_TTL_HOURS = env.int("GUI_SESSION_TTL_HOURS", default=4)
 GUI_VALIDATE_RATE_PER_MINUTE = env.int("GUI_VALIDATE_RATE_PER_MINUTE", default=100)

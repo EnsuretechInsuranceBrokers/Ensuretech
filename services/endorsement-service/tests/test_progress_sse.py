@@ -100,11 +100,20 @@ async def test_a_live_job_streams_each_change_once_then_rests(make_job):
 
 @pytest.mark.parametrize("state,reason", [("VALIDATION_PARTIAL", "waiting_for_human"), ("CD_INSUFFICIENT", "waiting_for_human"),
                                           ("PREMIUM_CALC_FAILED", "waiting_for_human"), ("CANCELLED_BY_HR", "terminal")])
-async def test_it_closes_when_a_human_must_act(make_job, state, reason):
+async def test_it_closes_when_a_human_must_act(make_job, state, reason, settings):
+    settings.PARTIAL_AUTO_CONTINUE = False                  # with the default (carry on by itself) VALIDATION_PARTIAL is not a place anyone waits
     s = State[state]
     job = await mk(make_job, status=s.name, status_code=s.code, phase=s.phase.value, category=s.category.value, is_terminal=s.terminal)
     events = parse(await collect(await AsyncClient().get(url(job), **auth())))
     assert events[-1][0] == "rest" and events[-1][1]["reason"] == reason
+
+
+async def test_a_partial_upload_that_carries_on_by_itself_is_not_a_rest_point(make_job, settings):
+    settings.PIPELINE_AUTO_CONTINUE, settings.PARTIAL_AUTO_CONTINUE = True, True
+    from apps.jobs.progress import rest_reason
+    s = State.VALIDATION_PARTIAL
+    job = await mk(make_job, status=s.name, status_code=s.code, phase=s.phase.value, category=s.category.value, is_terminal=s.terminal)
+    assert rest_reason(job) is None
 
 
 async def test_idle_streams_send_keepalives_and_time_out_cleanly(make_job, settings):

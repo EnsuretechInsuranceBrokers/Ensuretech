@@ -82,6 +82,17 @@ class IntakeGridTest extends TestCase
         Http::assertSent(fn (Request $q) => str_contains($q->url(), '/intake/template/') && str_contains($q->url(), 'employee_count=500') && str_contains($q->url(), 'effective_date=2030-07-01'));
     }
 
+    public function test_the_error_sheet_comes_back_as_a_download_and_only_for_a_real_job_id(): void
+    {
+        $xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        $id = 'a1b2c3d4-0000-4000-8000-000000000001';
+        $this->signedIn(['engine.test/api/v1/broker/endorsements/'.$id.'/errors/download/' => Http::response('PK-bytes', 200, ['Content-Type' => $xlsx, 'Content-Disposition' => 'attachment; filename="sheet_errors.xlsx"'])]);
+        $r = $this->get("/app/endorsements/$id/errors.xlsx")->assertOk();
+        $this->assertStringContainsString('spreadsheetml', (string) $r->headers->get('Content-Type'));
+        $this->assertStringContainsString('sheet_errors.xlsx', (string) $r->headers->get('Content-Disposition'));
+        $this->get('/app/endorsements/not-an-id/errors.xlsx')->assertNotFound();
+    }
+
     public function test_bad_numbers_are_refused_before_the_engine_is_asked(): void
     {
         $this->signedIn();

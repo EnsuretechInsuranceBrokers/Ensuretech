@@ -92,6 +92,6 @@ def finalize_validation(job_id) -> None:
         target = State.VALIDATION_PARTIAL
     transition(job_id, target, expected_from=State.VALIDATION_IN_PROGRESS,
                metadata={"failed_rows": job.failed_rows, "total_rows": job.total_rows})
-    if target == State.VALIDATION_PASSED and settings.PIPELINE_AUTO_CONTINUE:
+    if settings.PIPELINE_AUTO_CONTINUE and (target == State.VALIDATION_PASSED or (target == State.VALIDATION_PARTIAL and settings.PARTIAL_AUTO_CONTINUE)):
         from apps.computation.tasks import start_premium_calculation
         run_after_commit(lambda: start_premium_calculation.apply_async(args=[str(job_id)]))

@@ -35,6 +35,7 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
     Route::post('/endorse/grid/{id}/submit', [P::class, 'gridSubmit']);
     Route::get('/endorsements/{id}', [P::class, 'job']);
     Route::get('/endorsements/{id}/progress', [P::class, 'progress']);
+    Route::get('/endorsements/{id}/errors.xlsx', [P::class, 'errorSheet']);
     Route::post('/endorsements/{id}/{action}', [P::class, 'jobAction']);
     Route::get('/cd', [P::class, 'cd']);
     Route::post('/cd/{policyId}/credit', [P::class, 'cdCredit'])->whereNumber('policyId');

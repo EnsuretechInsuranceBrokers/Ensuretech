@@ -1,9 +1,11 @@
+from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.tenancy import get_scoped_or_404
 from apps.jobs.models import EndorsementJob
 
+from . import error_sheet
 from .models import ValidationLog
 
 
@@ -27,3 +29,13 @@ class JobErrorsView(APIView):
                          "results": [{"line": r.source_line, "employee_code": r.employee_code, "field": r.field_name,
                                       "rule": r.rule_code, "severity": r.severity, "message": r.message,
                                       "value": r.raw_value} for r in rows]})
+
+
+class JobErrorSheetView(APIView):
+    """The same findings as a spreadsheet: the rows that need fixing, with what is wrong with each, plus every finding. Same scoping as the JSON list."""
+
+    def get(self, request, job_id):
+        job = get_scoped_or_404(EndorsementJob.objects, request.user, id=job_id)
+        resp = HttpResponse(error_sheet.build(job), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        resp["Content-Disposition"] = f'attachment; filename="{error_sheet.filename(job)}"'
+        return resp

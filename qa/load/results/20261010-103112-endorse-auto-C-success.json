@@ -1,0 +1,92 @@
+{
+  "kind": "endorse",
+  "label": "auto-C-success",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T10:31:12",
+  "rows_per_sheet": 1000,
+  "uploads": 3,
+  "parallel": 1,
+  "succeeded": 3,
+  "wall_seconds": 3.1,
+  "total_rows_endorsed": 3000,
+  "overall_rows_per_second": 968.3,
+  "seconds_to_final": {
+    "min": 0.92,
+    "median": 0.96,
+    "max": 1.21
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791628269-1-2583c2",
+      "http": 202,
+      "accept_ms": 79.4,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "c3847cfd-636c-49a2-9daf-c4920dd7d0dd",
+      "status": "ENDORSED",
+      "seconds_to_final": 0.96,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.12,
+        "VALIDATION_IN_PROGRESS": 0.41,
+        "PREMIUM_CALCULATED": 0.68,
+        "ENDORSED": 0.96
+      },
+      "rows_per_second": 1044.9,
+      "failed": 0,
+      "timed_out": false
+    },
+    {
+      "n": 2,
+      "rows": 1000,
+      "correlation_id": "load-1791628270-2-53d2aa",
+      "http": 202,
+      "accept_ms": 67.5,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "5f3e0e24-476d-4774-8e27-98903a5bd83b",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.21,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.09,
+        "PREMIUM_CALC_QUEUED": 0.65,
+        "ENDORSEMENT_IN_PROGRESS": 0.94,
+        "ENDORSED": 1.21
+      },
+      "rows_per_second": 826.0,
+      "failed": 0,
+      "timed_out": false
+    },
+    {
+      "n": 3,
+      "rows": 1000,
+      "correlation_id": "load-1791628271-3-360d7f",
+      "http": 202,
+      "accept_ms": 67.8,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "39a58f6f-afc3-4f6c-a596-28cc42f0343c",
+      "status": "ENDORSED",
+      "seconds_to_final": 0.92,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.09,
+        "VALIDATION_QUEUED": 0.37,
+        "PREMIUM_CALC_QUEUED": 0.65,
+        "ENDORSED": 0.92
+      },
+      "rows_per_second": 1085.0,
+      "failed": 0,
+      "timed_out": false
+    }
+  ]
+}

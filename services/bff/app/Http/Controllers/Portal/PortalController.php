@@ -206,6 +206,14 @@ class PortalController extends Controller
         return $this->view($r, 'intake_file', ['plan' => $res['json'], 'q' => $q]);
     }
 
+    /** The upload's problems as a spreadsheet: the rows to fix, each with what is wrong, plus every finding. */
+    public function errorSheet(Request $r, string $id)
+    {
+        abort_unless(preg_match('/^[0-9a-f-]{36}$/', $id), 404);
+
+        return $this->api->call($r, 'GET', '/'.$this->gw($r)."/endorsements/$id/errors/download")['response'];
+    }
+
     public function intakeTemplate(Request $r)
     {
         $q = $r->validate(['policy_id' => 'required|integer|min:1', 'op_type' => 'required|in:ADD,REMOVE,UPDATE', 'employee_count' => 'required|integer|min:1|max:1000000', 'effective_date' => 'nullable|date']);

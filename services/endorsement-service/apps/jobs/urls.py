@@ -32,4 +32,5 @@ urlpatterns = [
     path("<uuid:job_id>/proceed/", views.JobProceedView.as_view()),
     path("<uuid:job_id>/retry/", views.JobRetryView.as_view()),
     path("<uuid:job_id>/errors/", validation.JobErrorsView.as_view()),
+    path("<uuid:job_id>/errors/download/", validation.JobErrorSheetView.as_view()),
 ]

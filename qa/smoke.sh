@@ -85,6 +85,8 @@ echo "4. TPA offline upload (member ids by spreadsheet)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 expect 200 "board of members waiting" -H "Authorization: Bearer $BROKER" "$B/broker/integration/tpa-pending"
 expect 200 "template downloads" -o "$T/t.xlsx" -H "Authorization: Bearer $BROKER" "$B/broker/integration/policies/1/offline-template"
+curl -s -m 30 -o "$T/t.xlsx" -H "Authorization: Bearer $BROKER" "$B/broker/integration/policies/1/offline-template"
+[ "$(head -c 2 "$T/t.xlsx" 2>/dev/null)" = PK ] && [ "$(wc -c < "$T/t.xlsx")" -gt 1000 ] && ok "...and the file has content (a real .xlsx, not an empty body)" || no "template download is empty or not an .xlsx"
 printf 'Employee code,Relationship,TPA member id,TPA member name,Cover start date\n1001,Self,T-1001,Asha Rao,2026-11-01\n1099,Self,T-1099,Nobody,2026-11-01\n1004,Self,T-1006,Dev Iyer,2026-12-15\n' > "$T/tpa.csv"
 R="$(curl -s -m 30 -H "Authorization: Bearer $BROKER" -F file=@"$T/tpa.csv" -F mode=preview "$B/broker/integration/policies/1/offline-sheet")"
 [ "$(echo "$R" | jget '(d["applied"],d["rejected"])')" = "(False, 2)" ] && ok "preview: the person on the policy passes, the stranger and the wrong cover date are refused, nothing saved" || no "preview result: $R"
@@ -108,6 +110,13 @@ if [ -d .dev/logs ]; then
   sleep 1; TR="smoke-trace-$$-$SUF"; SEEN="$(grep -l -- "$TR" .dev/logs/*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.log$//' | tr '\n' ' ')"
   case "$SEEN" in *bff*engine*|*bff*endorsement*) ok "one correlation id appears in the logs of: ${SEEN}";; *) [ -n "$SEEN" ] && no "correlation id only reached: $SEEN" || skip "correlation id not found in .dev/logs (stack not started by dev-up.sh?)";; esac
 fi
+SUF2=$(( RANDOM % 9000 + 11000 )); PAN4=$(( SUF2 % 9000 + 1000 ))
+printf 'Emp Code,Relationship,Member Name,DOB,Gender,Sum Insured,Effective Date,PAN\n%s,Self,Smoke Good,17/05/1985,F,500000,,%s%sQ\n%s,Self,,17/05/1985,F,500000,,%s%sR\n' "$SUF2" "$L2" "$PAN4" "$((SUF2+1))" "$L" "$PAN4" > "$T/p.csv"
+JOB2="$(curl -s -m 30 -X POST "$B/broker/endorsements/csv/upload" -H "Authorization: Bearer $BROKER" -H "Idempotency-Key: smoke-$$-p$SUF2" -F file=@"$T/p.csv" -F policy_id=1 -F op_type=ADD -F effective_date=2026-11-15 | jget 'd["id"]')"
+S2=""; for i in $(seq 40); do S2="$(curl -s -H "Authorization: Bearer $BROKER" "$B/broker/endorsements/$JOB2" | jget 'd["status"]')"; case "$S2" in ENDORSED|*FAILED*|CD_INSUFFICIENT) break;; esac; sleep 1; done
+[ "$S2" = ENDORSED ] && ok "a partly failed upload carries on by itself with the valid rows (1 good, 1 bad: ENDORSED)" || no "partial upload ended at '$S2'"
+curl -s -m 30 -o "$T/err.xlsx" -H "Authorization: Bearer $BROKER" "$B/broker/endorsements/$JOB2/errors/download"
+[ "$(head -c 2 "$T/err.xlsx" 2>/dev/null)" = PK ] && ok "the error sheet downloads as a real .xlsx ($(wc -c < "$T/err.xlsx") bytes)" || no "error sheet download is empty or not an .xlsx"
 if up 5555; then
   W="$(curl -s -u "$FLOWER_BASIC_AUTH" "127.0.0.1:5555/api/tasks?limit=200" | python3 -c "
 import sys,json

@@ -6,7 +6,7 @@ Everything runs on your machine. Setup is `run.html` (§0 gives the order; §3a 
 
 ```
 scripts/dev-up.sh --no-kafka        # or without --no-kafka when Kafka is running
-qa/smoke.sh                         # 57 checks, about 45 s; --quick skips the endorsement upload
+qa/smoke.sh                         # 59 checks, about 50 s; --quick skips the endorsement upload
 node qa/portal-smoke.js             # opens the portal in a real browser as a broker and as HR (needs Playwright, see the file's header)
 ```
 `smoke.sh` drives the stack only through the doors a user or an operator has and prints PASS or FAIL for each: sign-in and tenant isolation; **the lock** (direct calls to every core service with a valid token are refused, the actuator controls, metrics token, super credentials); the **job controls** with the wrong and the right job-killer password and the audit trail;
@@ -24,7 +24,7 @@ A run takes about an hour. Tick them off; each says what you should see.
 
 **Endorsements** (`run.html` §10)
 - [ ] Add people with the grid (up to 100 employees) and with a spreadsheet (above 100). Mistakes are marked on the row as you type; nothing reloads the page.
-- [ ] A file with a bad date, a duplicate PAN, an impossible relation: `VALIDATION_PARTIAL` with a line-by-line list; the good rows can still go ahead.
+- [ ] A file with a bad date, a duplicate PAN, an impossible relation: the good rows go ahead on their own (`VALIDATION_PARTIAL` is passed through; set `PARTIAL_AUTO_CONTINUE=false` to hold it for a person), the upload page lists every problem line by line, and "Download as a spreadsheet" gives the rows to fix as an `.xlsx`. A file where every row is bad stops at `VALIDATION_FAILED`.
 - [ ] Too little deposit: `CD_INSUFFICIENT`; credit the deposit; Retry; `ENDORSED`; the balance drops by the premium.
 - [ ] Remove people and change details, not only add. Mid-term dates pro-rate (daily vs monthly per policy).
 
@@ -40,13 +40,13 @@ A run takes about an hour. Tick them off; each says what you should see.
 
 | Layer | Where | Run | Count |
 |---|---|---|---|
-| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 95 |
+| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 96 |
 | identity | `services/identity-service/tests` | `pytest -q` | 62 |
-| endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 333 |
+| endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 341 |
 | notification | `services/notification-service/tests` | `pytest -q` | 42 |
 | read-service | `services/read-service/tests` | `TEST_MONGO_URI=... pytest -q` (needs MongoDB) | not run in the build sandbox |
-| policy / billing / organization / integration / sheet-generator / admin | `services/*/src/test` | `DATABASE_URL=jdbc:... mvn test` | 101 / 51 / 38 / 56 / 65 / 8 |
-| whole stack through its doors | `qa/smoke.sh` | stack running | 57 checks |
+| policy / billing / organization / integration / sheet-generator / admin | `services/*/src/test` | `DATABASE_URL=jdbc:... mvn test` | 101 / 51 / 38 / 56 / 66 / 8 |
+| whole stack through its doors | `qa/smoke.sh` | stack running | 59 checks |
 | the portal in a browser | `qa/portal-smoke.js` | stack running + Playwright | 11 pages |
 
 **Rules that keep tests honest here**

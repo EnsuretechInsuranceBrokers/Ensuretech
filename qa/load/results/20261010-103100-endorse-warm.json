@@ -1,0 +1,47 @@
+{
+  "kind": "endorse",
+  "label": "warm",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T10:31:00",
+  "rows_per_sheet": 1000,
+  "uploads": 1,
+  "parallel": 1,
+  "succeeded": 1,
+  "wall_seconds": 3.89,
+  "total_rows_endorsed": 1000,
+  "overall_rows_per_second": 257.3,
+  "seconds_to_final": {
+    "min": 3.88,
+    "median": 3.88,
+    "max": 3.88
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791628256-1-341c4d",
+      "http": 202,
+      "accept_ms": 1749.3,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "1cfeb992-2afd-4472-8197-d0427764c225",
+      "status": "ENDORSED",
+      "seconds_to_final": 3.88,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 1.81,
+        "VALIDATION_IN_PROGRESS": 2.4,
+        "VALIDATION_PASSED": 2.69,
+        "PREMIUM_CALC_QUEUED": 3.0,
+        "PREMIUM_CALCULATED": 3.3,
+        "CD_CHECK_INITIATED": 3.59,
+        "ENDORSED": 3.88
+      },
+      "rows_per_second": 257.5,
+      "failed": 0,
+      "timed_out": false
+    }
+  ]
+}

@@ -43,6 +43,8 @@ def rest_reason(job: EndorsementJob) -> str | None:
         return "terminal"
     if s in SETTLED_HERE:
         return "settled"
+    if s == State.VALIDATION_PARTIAL and settings.PIPELINE_AUTO_CONTINUE and settings.PARTIAL_AUTO_CONTINUE:
+        return None                                                    # carrying on by itself with the rows that passed
     if s in WAITING_ON_A_HUMAN:
         return "waiting_for_human"
     if s == State.VALIDATION_PASSED and not settings.PIPELINE_AUTO_CONTINUE:

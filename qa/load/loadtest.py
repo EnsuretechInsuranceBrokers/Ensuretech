@@ -175,6 +175,15 @@ def run_one(args, n, effective, token):
                 break
             page += 1
         res.update(error_rows_fetched=errs, seconds_to_fetch_all_errors=round(time.perf_counter() - e0, 2))
+        x0 = time.perf_counter()                                            # and the same thing as the downloadable spreadsheet
+        rq = urllib.request.Request(f"{api.base}/broker/endorsements/{jid}/errors/download", headers={"Authorization": f"Bearer {api.token}"})
+        try:
+            with urllib.request.urlopen(rq, timeout=120) as rs:
+                blob = rs.read()
+                res.update(error_sheet_http=rs.status, error_sheet_bytes=len(blob), error_sheet_is_xlsx=blob[:2] == b"PK")
+        except urllib.error.HTTPError as e:
+            res.update(error_sheet_http=e.code)
+        res["seconds_to_download_error_sheet"] = round(time.perf_counter() - x0, 2)
     res.update(job_id=jid, status=last or "NO_STATUS", seconds_to_final=round(total, 2), first_seen_at_seconds=seen,
                rows_per_second=round(args.rows / total, 1) if last in DONE else None, failed=res.get("failed_rows"), timed_out=time.perf_counter() >= deadline)
     os.remove(path)

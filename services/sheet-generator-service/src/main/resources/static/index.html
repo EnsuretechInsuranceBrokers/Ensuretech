@@ -1263,7 +1263,7 @@ function buildSelfValues(ctx) {
     // Password used to be toggle-gated (off by default) - that was the
     // "passwords all blank" bug. They're unconditional now.
     employee_mobile: String(randInt(7, 9)) + padStart(randInt(0, 999999999), 9, "0").slice(0, 9),
-    mobile_no_code: "91", // paired with Mobile Number - a blank code next to a filled number is what triggered "country code is invalid"
+    mobile_no_code: "", // deliberately blank: the mobile / phone-number / country code is never filled in (do not put 91 here)
     default_password: cfg.defaultPasswordValue || "Test@12345",
     is_password_reset: "No"
   };
@@ -1744,7 +1744,7 @@ const BUILTIN_TEMPLATES = {
     employee_unit: "unit", employee_email: "unique email", employee_alt_email: "blank",
     is_dummy_email: "blank/Yes/No", to_hide_email: "blank/Yes/No", is_demo_email: "blank",
     demo_email_expiry: "blank", is_dummy_mobile: "blank/Yes/No", to_hide_mobile: "blank/Yes/No",
-    employee_mobile: "10-digit mobile, starts 7/8/9", employee_alt_mobile: "blank", mobile_no_code: "91",
+    employee_mobile: "10-digit mobile, starts 7/8/9", employee_alt_mobile: "blank", mobile_no_code: "blank",
     relationship: "Self / Spouse / Son ...", insured_member_first_name: "member first name",
     insured_member_last_name: "member last name", insured_member_gender: "member gender",
     insured_member_dob: "member DOB", insured_member_email: "blank", insured_member_mobile: "blank",
