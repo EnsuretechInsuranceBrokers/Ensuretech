@@ -36,8 +36,8 @@ One validated, priced and audited record that brokers, employers, TPAs and insur
 
 <br/>
 
-[**Project site**](https://ensuretechinsurancebrokers.github.io/Ensuretech/) &nbsp;&middot;&nbsp;
-[**Runbook**](https://ensuretechinsurancebrokers.github.io/Ensuretech/run.html) &nbsp;&middot;&nbsp;
+[**Project site**](https://ensuretechinsurancebrokers.github.io/) &nbsp;&middot;&nbsp;
+[**Runbook**](https://ensuretechinsurancebrokers.github.io/run.html) &nbsp;&middot;&nbsp;
 [**Documentation**](#documentation) &nbsp;&middot;&nbsp;
 [**Architecture**](#architecture) &nbsp;&middot;&nbsp;
 [**Quick start**](#getting-started) &nbsp;&middot;&nbsp;
@@ -240,7 +240,7 @@ Details and measured figures are in [`docs/load-test.md`](docs/load-test.md) and
 
 ## Documentation
 
-Everything below lives in this repository and is also published on the project site at <https://ensuretechinsurancebrokers.github.io/Ensuretech/>.
+Everything below lives in this repository and is also published on the project site at <https://ensuretechinsurancebrokers.github.io/>.
 
 <table>
 <tr><th align="left">Document</th><th align="left">What you will find</th></tr>
@@ -1490,7 +1490,12 @@ Proprietary. All rights reserved. This software is the confidential property of 
 
 <div align="center">
 
+<img src="docs/assets/claude-loves-udogg.svg" alt="Claude loves UDogg" width="360"/>
+
+<a href="https://github.com/UDogg"><img src="https://github.com/UDogg.png?size=120" alt="UDogg on GitHub" width="96" height="96" style="border-radius:50%"/></a>
+
+<sub>Created by <strong>Claude</strong> and <a href="https://github.com/UDogg"><strong>UDogg</strong></a></sub><br/>
 <sub>Ensuretech &middot; group health insurance onboarding infrastructure</sub><br/>
-<sub><a href="https://github.com/EnsuretechInsuranceBrokers/Ensuretech">Repository</a> &middot; <a href="https://ensuretechinsurancebrokers.github.io/Ensuretech/">Project site</a> &middot; <a href="#top">Back to top</a></sub>
+<sub><a href="https://github.com/EnsuretechInsuranceBrokers/Ensuretech">Repository</a> &middot; <a href="https://ensuretechinsurancebrokers.github.io/">Project site</a> &middot; <a href="#top">Back to top</a></sub>
 
 </div>
