@@ -1,0 +1,183 @@
+syntax = "proto3";
+
+package ensuretech.policy.v1;
+
+option java_multiple_files = true;
+option java_package = "com.broker.policy.grpc.gen";
+option java_outer_classname = "PolicyValidationProto";
+
+// Synchronous, internal-only API of policy-service. Callers send a JWT in the `authorization` metadata
+// ("Bearer <token>"). Broker-scoped tokens act on their own broker; a SYSTEM (service) token must name
+// the tenant explicitly via broker_id. Recommended client deadline: 500 ms.
+service PolicyValidation {
+  // Is this policy configured well enough to accept endorsements?
+  rpc ValidatePolicyConfig(PolicyConfigRequest) returns (ValidationResult);
+  // Active rate card (cached server-side, 1h TTL).
+  rpc GetRateCard(RateCardRequest) returns (RateCardResponse);
+  // Annual premium for a set of members under the policy's rater. Pro-rata is applied by the caller.
+  rpc CalculatePremium(PremiumRequest) returns (PremiumResponse);
+  // Price many families in one call: policy, premium type, rate card and relations are loaded once, not per family.
+  // A family that cannot be priced (e.g. no band for an age) reports its own error and does not fail the batch.
+  rpc CalculatePremiumBatch(PremiumBatchRequest) returns (PremiumBatchResponse);
+  // Policy facts the endorsement engine needs (employer for scope checks, dates and pro-rata for pricing).
+  rpc GetPolicy(PolicyRequest) returns (PolicyInfo);
+  // Validate many families against the policy's family construct in one call (a chunk = one call).
+  rpc ValidateFamilies(FamilyValidationRequest) returns (FamilyValidationResponse);
+}
+
+message PolicyConfigRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;           // only honoured for SYSTEM tokens
+}
+
+message ValidationIssue {
+  string code = 1;               // e.g. NO_ACTIVE_RATE_CARD
+  string message = 2;
+  int32 member_index = 3;        // index of the offending person within the family, -1 when family-wide
+}
+
+message ValidationResult {
+  bool valid = 1;
+  repeated ValidationIssue issues = 2;
+}
+
+message RateCardRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;
+}
+
+message RateCardResponse {
+  int64 rate_card_id = 1;
+  int64 policy_id = 2;
+  string effective_from = 3;     // ISO-8601 date
+  string tax_rate = 4;           // decimal string, percent
+  string rate_table_json = 5;
+  int32 premium_type_id = 6;
+  string rater_class = 7;
+}
+
+message MemberInput {
+  string member_ref = 1;         // caller's correlation key (row id, employee code...)
+  string relation_code = 2;      // SELF, SPOUSE, SON ...
+  int32 age = 3;
+  string grade = 4;
+  string designation = 5;
+  string sum_insured = 6;        // decimal string
+  repeated string layers = 7;    // optional: selected layers for layered raters
+}
+
+message PremiumRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;
+  repeated MemberInput members = 3;
+}
+
+message MemberPremium {
+  string member_ref = 1;
+  string premium = 2;            // decimal string, annual, before tax
+}
+
+message PremiumResponse {
+  repeated MemberPremium members = 1;
+  string subtotal = 2;
+  string tax_rate = 3;
+  string tax = 4;
+  string total = 5;
+}
+
+message PolicyRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;           // only honoured for SYSTEM tokens
+}
+
+message PolicyInfo {
+  int64 policy_id = 1;
+  int64 employer_id = 2;
+  string policy_number = 3;
+  string policy_type = 4;        // GMC, GPA, GTL, OPD, WELLNESS
+  string status = 5;             // APPROVED_AND_LIVE, ...
+  string start_date = 6;         // ISO-8601
+  string end_date = 7;
+  string pro_rata_type = 8;      // DAILY, MONTHLY, NONE (NONE = pro-rata not allowed); each relation's own kind is in relation_rules
+  bool is_inception = 9;
+  int32 premium_type_id = 10;
+  string premium_type_code = 11;
+  bool requires_family_construct = 12;   // false for GPA/GTL: skip family validation
+  repeated RelationRuleInfo relation_rules = 13;
+  // Employee/employer split: NONE (not configured: the split is unknown), PERCENT (employee pays that % of a member's premium) or FIXED
+  // (employee pays that amount per member, capped at the premium). Groups: SELF, SPOUSE, CHILD, PARENT_SINGLE, PARENT_DOUBLE,
+  // PARENT_IN_LAW_SINGLE, PARENT_IN_LAW_DOUBLE, OTHERS. Values are decimal strings.
+  string contribution_type = 14;
+  map<string, string> contribution_groups = 15;
+  string premium_rounding = 16;  // NONE, FLOOR, CEIL, ROUND: how the money charged for an endorsement is rounded
+  int32 rounding_unit = 17;      // the multiple it is rounded to (1 = whole rupees); 1 when NONE
+  repeated DependantMidtermInfo dependant_midterm = 19;   // per member group; a group with no entry has no rule
+  string midterm_basis = 18;     // DATE_OF_JOINING, DATE_OF_UPLOAD or NO_MIDTERM: how a mid-term joiner's cover start is decided
+}
+
+// Mid-term dependant rules (legacy is_midterm_enrollement_allowed_for_*, default_midterm_enrollement_days_for_*, midterm_premium_calculation_from_for_*).
+message DependantMidtermInfo {
+  string member_group = 1;       // SPOUSE, PARTNER, KIDS
+  bool allowed = 2;
+  optional int32 window_days = 3;
+  string start_basis = 4;        // UPLOAD or EVENT (date of marriage for spouse/partner, date of birth for kids)
+}
+
+// Per-relation rules (legacy policy_age_details). pro_rata_type is already resolved: NONE if the policy forbids pro-rata, else the
+// relation's own kind, else the policy's. Unset ages mean "no rule".
+message RelationRuleInfo {
+  string relation_code = 1;
+  optional int32 min_age = 2;
+  optional int32 max_age = 3;
+  optional int32 age_difference = 4;
+  string difference_from_relation = 5;   // SELF or SPOUSE, empty when no age_difference
+  string pro_rata_type = 6;
+  int32 max_twins = 7;
+}
+
+message Person {
+  string relation_code = 1;
+  int32 age = 2;
+  string dob = 3;                // ISO date, optional; lets the policy detect twins (children sharing a birth date)
+}
+
+message Family {
+  string family_ref = 1;         // caller's key, usually the employee code
+  repeated Person people = 2;    // employee (SELF) first, then dependents
+}
+
+message FamilyValidationRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;
+  repeated Family families = 3;
+}
+
+message FamilyResult {
+  string family_ref = 1;
+  repeated ValidationIssue issues = 2;
+}
+
+message FamilyValidationResponse {
+  repeated FamilyResult results = 1;
+}
+
+message FamilyPremiumRequest {
+  string family_ref = 1;          // caller's key, usually the employee code; must be unique within the request
+  repeated MemberInput members = 2;
+}
+
+message PremiumBatchRequest {
+  int64 policy_id = 1;
+  int64 broker_id = 2;            // only honoured for SYSTEM tokens
+  repeated FamilyPremiumRequest families = 3;   // at most 5000 per call
+}
+
+message FamilyPremiumResult {
+  string family_ref = 1;
+  PremiumResponse result = 2;     // unset when error is non-empty
+  string error = 3;               // why this family could not be priced
+}
+
+message PremiumBatchResponse {
+  repeated FamilyPremiumResult results = 1;     // same order as the request
+}

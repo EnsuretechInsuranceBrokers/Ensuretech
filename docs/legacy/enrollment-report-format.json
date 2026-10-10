@@ -1,0 +1,40 @@
+{
+  "status": "PARTIAL - enrollment report header text/order is UNKNOWN: generator classes (StandaloneEnrollmentReportingService, NewMemberEnrollmentReportExport) and DefaultEndrosementFormatFeildsMappingSeeder are not in the uploaded files (ReportController.php:57,67,2388)",
+  "columns": [],
+  "columnsNote": "UNKNOWN. Not derivable from uploaded code. Endorsement sheet field keys (not report headers) are listed under endorsementFieldKeys.",
+  "keyColumns": [
+    {"field": "employee_code", "header": "UNKNOWN", "source": "NewUpdateEndorsedMemberJob.php:1260-1275"},
+    {"field": "relationship_with_employee", "header": "UNKNOWN", "source": "NewUpdateEndorsedMemberJob.php:1066,1244-1253"},
+    {"field": "endrosement_number", "header": "UNKNOWN", "note": "maps to EmployeeMembers.endorsement_id; sole member locator for UPDATE/REMOVE", "source": "NewUpdateEndorsedMemberJob.php:1067-1082,155"},
+    {"field": "tpa_member_id", "header": "UNKNOWN", "source": "EndrosementEnrollementController.php:3873"},
+    {"field": "Insurer Removal Id", "header": "UNKNOWN", "note": "string not found in any uploaded PHP file"}
+  ],
+  "updateRequires": {
+    "formatId": 3,
+    "required": ["endrosement_number", "type_of_correction"],
+    "optional": ["effective_date", "employee_first_name", "employee_last_name", "employee_gender", "employee_dob", "employee_email", "employee_mobile_number", "date_of_marriage", "employee_state", "employee_city", "employee_pin_code", "insured_member_first_name", "insured_member_last_name", "insured_member_gender", "insured_member_dob", "suminsured", "opd_suminsured", "employee_grade", "employee_designation", "employee_date_of_joining", "member_existing_claim", "employee_number_of_time_salary", "relationship_with_employee", "employer_name"],
+    "headerLabels": "UNKNOWN (DB-driven, DefaultEndrosementFormatFeildsMapping.default_feild_name)",
+    "source": "NewUpdateEndorsedMemberJob.php:1057-1420, 1763-1777"
+  },
+  "removeRequires": {
+    "formatId": 2,
+    "required": ["employee_code", "endrosement_number", "employee_leaving_date"],
+    "headerLabels": "UNKNOWN",
+    "validatorRules": "UNKNOWN (NewRemoveEndorsedMemberJob not uploaded)",
+    "source": "TestController.php:2503-2510; EndrosementEnrollementController.php:1339"
+  },
+  "formatIds": {"add": 1, "remove": 2, "update": 3, "excelErrorReportDocumentTypeIds": {"add": 3, "remove": 4, "update": 5}},
+  "formats": {
+    "date": {"parsedInputs": ["Excel serial", "d/m/Y", "d-m-Y", "Y-m-d", "Y/m/d", "d.m.Y"], "normalisedOutput": "d-m-Y", "source": "helper.php:3229-3273"},
+    "gender": {"accepted": ["male", "Male", "female", "Female", "Other", "other"], "generated": ["Male", "Female"], "source": "NewUpdateEndorsedMemberJob.php:1344-1350; TestController.php:5382-5391"},
+    "relation": ["Self", "Spouse", "Son", "Daughter", "Father", "Mother", "Father-in-law", "Mother-in-law"],
+    "relationSource": "TestController.php:7625",
+    "mobile": "10 digits",
+    "pincode": "6 digits"
+  },
+  "statusColumns": {"columns": "UNKNOWN", "reportFilters": {"report_filter_key": "0 All, 1 Active, 2 Inactive", "report_endorsement_filter_key": "0 All, 1 Endorsement, 2 Inception", "enrollment_filter_key": "1 confirmed, 2 unconfirmed"}, "source": "ReportController.php:2325-2330"},
+  "endorsementFieldKeys": {
+    "add": ["employee_code", "employee_first_name", "employee_last_name", "employee_gender", "employee_dob", "employee_date_of_joining", "employee_email", "employee_mobile_number", "employee_designation", "employee_grade", "employee_annual_salary", "employee_variables_in_salary", "employee_address", "employee_state", "employee_city", "employee_pin_code", "suminsured", "relationship_with_employee", "insured_member_first_name", "insured_member_last_name", "insured_member_gender", "insured_member_dob", "should_verify_email", "default_password"],
+    "addSource": "TestController.php:5560-5588; default-sheet membership UNKNOWN"
+  }
+}

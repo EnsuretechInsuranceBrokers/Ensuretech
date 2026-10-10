@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live requests and SQL · Ensuretech operations</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b2430;--mut:#667085;--line:#e4e7ec;--brand:#1f5eff;--ok:#067647;--warn:#b54708;--err:#b42318;--hl:rgba(31,94,255,.12)}
+@media(prefers-color-scheme:dark){:root{--bg:#10151c;--card:#171e28;--ink:#e6eaf0;--mut:#98a2b3;--line:#27313f;--brand:#6c93ff;--ok:#47cd89;--warn:#fdb022;--err:#f97066;--hl:rgba(108,147,255,.18)}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}main{max-width:1500px;margin:0 auto;padding:1rem 1.2rem}
+h1{font-size:1.35rem;margin:.1rem 0}h2{font-size:1rem;margin:1.4rem 0 .4rem}.sub{color:var(--mut);margin:0 0 .8rem;max-width:90ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;margin:.6rem 0}
+table{width:100%;border-collapse:collapse;font-size:.84rem}th,td{text-align:left;padding:.3rem .45rem;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:600;font-size:.72rem;text-transform:uppercase;white-space:nowrap}
+tr.req{cursor:pointer}tr.req:hover{background:var(--hl)}tr.fresh{animation:f 1.6s ease-out}@keyframes f{from{background:var(--hl)}to{background:transparent}}
+code,pre{font:12.5px/1.45 ui-monospace,monospace}pre{margin:0;white-space:pre-wrap;word-break:break-word}mark{background:#ffe066;color:#000;border-radius:2px;padding:0 1px}
+.pill{display:inline-block;padding:.02rem .5rem;border-radius:99px;font-size:.72rem;font-weight:600;border:1px solid var(--line);white-space:nowrap}.n1,.s5,.bg{color:var(--err);border-color:var(--err)}.s4{color:var(--warn);border-color:var(--warn)}.s2{color:var(--ok)}
+.slow{color:var(--warn);font-weight:600}.mut{color:var(--mut)}.err{color:var(--err)}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;padding:.2rem .6rem;cursor:pointer}
+input,select{font:inherit;padding:.3rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}.bar{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
+.dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--mut);margin-right:.3rem}.dot.live{background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:p 1.6s infinite}@keyframes p{70%{box-shadow:0 0 0 .5rem transparent}}
+.who{line-height:1.25}.who small{color:var(--mut)}
+</style></head><body><main>
+<h1><span class="dot" id="dot"></span>Live requests and SQL</h1>
+<p class="sub">Every request each Spring service handles, as it happens: <strong>who</strong> made it (user, role, broker), the <strong>controller method</strong> that ran and <strong>every SQL statement</strong> it caused, with timings. A <span class="pill n1">N+1?</span> means one statement ran 3+ times in one request. Times are IST. Bind values are never recorded. Development and QA only: services need <code>QUERYLOG_ENABLED=true</code>. Back to <a href="/">the console</a>.</p>
+<div class="card bar">
+<input id="q" placeholder="Filter: any part of user, role, broker, path, controller, SQL, status, correlation id (words are ANDed)" size="62" autofocus>
+<select id="svc"><option value="">all services</option></select>
+<select id="role"><option value="">all roles</option></select>
+<select id="st"><option value="">any status</option><option value="2">2xx</option><option value="4">4xx</option><option value="5">5xx</option></select>
+<label>≥ <input id="min" type="number" min="0" value="0" style="width:4.5rem"> ms</label>
+<label><input id="rep" type="checkbox"> N+1 only</label><label><input id="bgl" type="checkbox"> break-glass only</label><label><input id="bg" type="checkbox"> background SQL</label>
+</div>
+<div class="card bar"><span id="live" class="mut">connecting…</span><button id="pause">Pause</button><button id="clear">Clear all</button><span class="mut" id="count"></span><span class="mut" id="down"></span></div>
+<div class="card"><table><thead><tr><th>Time (IST)</th><th>Service</th><th>User</th><th>Request</th><th>Controller method</th><th>Status</th><th>ms</th><th>SQL</th><th>DB ms</th><th>Correlation id</th></tr></thead><tbody id="rows"><tr><td colspan="10" class="mut">Waiting for traffic. Use the portal or the API.</td></tr></tbody></table></div>
+<h2>Slowest statements in what is shown</h2>
+<div class="card"><table><thead><tr><th>ms</th><th>Service</th><th>Statement</th><th>Controller method</th></tr></thead><tbody id="slow"></tbody></table></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const xsrf = () => (document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN=')) || '').split('=')[1] || '';
+const IST = new Intl.DateTimeFormat('en-GB', {timeZone: 'Asia/Kolkata', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'});
+const ist = iso => { const d = new Date(iso); return IST.format(d).replace(',', '') + '.' + String(d.getMilliseconds()).padStart(3, '0'); };
+const MAX = 2000;
+let all = [], seen = new Set(), open = new Set(), paused = false, fresh = new Set(), pending = [];
+const key = r => r.service + '#' + r.seq;
+function add(list, markFresh) {
+  for (const r of list) { const k = key(r); if (seen.has(k)) continue; seen.add(k); all.push(r); if (markFresh) fresh.add(k); }
+  all.sort((a, b) => b.at.localeCompare(a.at)); if (all.length > MAX) { for (const r of all.splice(MAX)) seen.delete(key(r)); }
+}
+const hay = r => (r._h ||= [r.service, r.user, r.role, r.brokerId != null ? 'broker ' + r.brokerId + ' broker_id=' + r.brokerId : '', r.employerId != null ? 'employer ' + r.employerId : '', r.breakGlass ? 'break-glass ' + r.breakGlass : '',
+  r.method, r.uri, r.handler, r.status, r.correlationId, r.error, ...r.queries.map(q => q.sql)].join(' \u0001 ').toLowerCase());
+function marked(text, terms) { let h = esc(text); for (const t of terms) if (t.length > 1) h = h.replace(new RegExp(esc(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => '<mark>' + m + '</mark>'); return h; }
+function draw() {
+  const terms = $('#q').value.toLowerCase().split(/\s+/).filter(Boolean), svc = $('#svc').value, role = $('#role').value, st = $('#st').value, min = Number($('#min').value) || 0, rep = $('#rep').checked, bgl = $('#bgl').checked, bg = $('#bg').checked;
+  const rows = all.filter(r => (!svc || r.service === svc) && (!role || r.role === role) && (!st || String(r.status)[0] === st) && (bg || r.kind === 'request') && r.ms >= min && (!rep || r.repeats.length) && (!bgl || r.breakGlass) && terms.every(t => hay(r).includes(t))).slice(0, 300);
+  $('#count').textContent = rows.length + ' shown of ' + all.length;
+  $('#rows').innerHTML = rows.length ? rows.map(r => { const k = key(r), sc = r.status ? 's' + String(r.status)[0] : '';
+    return '<tr class="req' + (fresh.has(k) ? ' fresh' : '') + '" data-k="' + esc(k) + '"><td>' + ist(r.at) + '</td><td>' + esc(r.service) + '</td>'
+      + '<td class="who">' + (r.user ? '<code>' + marked(String(r.user).slice(0, 8), terms) + '</code> ' + esc(r.role || '') + '<br><small>' + (r.brokerId != null ? 'broker ' + r.brokerId : '') + (r.employerId != null ? ' employer ' + r.employerId : '') + '</small>' : '<span class="mut">background</span>') + (r.breakGlass ? ' <span class="pill bg" title="opened by ' + esc(r.breakGlass) + '">BREAK-GLASS</span>' : '') + '</td>'
+      + '<td><code>' + marked((r.method || '') + ' ' + (r.uri || ''), terms) + '</code></td><td><code>' + marked(r.handler, terms) + '</code>' + (r.error ? '<br><span class="err">' + esc(r.error.slice(0, 120)) + '</span>' : '') + '</td>'
+      + '<td>' + (r.status ? '<span class="pill ' + sc + '">' + r.status + '</span>' : '') + '</td><td class="' + (r.ms > 500 ? 'slow' : '') + '">' + r.ms + '</td>'
+      + '<td>' + r.queryCount + (r.repeats.length ? ' <span class="pill n1" title="the same statement ran 3+ times">N+1?</span>' : '') + '</td><td>' + r.dbMs + '</td><td><code>' + marked(r.correlationId || '', terms) + '</code></td></tr>'
+      + (open.has(k) ? '<tr><td colspan="10"><table>' + (r.repeats.length ? '<tr><td colspan="2" class="err">Repeated: ' + r.repeats.map(x => x.times + '× ' + esc(x.sql.slice(0, 180)) + ' (' + x.totalMs + ' ms)').join('<br>') + '</td></tr>' : '')
+        + r.queries.map(x => '<tr><td style="width:5rem" class="' + (x.ms > 50 ? 'slow' : '') + '">' + x.ms + ' ms' + (x.ok ? '' : ' <span class="err">failed</span>') + '</td><td><pre>' + marked(x.sql, terms) + '</pre></td></tr>').join('')
+        + (r.queryCount > r.queries.length ? '<tr><td colspan="2" class="mut">… and ' + (r.queryCount - r.queries.length) + ' more not kept</td></tr>' : '') + '</table></td></tr>' : ''); }).join('')
+    : '<tr><td colspan="10" class="mut">Nothing matches' + (all.length ? ' (clear a filter)' : ' yet. Use the portal or the API; services must run with QUERYLOG_ENABLED=true') + '.</td></tr>';
+  fresh = new Set();
+  const slow = []; for (const r of rows) for (const x of r.queries) slow.push({ms: x.ms, service: r.service, sql: x.sql, handler: r.handler});
+  slow.sort((a, b) => b.ms - a.ms);
+  $('#slow').innerHTML = slow.slice(0, 12).map(x => '<tr><td class="' + (x.ms > 50 ? 'slow' : '') + '">' + x.ms + '</td><td>' + esc(x.service) + '</td><td><pre>' + marked(x.sql, terms) + '</pre></td><td><code>' + esc(x.handler) + '</code></td></tr>').join('');
+  const opts = (sel, vals, label) => { const cur = sel.value; sel.innerHTML = '<option value="">' + label + '</option>' + [...vals].sort().map(v => '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>').join(''); };
+  opts($('#svc'), new Set(all.map(r => r.service)), 'all services'); opts($('#role'), new Set(all.map(r => r.role).filter(Boolean)), 'all roles');
+}
+function states(m) { const bad = Object.entries(m).filter(([, v]) => v !== 'ok'); $('#down').textContent = bad.map(([k, v]) => k + ': ' + v).join(' · '); }
+async function start() {
+  const r = await fetch('/ops-api/queries?limit=500', {credentials: 'same-origin'});
+  if (r.ok) { const b = await r.json(); add(b.requests, false); states(b.services); draw(); }
+  const es = new EventSource('/ops-api/queries/stream');
+  es.onopen = () => { $('#dot').classList.add('live'); $('#live').textContent = 'live'; };
+  es.onerror = () => { $('#dot').classList.remove('live'); $('#live').textContent = 'reconnecting…'; };
+  es.addEventListener('requests', e => { const list = JSON.parse(e.data); if (paused) pending.push(...list); else { add(list, true); draw(); } });
+  setInterval(async () => { const x = await fetch('/ops-api/queries?limit=1', {credentials: 'same-origin'}); if (x.ok) states((await x.json()).services); }, 15000);
+}
+document.addEventListener('click', e => { const tr = e.target.closest('tr.req'); if (!tr || getSelection().toString()) return; const k = tr.dataset.k; open.has(k) ? open.delete(k) : open.add(k); draw(); });
+['#svc', '#role', '#st', '#min', '#rep', '#bgl', '#bg'].forEach(s => $(s).addEventListener('input', draw)); $('#q').addEventListener('input', draw);
+$('#pause').onclick = () => { paused = !paused; $('#pause').textContent = paused ? 'Resume' : 'Pause'; $('#live').textContent = paused ? 'paused (new requests are held)' : 'live'; if (!paused) { add(pending, true); pending = []; draw(); } };
+$('#clear').onclick = async () => { await fetch('/ops-api/queries', {method: 'DELETE', credentials: 'same-origin', headers: {'X-XSRF-TOKEN': xsrf()}}); all = []; seen.clear(); open.clear(); draw(); };
+start();
+</script></main></body></html>

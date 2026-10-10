@@ -1,0 +1,40 @@
+# Optional: the infrastructure only (not the services). Use it if you do not want to install PostgreSQL, Redis, MongoDB, Kafka and a mail catcher natively.
+#     docker compose -f docker-compose.infra.yml up -d
+# setup.sql runs automatically the first time the database volume is created.
+services:
+  postgres:
+    image: postgres:16
+    environment: { POSTGRES_PASSWORD: postgres }
+    ports: ["127.0.0.1:5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./setup.sql:/docker-entrypoint-initdb.d/10-setup.sql:ro
+  redis:
+    image: redis:7
+    ports: ["127.0.0.1:6379:6379"]
+  mongo:
+    image: mongo:7
+    ports: ["127.0.0.1:27017:27017"]
+    volumes: [mongodata:/data/db]
+  rabbitmq:                                  # the Celery broker the engine is designed for (priority queues, dead-letter queues). Management UI: http://localhost:15672 (guest / guest)
+    image: rabbitmq:3.13-management
+    ports: ["127.0.0.1:5672:5672", "127.0.0.1:15672:15672"]
+  kafka:
+    image: apache/kafka:3.9.1
+    ports: ["127.0.0.1:9092:9092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  mail:
+    image: axllent/mailpit
+    ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]      # SMTP on 1025, inbox UI on http://localhost:8025
+volumes: { pgdata: {}, mongodata: {} }

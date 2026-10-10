@@ -1,0 +1,111 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 12MB          # the parser itself refuses more than 10 MB / 50,000 rows with a plain message
+      max-request-size: 13MB
+  application:
+    name: integration-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ensuretech}
+    username: ${DATABASE_USER:ensuretech}
+    password: ${DATABASE_PASSWORD:ensuretech}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.default_schema: integration
+  flyway:
+    schemas: integration
+    default-schema: integration
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: integration-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+server:
+  address: ${BIND_ADDRESS:127.0.0.1}   # listen on the private interface only; never 0.0.0.0 on a public network
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 2MB
+    connection-timeout: 10s
+    threads:
+      max: ${TOMCAT_MAX_THREADS:100}
+  port: ${PORT:8085}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,threaddump,scheduledtasks,prometheus     # all but health and prometheus need a SYSTEM token (the lock); never heapdump, env or shutdown
+  endpoint:
+    health:
+      show-details: when-authorized
+      roles: SYSTEM
+
+app:
+  job-control:
+    bootstrap-password: ${JOB_KILLER_BOOTSTRAP_PASSWORD:}   # first start only: hashed into the database when no password exists yet (development). Change it with PUT /api/v1/ops/jobs/password
+  offline:
+    urgent-hours: ${OFFLINE_URGENT_HOURS:4}        # a member waiting this long for a TPA id is HIGH on the board
+    critical-hours: ${OFFLINE_CRITICAL_HOURS:24}   # and CRITICAL from here: pro-rata is running and a mid-term endorsement is close
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:../identity-service/keys/jwt-public.pem}
+    issuer: ${JWT_ISSUER:ensuretech-identity}
+  kafka:
+    listener:
+      enabled: ${KAFKA_LISTENER_ENABLED:true}
+  engine:
+    base-url: ${ENGINE_BASE_URL:http://localhost:8001}
+    timeout-ms: ${ENGINE_TIMEOUT_MS:5000}
+  identity:
+    token-url: ${IDENTITY_TOKEN_URL:http://localhost:8000/api/v1/auth/service-token/}
+    client-id: ${SERVICE_CLIENT_ID:}
+    client-secret: ${SERVICE_CLIENT_SECRET:}
+  reconcile:
+    enabled: ${RECONCILE_ENABLED:false}            # scheduled pull-and-reconcile of every policy with a TPA
+    cron: ${RECONCILE_CRON:0 0 */6 * * *}
+    batch: ${RECONCILE_BATCH:20}
+    min-interval-seconds: ${RECONCILE_MIN_INTERVAL_SECONDS:21600}
+  sync:
+    worker-enabled: ${SYNC_WORKER_ENABLED:true}
+    poll-ms: ${SYNC_POLL_MS:2000}
+    lease-seconds: ${SYNC_LEASE_SECONDS:300}      # a worker that dies mid-job loses its claim after this
+    max-attempts: ${SYNC_MAX_ATTEMPTS:8}
+    backoff-base-seconds: ${SYNC_BACKOFF_BASE_SECONDS:30}
+    backoff-max-seconds: ${SYNC_BACKOFF_MAX_SECONDS:3600}
+    call-retries: 3                                 # in-call retries (exponential 1s/2s/4s) before the job-level backoff takes over
+    call-retry-base-ms: 1000
+    breaker-window: 10
+    breaker-min-calls: 5
+    breaker-failure-rate: 50
+    breaker-open-seconds: 30
+  tpa:
+    allow-private-hosts: ${TPA_ALLOW_PRIVATE_HOSTS:false}   # SSRF guard; only true in dev/tests
+    allow-http: ${TPA_ALLOW_HTTP:false}
+  outbox:
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:true}
+      interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
+      batch-size: 100
+      max-retries: 5
+
+gateway:
+  secret: ${GATEWAY_SECRET:}                 # shared with the BFF (BFF_GATEWAY_SECRET), at least 32 random characters. The service refuses to start without it.
+  metrics-token: ${METRICS_TOKEN:}               # bearer token for a metrics scraper on GET /actuator/prometheus only; blank = metrics closed
+  allow-unguarded: ${GATEWAY_ALLOW_UNGUARDED:false}   # true = answer anyone who can reach the port. Local development only.
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"      # every log line carries the id of the request it belongs to (CorrelationFilter); [] = a background job with no request
+
+ops:
+  querylog:
+    enabled: ${QUERYLOG_ENABLED:false}        # development X-ray: each request's controller method and SQL, at GET /api/v1/ops/queries (SYSTEM only) and the console's Queries page. Never on in production.

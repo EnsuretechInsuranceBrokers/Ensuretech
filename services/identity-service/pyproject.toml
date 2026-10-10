@@ -1,0 +1,27 @@
+[project]
+name = "identity-service"
+version = "0.1.0"
+description = "Ensuretech identity service: auth, JWT issuance, RBAC, tenant scoping"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.1,<6.2",
+    "djangorestframework>=3.17",
+    "djangorestframework-simplejwt>=5.5",
+    "cryptography>=46",
+    "django-environ>=0.12",
+    "django-cors-headers>=4.9",
+    "psycopg2-binary>=2.9",
+]
+
+[project.optional-dependencies]
+devtools = ["django-silk>=5.3", "django-debug-toolbar>=4.4"]   # development only: DEV_TOOLS=true, see docs/debugging.md
+dev = ["pytest>=9", "pytest-django>=4.11", "pytest-env>=1.1", "ruff", "black", "isort"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["."]
+testpaths = ["tests"]
+env = ["DEBUG=True", "DJANGO_SECRET_KEY=test-secret", "DATABASE_URL=sqlite:///:memory:"]
+
+[tool.ruff]
+line-length = 100

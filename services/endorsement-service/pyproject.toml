@@ -1,0 +1,42 @@
+[project]
+name = "endorsement-service"
+version = "0.1.0"
+description = "Ensuretech endorsement engine: intake (CSV/GUI), chunked validation, premium + CD computation, audit"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.1,<6.2",
+    "djangorestframework>=3.17",
+    "celery>=5.6",
+    "redis>=7",
+    "flower>=2.0",                  # the Celery dashboard (run.html §16, docs/observability.md)
+    "pandas>=3",
+    "numpy>=2",
+    "grpcio>=1.80",
+    "grpcio-tools>=1.80",
+    "protobuf>=6",
+    "pyjwt[crypto]>=2.10",
+    "psycopg[binary,pool]>=3.2",
+    "django-environ>=0.12",
+    "confluent-kafka>=2.8",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+devtools = ["django-silk>=5.3", "django-debug-toolbar>=4.4"]   # development only: DEV_TOOLS=true, see docs/debugging.md
+dev = ["pytest>=9", "pytest-django>=4.11", "pytest-env>=1.1", "pytest-asyncio>=1.0", "ruff"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+env = [
+    "DEBUG=True",
+    "DJANGO_SECRET_KEY=test-secret",
+    "CELERY_TASK_ALWAYS_EAGER=True",
+    "CELERY_BROKER_URL=memory://",
+    "D:DATABASE_URL=postgres://ensuretech:ensuretech@localhost:5432/ensuretech_endorsement",
+]
+
+[tool.ruff]
+line-length = 110

@@ -1,0 +1,21 @@
+# Prometheus for local development. Targets are the Spring services' management endpoint on their normal port, read with METRICS_TOKEN (a bearer token that opens
+# GET /actuator/prometheus and nothing else; the token file is written by scripts/observability-up.sh from local.env).
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: ensuretech-spring
+    metrics_path: /actuator/prometheus
+    authorization: { type: Bearer, credentials_file: /etc/prometheus/metrics-token }
+    static_configs:
+      - { targets: ["127.0.0.1:8081"], labels: { service: organization } }
+      - { targets: ["127.0.0.1:8082"], labels: { service: policy } }
+      - { targets: ["127.0.0.1:8084"], labels: { service: billing } }
+      - { targets: ["127.0.0.1:8085"], labels: { service: integration } }
+      - { targets: ["127.0.0.1:8086"], labels: { service: sheet-generator } }
+  # Celery: Flower's metrics (task events by type, runtime, workers online, tasks being executed). Flower has its own basic-auth login; the password file is written
+  # by scripts/observability-up.sh from FLOWER_BASIC_AUTH in local.env.
+  - job_name: ensuretech-celery
+    metrics_path: /metrics
+    basic_auth: { username: flower, password_file: /etc/prometheus/flower-password }
+    static_configs:
+      - { targets: ["127.0.0.1:5555"], labels: { service: engine-celery } }

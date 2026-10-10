@@ -1,0 +1,40 @@
+{
+  "kind": "reads",
+  "label": "final-fpm-3endpoints",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:54:29",
+  "users": 20,
+  "seconds": 19.6,
+  "requests": 3278,
+  "requests_per_second": 167.3,
+  "errors": 0,
+  "p50_ms": 61.4,
+  "p95_ms": 129.9,
+  "p99_ms": 172.5,
+  "per_endpoint": {
+    "/broker/employers?size=20": {
+      "requests": 1055,
+      "errors": 0,
+      "p50_ms": 53.5,
+      "p95_ms": 112.1,
+      "p99_ms": 143.5,
+      "max_ms": 209.1
+    },
+    "/broker/policies?size=20": {
+      "requests": 1154,
+      "errors": 0,
+      "p50_ms": 50.9,
+      "p95_ms": 107.6,
+      "p99_ms": 147.4,
+      "max_ms": 191.3
+    },
+    "/broker/endorsements?size=20": {
+      "requests": 1069,
+      "errors": 0,
+      "p50_ms": 83.6,
+      "p95_ms": 156.0,
+      "p99_ms": 202.5,
+      "max_ms": 260.9
+    }
+  }
+}

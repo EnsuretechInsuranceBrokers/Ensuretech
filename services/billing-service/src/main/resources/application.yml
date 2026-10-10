@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: billing-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ensuretech}
+    username: ${DATABASE_USER:ensuretech}
+    password: ${DATABASE_PASSWORD:ensuretech}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.default_schema: billing
+  flyway:
+    schemas: billing
+    default-schema: billing
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: billing-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+server:
+  address: ${BIND_ADDRESS:127.0.0.1}   # listen on the private interface only; never 0.0.0.0 on a public network
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 2MB
+    connection-timeout: 10s
+    threads:
+      max: ${TOMCAT_MAX_THREADS:100}
+  port: ${PORT:8084}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,threaddump,scheduledtasks,prometheus     # all but health and prometheus need a SYSTEM token (the lock); never heapdump, env or shutdown
+  endpoint:
+    health:
+      show-details: when-authorized
+      roles: SYSTEM
+
+app:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:../identity-service/keys/jwt-public.pem}
+    issuer: ${JWT_ISSUER:ensuretech-identity}
+  grpc:
+    port: ${GRPC_PORT:9091}
+    enabled: ${GRPC_ENABLED:true}
+  kafka:
+    listener:
+      enabled: ${KAFKA_LISTENER_ENABLED:true}
+  cd:
+    reservation-ttl-hours: ${CD_RESERVATION_TTL_HOURS:24}
+    expiry-sweep-ms: ${CD_EXPIRY_SWEEP_MS:60000}
+  outbox:
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:true}
+      interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:5000}
+      batch-size: 100
+      max-retries: 5
+
+gateway:
+  secret: ${GATEWAY_SECRET:}                 # shared with the BFF (BFF_GATEWAY_SECRET), at least 32 random characters. The service refuses to start without it.
+  metrics-token: ${METRICS_TOKEN:}               # bearer token for a metrics scraper on GET /actuator/prometheus only; blank = metrics closed
+  allow-unguarded: ${GATEWAY_ALLOW_UNGUARDED:false}   # true = answer anyone who can reach the port. Local development only.
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"      # every log line carries the id of the request it belongs to (CorrelationFilter); [] = a background job with no request
+
+ops:
+  querylog:
+    enabled: ${QUERYLOG_ENABLED:false}        # development X-ray: each request's controller method and SQL, at GET /api/v1/ops/queries (SYSTEM only) and the console's Queries page. Never on in production.

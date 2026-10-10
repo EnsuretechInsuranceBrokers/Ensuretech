@@ -1,0 +1,16 @@
+[
+  {
+    "id": "BACKEND_BUG_2030_001",
+    "endpoint": "policies.get",
+    "reason": "policy-service 1.3 returns the abbreviated status ACTV for some imported policies",
+    "owner": "ops@ensuretech.test",
+    "introduced_at": "2030-01-10",
+    "expires_at": "2030-02-10",
+    "removal_condition": "policy-service 1.4 is deployed and no response contains ACTV",
+    "fix_ref": "ENG-123",
+    "enabled": true,
+    "operations": [
+      {"op": "map", "path": "status", "values": {"ACTV": "APPROVED_AND_LIVE"}}
+    ]
+  }
+]

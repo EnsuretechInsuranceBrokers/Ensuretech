@@ -1,0 +1,24 @@
+{
+  "kind": "reads",
+  "label": "bench-policy-via-bff",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:14:38",
+  "users": 20,
+  "seconds": 11.8,
+  "requests": 594,
+  "requests_per_second": 50.3,
+  "errors": 0,
+  "p50_ms": 338.9,
+  "p95_ms": 386.5,
+  "p99_ms": 400.3,
+  "per_endpoint": {
+    "/broker/policies?size=20": {
+      "requests": 594,
+      "errors": 0,
+      "p50_ms": 338.9,
+      "p95_ms": 386.5,
+      "p99_ms": 400.3,
+      "max_ms": 407.3
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "kind": "endorse",
+  "label": "cmp-all-fail",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T10:20:45",
+  "rows_per_sheet": 1000,
+  "uploads": 1,
+  "parallel": 1,
+  "succeeded": 0,
+  "wall_seconds": 3.24,
+  "total_rows_endorsed": 0,
+  "overall_rows_per_second": 0.0,
+  "seconds_to_final": {
+    "min": null,
+    "median": null,
+    "max": null
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791627642-1-61c6be",
+      "http": 202,
+      "accept_ms": 1705.0,
+      "total_rows": 1000,
+      "failed_rows": 1000,
+      "chunks": 2,
+      "total_premium": null,
+      "cd_status": null,
+      "error_rows_fetched": 1000,
+      "seconds_to_fetch_all_errors": 0.29,
+      "job_id": "c0a5b67e-e3ed-4b6c-8b57-3a13ff496e3a",
+      "status": "VALIDATION_FAILED",
+      "seconds_to_final": 2.95,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 1.74,
+        "VALIDATION_QUEUED": 2.37,
+        "VALIDATION_IN_PROGRESS": 2.65,
+        "VALIDATION_FAILED": 2.95
+      },
+      "rows_per_second": null,
+      "failed": 1000,
+      "timed_out": false
+    }
+  ]
+}
