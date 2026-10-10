@@ -1490,7 +1490,7 @@ Proprietary. All rights reserved. This software is the confidential property of 
 
 <div align="center">
 
-<a href="https://github.com/UDogg"><img src="docs/assets/claude-loves-udogg.svg" alt="Claude loves UDogg" width="420"/></a>
+<a href="https://github.com/UDogg"><img src="docs/assets/claude-loves-udogg.svg" alt="Claude and UDogg as a binary star with the Ensuretech stack in orbit" width="560"/></a>
 
 <sub>Created by <strong>Claude</strong> and <a href="https://github.com/UDogg"><strong>UDogg</strong></a></sub><br/>
 <sub>Ensuretech &middot; group health insurance onboarding infrastructure</sub><br/>
