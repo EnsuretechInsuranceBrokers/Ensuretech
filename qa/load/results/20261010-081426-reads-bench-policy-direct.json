@@ -1,0 +1,24 @@
+{
+  "kind": "reads",
+  "label": "bench-policy-direct",
+  "base": "http://127.0.0.1:8082/api/v1",
+  "when": "2026-10-10T08:14:26",
+  "users": 20,
+  "seconds": 12.1,
+  "requests": 3849,
+  "requests_per_second": 319.2,
+  "errors": 0,
+  "p50_ms": 5.8,
+  "p95_ms": 26.4,
+  "p99_ms": 68.4,
+  "per_endpoint": {
+    "/broker/policies?size=20": {
+      "requests": 3849,
+      "errors": 0,
+      "p50_ms": 5.8,
+      "p95_ms": 26.4,
+      "p99_ms": 68.4,
+      "max_ms": 624.7
+    }
+  }
+}
