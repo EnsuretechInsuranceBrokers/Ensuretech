@@ -74,12 +74,15 @@ public class GatewaySecretFilter extends OncePerRequestFilter {
                 && java.security.MessageDigest.isEqual(metricsToken, auth.substring(7).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    /** A super-credential call: a token identity-service issued to a service account (role SYSTEM), verified like any other. */
+    /**
+     * A super-credential call: a token identity-service issued to a service account (role SYSTEM), verified like any other.
+     * Also a break-glass token: a short-lived user token that identity issued only to a SYSTEM caller who also knew the break-glass password.
+     */
     private boolean isSystemToken(String auth) {
         if (auth == null || !auth.startsWith("Bearer ")) return false;
         try {
             Jwt jwt = decoder.decode(auth.substring(7));
-            return "SYSTEM".equals(jwt.getClaimAsString("role"));
+            return "SYSTEM".equals(jwt.getClaimAsString("role")) || Boolean.TRUE.equals(jwt.getClaim("break_glass"));   // break_glass: see identity-service /auth/break-glass/
         } catch (RuntimeException e) {
             return false;
         }

@@ -52,3 +52,7 @@ gateway:
 logging:
   pattern:
     level: "%5p [%X{correlationId:-}]"      # every log line carries the id of the request it belongs to (CorrelationFilter); [] = a background job with no request
+
+ops:
+  querylog:
+    enabled: ${QUERYLOG_ENABLED:false}        # development X-ray: each request's controller method and SQL, at GET /api/v1/ops/queries (SYSTEM only) and the console's Queries page. Never on in production.

@@ -100,3 +100,21 @@ class ServiceCredential(models.Model):
 
     class Meta:
         db_table = "identity_service_credentials"
+
+
+class BreakGlassGrant(models.Model):
+    """Every attempt to get a break-glass token, granted or refused. Never edited, never deleted by the application."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    attempted_at = models.DateTimeField(auto_now_add=True)
+    outcome = models.CharField(max_length=20)            # GRANTED | WRONG_PASSWORD | NOT_SYSTEM | NO_SUCH_USER | BAD_REQUEST
+    client_id = models.CharField(max_length=40, blank=True)
+    target_user_id = models.UUIDField(null=True, blank=True)
+    reason = models.CharField(max_length=300, blank=True)
+    jti = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    remote_addr = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        db_table = "identity_break_glass_grants"
+        ordering = ["-attempted_at"]

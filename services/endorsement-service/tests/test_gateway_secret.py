@@ -61,7 +61,8 @@ def test_the_service_refuses_to_start_unguarded_unless_told_to():
 
 def test_a_super_credential_token_passes_without_the_bff_but_an_ordinary_one_does_not(monkeypatch):
     m = mw()
-    monkeypatch.setattr('apps.core.auth.decode_token', lambda tok: {"role": "SYSTEM" if tok == "sys" else "BROKER_ADMIN"} if tok != "bad" else (_ for _ in ()).throw(ValueError("bad")))
+    monkeypatch.setattr('apps.core.auth.decode_token', lambda tok: {"role": "SYSTEM" if tok == "sys" else "BROKER_ADMIN", "break_glass": tok == "bg"} if tok != "bad" else (_ for _ in ()).throw(ValueError("bad")))
     assert call(m, HTTP_AUTHORIZATION="Bearer sys") == 200
+    assert call(m, HTTP_AUTHORIZATION="Bearer bg") == 200                  # a break-glass token: a user token identity issued to a SYSTEM caller with the password
     assert call(m, HTTP_AUTHORIZATION="Bearer user") == 403
     assert call(m, HTTP_AUTHORIZATION="Bearer bad") == 403

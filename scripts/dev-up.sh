@@ -14,6 +14,7 @@
 #   scripts/dev-up.sh --no-admin      do not start the operations console (http://127.0.0.1:8100: Spring Boot Admin + Jobs)
 #   scripts/dev-up.sh --no-flower     do not start the Flower dashboard (http://127.0.0.1:5555)
 #   scripts/dev-up.sh --no-telescope  leave Laravel Telescope (http://localhost:8090/telescope) off
+#   scripts/dev-up.sh --bench         for load tests (qa/load/loadtest.py): no Telescope, no query log, and the BFF's rate limits raised so they do not throttle the test. Numbers are then the software's, not the debugging tools'
 #   scripts/dev-up.sh --rebuild       rebuild the Spring jars even if they exist
 #   scripts/dev-up.sh --no-attach     start and return (CI, or if you attach later with: tmux attach -t ensuretech)
 #   DB_PORT=5433 scripts/dev-up.sh    use the second (test) PostgreSQL server (run.html section 2)
@@ -23,10 +24,10 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
 SESSION="${ENSURETECH_TMUX_SESSION:-ensuretech}"
 DEV="$ROOT/.dev"; mkdir -p "$DEV/logs" "$DEV/run"
-EAGER=0; FLOWER=1; ADMIN=1; TELESCOPE=1; DEVTOOLS=0; RAY=0; CHECK=0; NO_KAFKA=0; REBUILD=0; ATTACH=1; WITH_MAIL=0; WITH_SHEET=0; SKIP=","; ONLY=""
+BENCH=0; EAGER=0; FLOWER=1; ADMIN=1; TELESCOPE=1; DEVTOOLS=0; RAY=0; CHECK=0; NO_KAFKA=0; REBUILD=0; ATTACH=1; WITH_MAIL=0; WITH_SHEET=0; SKIP=","; ONLY=""
 while [ $# -gt 0 ]; do case "$1" in
-  --check) CHECK=1;; --eager) EAGER=1;; --no-flower) FLOWER=0;; --no-admin) ADMIN=0;; --no-telescope) TELESCOPE=0;; --devtools) DEVTOOLS=1;; --ray) RAY=1;; --no-kafka) NO_KAFKA=1;; --rebuild) REBUILD=1;; --no-attach) ATTACH=0;; --with-mail) WITH_MAIL=1;; --with-sheet) WITH_SHEET=1;;
-  --skip) shift; SKIP=",$1,";; --only) shift; ONLY=",$1,";; -h|--help) sed -n '2,17p' "$0"; exit 0;;
+  --check) CHECK=1;; --eager) EAGER=1;; --no-flower) FLOWER=0;; --no-admin) ADMIN=0;; --no-telescope) TELESCOPE=0;; --devtools) DEVTOOLS=1;; --ray) RAY=1;; --no-kafka) NO_KAFKA=1;; --rebuild) REBUILD=1;; --no-attach) ATTACH=0;; --bench) BENCH=1; TELESCOPE=0; DEVTOOLS=0; RAY=0;; --with-mail) WITH_MAIL=1;; --with-sheet) WITH_SHEET=1;;
+  --skip) shift; SKIP=",$1,";; --only) shift; ONLY=",$1,";; -h|--help) sed -n '2,19p' "$0"; exit 0;;
   *) echo "unknown option: $1 (try --help)"; exit 2;; esac; shift; done
 
 red(){ printf '\033[31m%s\033[0m\n' "$*"; }; grn(){ printf '\033[32m%s\033[0m\n' "$*"; }; ylw(){ printf '\033[33m%s\033[0m\n' "$*"; }
@@ -118,7 +119,7 @@ tmux set-option -t "$SESSION" -g remain-on-exit off; tmux set-option -t "$SESSIO
 
 DJ=""; [ $DEVTOOLS = 1 ] && DJ="DEV_TOOLS=true DEBUG=true "; [ $RAY = 1 ] && DJ="${DJ}RAY_QUERIES=true "
 spring(){ # name dir jar port extra-env
-  mk "$1" "services/$2" "$([ $ADMIN = 1 ] && echo ADMIN_CLIENT_ENABLED=true) $5 java -jar target/$2-0.1.0.jar $SP_KAFKA"; }
+  mk "$1" "services/$2" "$([ $ADMIN = 1 ] && echo ADMIN_CLIENT_ENABLED=true) $([ $BENCH = 1 ] && echo QUERYLOG_ENABLED=false) $5 java -jar target/$2-0.1.0.jar $SP_KAFKA"; }
 want identity && { mk identity services/identity-service "${DJ}DATABASE_URL='$IDENTITY_DB' JWT_PRIVATE_KEY_PATH=keys/jwt-private.pem JWT_PUBLIC_KEY_PATH=keys/jwt-public.pem .venv/bin/python manage.py runserver 127.0.0.1:8000 --noreload"; add identity
   echo -n "  waiting for identity "; for i in $(seq 60); do curl -s -o /dev/null localhost:8000/api/v1/auth/me/ && break; sleep 1; echo -n .; done; echo; }
 want org && { spring org organization-service x 8081 "DATABASE_URL='$ORG_JDBC' PORT=8081"; add org; }
@@ -150,7 +151,7 @@ if [ $WITH_MAIL = 1 ]; then
   want notify-consumer && { mk notify-consumer services/notification-service "${DJ}DATABASE_URL='$NOTIFICATION_DB' .venv/bin/python manage.py run_consumer"; add notify-consumer; }
   want notify-sender && { mk notify-sender services/notification-service "${DJ}DATABASE_URL='$NOTIFICATION_DB' .venv/bin/python manage.py run_sender"; add notify-sender; }; fi
 [ $WITH_SHEET = 1 ] && want sheet && { spring sheet sheet-generator-service x 8086 "DATABASE_URL='$SHEETGEN_JDBC' PORT=8086"; add sheet; }
-want bff && { mk bff services/bff "LOG_STACK=single,stderr SESSION_DRIVER=\${SESSION_DRIVER:-file} APP_ENV=local TELESCOPE_ENABLED=$([ $TELESCOPE = 1 ] && echo true || echo false) RAY_ENABLED=$([ $RAY = 1 ] && echo true || echo false) PHP_CLI_SERVER_WORKERS=4 php artisan serve --host 127.0.0.1 --port 8090"; add bff; }
+want bff && { mk bff services/bff "$([ $BENCH = 1 ] && echo 'BFF_RATE_ANON=10000000 BFF_RATE_TENANT=10000000 BFF_RATE_USER=10000000 BFF_RATE_HEAVY=10000000') LOG_STACK=single,stderr SESSION_DRIVER=\${SESSION_DRIVER:-file} APP_ENV=local TELESCOPE_ENABLED=$([ $TELESCOPE = 1 ] && echo true || echo false) RAY_ENABLED=$([ $RAY = 1 ] && echo true || echo false) PHP_CLI_SERVER_WORKERS=4 php artisan serve --host 127.0.0.1 --port 8090"; add bff; }
 tmux select-window -t "$SESSION:status"
 
 echo; grn "Started in tmux session '$SESSION'."

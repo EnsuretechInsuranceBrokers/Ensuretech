@@ -19,7 +19,7 @@ class ConsoleSecurityTest {
 
     @Test
     void nothingIsServedWithoutALogin() throws Exception {
-        for (String path : new String[] {"/jobs.html", "/ops-api/jobs", "/ops-api/jobs/audit", "/instances", "/applications"}) {
+        for (String path : new String[] {"/jobs.html", "/queries.html", "/ops-api/queries", "/ops-api/queries/stream", "/ops-api/jobs", "/ops-api/jobs/audit", "/instances", "/applications"}) {
             int s = mvc.perform(get(path).header("Accept", "application/json")).andReturn().getResponse().getStatus();
             assertThat(s).as(path).isIn(401, 302);
         }
@@ -31,6 +31,13 @@ class ConsoleSecurityTest {
         mvc.perform(get("/jobs.html").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic("admin", "a-long-console-password")))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("job-killer password")));
         mvc.perform(get("/jobs.html").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic("admin", "wrong"))).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void theLiveRequestsPageAndItsFeedNeedTheLoginAndTheClearButtonNeedsCsrf() throws Exception {
+        var basic = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic("admin", "a-long-console-password");
+        mvc.perform(get("/queries.html").with(basic)).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Time (IST)")));
+        mvc.perform(delete("/ops-api/queries").with(basic)).andExpect(status().isForbidden());                       // no CSRF token
     }
 
     @Test

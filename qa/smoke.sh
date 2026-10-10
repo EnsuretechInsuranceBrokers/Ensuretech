@@ -63,6 +63,24 @@ expect 403 "kill with a wrong job-killer password" -X POST -H "Authorization: Be
 expect 404 "kill with the right password finds no such job" -X POST -H "Authorization: Bearer $SYS" -H "X-Job-Killer-Password: $JOB_KILLER_BOOTSTRAP_PASSWORD" -H 'Content-Type: application/json' -d '{"reason":"smoke"}' 127.0.0.1:8085/api/v1/ops/jobs/$GHOST/kill
 A="$(curl -s -H "Authorization: Bearer $SYS" 127.0.0.1:8085/api/v1/ops/jobs/audit | jget '[x["outcome"] for x in d[:2]]')"; echo "$A" | grep -q WRONG_PASSWORD && ok "both attempts are in the audit trail $A" || no "audit trail: $A"
 
+echo "3b. Break glass and the live query log"
+BGID="$(psql "$IDENTITY_DB" -Atc "select id from identity_users where email='meera.kapoor@northwind.example'" 2>/dev/null)"
+if [ -n "${BREAK_GLASS_PASSWORD:-}" ] && [ -n "$BGID" ]; then
+  bg(){ curl -s -m 15 -w '\n%{http_code}' 127.0.0.1:8000/api/v1/auth/break-glass/ -H "Authorization: Bearer ${2-$SYS}" -H 'Content-Type: application/json' -d "{\"break_glass_password\":\"$1\",\"user_id\":\"$BGID\",\"reason\":\"smoke test: break-glass drill\"}"; }
+  [ "$(bg wrong-wrong-wrong-wrong | tail -1)" = 403 ] && ok "break glass: wrong password refused (403)" || no "break glass accepted a wrong password"
+  [ "$(bg "$BREAK_GLASS_PASSWORD" "$BROKER" | tail -1)" = 403 ] && ok "break glass: a broker's own token cannot ask (403)" || no "break glass answered a non-SYSTEM caller"
+  BGT="$(bg "$BREAK_GLASS_PASSWORD" | head -1 | jget 'd["access_token"]')"
+  [ -n "$BGT" ] && ok "break glass: SYSTEM + password gets a 15-minute token for one named user" || no "break glass grant"
+  expect 200 "break glass token works straight against policy-service, no BFF" -H "Authorization: Bearer $BGT" 127.0.0.1:8082/api/v1/broker/policies
+  expect 200 "...and against organization-service" -H "Authorization: Bearer $BGT" "127.0.0.1:8081/api/v1/broker/employers?size=1"
+  expect 403 "break glass token is not a SYSTEM token (no actuator controls)" -H "Authorization: Bearer $BGT" 127.0.0.1:8082/actuator/loggers
+else skip "break glass: BREAK_GLASS_PASSWORD or psql not available"; fi
+if [ "${QUERYLOG_ENABLED:-false}" = true ] && up 8100; then
+  sleep 2; Q="$(curl -s -m 20 -u "$ADMIN_UI_USER:$ADMIN_UI_PASSWORD" "127.0.0.1:8100/ops-api/queries?limit=50")"
+  echo "$Q" | python3 -c "import sys,json;d=json.load(sys.stdin);bad=[k for k,v in d['services'].items() if v!='ok'];rows=[r for r in d['requests'] if r['kind']=='request' and r.get('role')];sys.exit(0 if not bad and rows else 1)" 2>/dev/null \
+    && ok "live query log: every service reports in, and requests carry user, role and controller method" || no "query log: $(echo "$Q" | head -c 300)"
+else skip "live query log is off (QUERYLOG_ENABLED) or the console is not running"; fi
+
 echo "4. TPA offline upload (member ids by spreadsheet)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 expect 200 "board of members waiting" -H "Authorization: Bearer $BROKER" "$B/broker/integration/tpa-pending"

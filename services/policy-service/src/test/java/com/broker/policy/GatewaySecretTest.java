@@ -59,10 +59,10 @@ class GatewaySecretTest extends IntegrationTestBase {
         // SYSTEM is the role identity-service gives a service account (its secret is stored hashed there); it is how an operator or another service calls in
         var decoder = (org.springframework.security.oauth2.jwt.JwtDecoder) token -> {
             if (token.startsWith("bad")) throw new org.springframework.security.oauth2.jwt.BadJwtException("no");
-            return org.springframework.security.oauth2.jwt.Jwt.withTokenValue(token).header("alg", "none").claim("role", token.startsWith("sys") ? "SYSTEM" : "BROKER_ADMIN").build();
+            return org.springframework.security.oauth2.jwt.Jwt.withTokenValue(token).header("alg", "none").claim("role", token.startsWith("sys") ? "SYSTEM" : "BROKER_ADMIN").claim("break_glass", token.startsWith("bg")).build();
         };
         var filter = new com.broker.policy.security.GatewaySecretFilter("unit-test-secret-unit-test-secret-12345", false, decoder, "");
-        for (String[] c : new String[][] {{"Bearer sys-token", "200"}, {"Bearer user-token", "403"}, {"Bearer bad-token", "403"}, {null, "403"}}) {
+        for (String[] c : new String[][] {{"Bearer sys-token", "200"}, {"Bearer bg-token", "200"}, {"Bearer user-token", "403"}, {"Bearer bad-token", "403"}, {null, "403"}}) {
             var req = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/v1/broker/policies");
             if (c[0] != null) req.addHeader("Authorization", c[0]);
             var res = new org.springframework.mock.web.MockHttpServletResponse();

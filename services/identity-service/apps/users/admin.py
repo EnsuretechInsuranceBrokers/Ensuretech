@@ -18,3 +18,19 @@ from .models import ServiceAccount  # noqa: E402
 class ServiceAccountAdmin(admin.ModelAdmin):
     list_display = ("name", "client_id", "is_active", "last_used_at")
     readonly_fields = ("client_id", "last_used_at")   # secrets are managed only via `manage.py service_account`
+
+
+from .models import BreakGlassGrant  # noqa: E402
+
+
+@admin.register(BreakGlassGrant)
+class BreakGlassGrantAdmin(admin.ModelAdmin):
+    list_display = ("attempted_at", "outcome", "client_id", "target_user_id", "reason")
+    list_filter = ("outcome",)
+    readonly_fields = [f.name for f in BreakGlassGrant._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

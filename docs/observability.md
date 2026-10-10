@@ -14,6 +14,38 @@ Everything here is for a developer's or a QA engineer's machine. None of it is i
 | Prometheus + Grafana | `scripts/observability-up.sh` | Docker | scrape config verified against a real Prometheus; the compose file and the Grafana dashboard were **not** run (see below) |
 | Kafka UI | same | Docker | not run (no Docker, no Kafka in the build sandbox) |
 
+## How to open each tool
+
+Everything below is for development, QA and operators on a private network. In production each of these listens on `127.0.0.1`; reach it from your own machine with an SSH tunnel and never open the ports to the internet:
+
+```bash
+ssh -L 8100:127.0.0.1:8100 -L 5555:127.0.0.1:5555 -L 8083:127.0.0.1:8083 ebuser@YOUR-SERVER     # then use the localhost addresses below
+```
+
+| Tool | Address | Login | Switched on by |
+|---|---|---|---|
+| **Live requests and SQL** (Spring services) | `http://127.0.0.1:8100/queries.html`, or **Queries** in the console's top bar | the console login: `ADMIN_UI_USER` / `ADMIN_UI_PASSWORD` in `local.env` (development values `admin` / `console-dev-password-1`) | `QUERYLOG_ENABLED=true` on the services (the default in `local.env`; `dev-up.sh --bench` turns it off) |
+| **Operations console** (health, metrics, log levels, threads of every Spring service) and **Jobs** | `http://127.0.0.1:8100` | same login | `dev-up.sh` (off with `--no-admin`) |
+| **Django Silk** (every request of a Django service, its SQL and timings) | `http://127.0.0.1:8000/silk/` identity, `:8083/silk/` engine, `:8087/silk/` read-service | no password: the pages exist only while `DEV_TOOLS=true` **and** `DEBUG=true`, and the service listens on 127.0.0.1, so reach it from your own machine or through the tunnel | `scripts/dev-up.sh --devtools` |
+| **Celery Flower** (workers, queues, every task and its retries, revoke) | `http://127.0.0.1:5555` | HTTP basic auth: `FLOWER_BASIC_AUTH` in `local.env` (development value `flower:flower-dev-only`) | `dev-up.sh` (off with `--no-flower`) |
+| **Laravel Telescope** (the BFF) | `http://localhost:8090/telescope` | local environment only | `dev-up.sh` (off with `--no-telescope`) |
+| **Grafana, Prometheus, Kafka UI** | `scripts/observability-up.sh` prints the addresses | see `run.html` section 16 | `scripts/observability-up.sh` |
+
+Silk and the debugging toolbar must stay off wherever real data lives: they record request bodies' shapes, SQL and timings. In production run Django with `DEBUG=false` and without `--devtools`, and keep Flower behind its password and the tunnel (it can revoke tasks and stop workers).
+
+## Live requests and SQL (Spring services)
+
+The Spring equivalent of Telescope and Silk. Every Spring service (organization, policy, billing, integration, sheet-generator) keeps its last 500 requests in memory. The operations console collects them, so you read one page, not five.
+
+- **Real time.** The page opens a server-sent-events feed; the console asks each service once a second for what finished since the last look and pushes it to every open page. Nobody watching means nobody asked. Pause holds new rows without losing them.
+- **Who.** User id, role, broker and employer from the verified token; a request made with a break-glass token carries a **BREAK-GLASS** badge with the operator.
+- **What ran.** The controller method (`PolicyController#list`), method and path, status, total time, the number of SQL statements and the time spent in the database, any exception, and the correlation id (grep it across `.dev/logs/*.log`).
+- **Every statement,** with its own time, by expanding a row. Statements that ran 3 or more times in one request are flagged **N+1?** with their count. A "slowest statements" panel ranks what is on screen.
+- **Time is IST** (Asia/Kolkata, to the millisecond).
+- **Filtering.** One box: type any part of a user id, role, broker, path, controller, SQL text, status or correlation id; several words must all match, and matches are highlighted. Plus service, role, status class, minimum milliseconds, N+1 only, break-glass only, and an option to include background SQL (pollers and schedulers that run with no request).
+- **Safe by construction.** It records SQL with `?` placeholders, never bind values, and masks any string literal written inline. The services expose it at `GET /api/v1/ops/queries` to SYSTEM tokens only, and only when `QUERYLOG_ENABLED=true`. It costs memory and a little time per statement: leave it off in production and for load tests (`dev-up.sh --bench`).
+- **Deployment.** It lives in the operations console (admin-service), a separate service behind the console's login that deploys with the backend; the datasource wrapper is in each Spring service and is inert unless the setting is on.
+
 ## Laravel Telescope (BFF)
 
 Records every request the portal and the API handle, every outgoing call the BFF makes to a core service (with timings), exceptions, log lines, cache hits and the rate limiter.

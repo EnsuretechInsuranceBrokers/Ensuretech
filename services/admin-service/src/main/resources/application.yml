@@ -7,6 +7,7 @@ spring:
         title: Ensuretech operations
         external-views:
           - { label: "Jobs", url: "/jobs.html", order: 2000 }
+          - { label: "Queries", url: "/queries.html", order: 2100 }
       monitor:
         default-timeout: 10000
 server:
@@ -28,6 +29,8 @@ admin:
     client-secret: ${SERVICE_CLIENT_SECRET:}
   integration:
     url: ${INTEGRATION_URL:http://127.0.0.1:8085}
+  querylog:                                    # the services the Queries page asks (name=base url); each must run with QUERYLOG_ENABLED=true
+    services: ${QUERYLOG_SERVICES:organization=http://127.0.0.1:8081,policy=http://127.0.0.1:8082,billing=http://127.0.0.1:8084,integration=http://127.0.0.1:8085,sheet-generator=http://127.0.0.1:8086}
 
 logging:
   pattern:

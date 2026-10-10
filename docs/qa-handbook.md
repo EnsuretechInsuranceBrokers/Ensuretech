@@ -6,7 +6,7 @@ Everything runs on your machine. Setup is `run.html` (§0 gives the order; §3a 
 
 ```
 scripts/dev-up.sh --no-kafka        # or without --no-kafka when Kafka is running
-qa/smoke.sh                         # 49 checks, about 40 s; --quick skips the endorsement upload
+qa/smoke.sh                         # 57 checks, about 45 s; --quick skips the endorsement upload
 node qa/portal-smoke.js             # opens the portal in a real browser as a broker and as HR (needs Playwright, see the file's header)
 ```
 `smoke.sh` drives the stack only through the doors a user or an operator has and prints PASS or FAIL for each: sign-in and tenant isolation; **the lock** (direct calls to every core service with a valid token are refused, the actuator controls, metrics token, super credentials); the **job controls** with the wrong and the right job-killer password and the audit trail;
@@ -46,7 +46,7 @@ A run takes about an hour. Tick them off; each says what you should see.
 | notification | `services/notification-service/tests` | `pytest -q` | 42 |
 | read-service | `services/read-service/tests` | `TEST_MONGO_URI=... pytest -q` (needs MongoDB) | not run in the build sandbox |
 | policy / billing / organization / integration / sheet-generator / admin | `services/*/src/test` | `DATABASE_URL=jdbc:... mvn test` | 91 / 42 / 29 / 47 / 56 / 3 |
-| whole stack through its doors | `qa/smoke.sh` | stack running | 49 checks |
+| whole stack through its doors | `qa/smoke.sh` | stack running | 57 checks |
 | the portal in a browser | `qa/portal-smoke.js` | stack running + Playwright | 11 pages |
 
 **Rules that keep tests honest here**
@@ -82,3 +82,9 @@ A run takes about an hour. Tick them off; each says what you should see.
 
 Verified by running it, on Linux, in a build sandbox: the lock on every service; the offline upload; the Celery pipeline end to end (Redis broker, three worker groups, beat, Flower); Spring Boot Admin with four services; job kill, requeue, lockout and audit; Telescope, Silk; Prometheus scraping Spring and Flower with the dashboard's queries; `\i setup.sql` and reset; the tmux launcher with `--no-kafka`; all suites above.
 **Not verified**: Kafka-dependent flows (the engine's outbox to Kafka, policy to billing hand-offs, dashboards from the read-service, notifications); MongoDB/FerretDB and the read-service tests; **RabbitMQ** as broker (dead-letter queues, priorities); everything in `docker-compose*.yml`; the Ray desktop app and Grafana's rendering; macOS and Windows (WSL2); the install commands for a clean laptop; continuous integration; a load test of the whole stack (the only measured figures are in `docs/tpa-offline.md`).
+
+## Break glass, live request/SQL view and load tests
+
+- **Break glass** (`docs/break-glass.md`): act as one named user straight against the core services when the BFF is down. `scripts/breakglass.sh`. Section 3b of `qa/smoke.sh` checks it.
+- **Live requests and SQL** (`docs/observability.md`): `http://127.0.0.1:8100/queries.html`, same login as the console. Use it while testing: filter by your user id or the page's path and see the controller method and every query.
+- **Load tests** (`docs/load-test.md`): `qa/load/loadtest.py`. Time a 1000-row sheet end to end, run sheets in parallel, hammer the list endpoints, and compare with the legacy system on the same sheet.

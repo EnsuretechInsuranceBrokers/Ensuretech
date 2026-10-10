@@ -81,10 +81,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {"auth": env("AUTH_THROTTLE_RATE", default="10/min"),
-                               "service_auth": env("SERVICE_AUTH_THROTTLE_RATE", default="120/min")},
+                               "service_auth": env("SERVICE_AUTH_THROTTLE_RATE", default="120/min"),
+                               "break_glass": env("BREAK_GLASS_THROTTLE_RATE", default="5/min")},
 }
 
 SERVICE_TOKEN_MINUTES = env.int("SERVICE_TOKEN_MINUTES", default=10)
+# Break glass (apps/users/break_glass.py): act as one named user directly against the core services when the BFF is down. Off unless the password is 16+ characters.
+BREAK_GLASS_PASSWORD = env("BREAK_GLASS_PASSWORD", default="")
+BREAK_GLASS_MINUTES = env.int("BREAK_GLASS_MINUTES", default=15)
 
 # ── JWT (RS256: Spring services validate with the public key only) ──────────
 from apps.users.keys import load_or_create_keypair  # noqa: E402

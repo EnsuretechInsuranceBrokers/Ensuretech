@@ -111,6 +111,7 @@ class GatewaySecretMiddleware:
             return False
         try:
             from apps.core.auth import decode_token
-            return decode_token(parts[1]).get("role") == "SYSTEM"
+            claims = decode_token(parts[1])
+            return claims.get("role") == "SYSTEM" or claims.get("break_glass") is True      # break_glass: identity-service /auth/break-glass/
         except Exception:                                           # any failure to verify is "no"
             return False

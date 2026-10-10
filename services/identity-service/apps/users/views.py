@@ -6,6 +6,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .break_glass import BreakGlassView  # noqa: F401
 from .models import BROKER_ROLES, EMPLOYER_ROLES, Role
 from .serializers import ChangePasswordSerializer, CreateUserSerializer, UserSerializer
 

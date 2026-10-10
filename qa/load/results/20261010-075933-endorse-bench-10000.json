@@ -1,0 +1,44 @@
+{
+  "kind": "endorse",
+  "label": "bench-10000",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T07:59:33",
+  "rows_per_sheet": 10000,
+  "uploads": 1,
+  "parallel": 1,
+  "succeeded": 1,
+  "wall_seconds": 7.4,
+  "total_rows_endorsed": 10000,
+  "overall_rows_per_second": 1351.6,
+  "seconds_to_final": {
+    "min": 7.37,
+    "median": 7.37,
+    "max": 7.37
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 10000,
+      "correlation_id": "load-1791619166-1-7ca82d",
+      "http": 202,
+      "accept_ms": 139.4,
+      "total_rows": 10000,
+      "failed_rows": 0,
+      "chunks": 20,
+      "total_premium": "83071728.60",
+      "cd_status": "SUFFICIENT",
+      "job_id": "923d55ef-eb61-4af6-825b-bffef5c3eee1",
+      "status": "ENDORSED",
+      "seconds_to_final": 7.37,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.19,
+        "VALIDATION_IN_PROGRESS": 2.54,
+        "PREMIUM_CALC_QUEUED": 4.38,
+        "ENDORSEMENT_IN_PROGRESS": 5.57,
+        "ENDORSED": 7.37
+      },
+      "rows_per_second": 1356.8,
+      "timed_out": false
+    }
+  ]
+}

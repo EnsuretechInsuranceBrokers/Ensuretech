@@ -1,0 +1,46 @@
+{
+  "kind": "endorse",
+  "label": "bench-1000-warmup",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T07:58:54",
+  "rows_per_sheet": 1000,
+  "uploads": 1,
+  "parallel": 1,
+  "succeeded": 1,
+  "wall_seconds": 3.94,
+  "total_rows_endorsed": 1000,
+  "overall_rows_per_second": 253.6,
+  "seconds_to_final": {
+    "min": 3.94,
+    "median": 3.94,
+    "max": 3.94
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791619130-1-bea49e",
+      "http": 202,
+      "accept_ms": 1744.4,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "8306928.60",
+      "cd_status": "SUFFICIENT",
+      "job_id": "fd2672c2-46d0-4f34-8472-cc64a45bf474",
+      "status": "ENDORSED",
+      "seconds_to_final": 3.94,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 1.8,
+        "VALIDATION_IN_PROGRESS": 2.41,
+        "VALIDATION_PASSED": 2.71,
+        "PREMIUM_CALC_QUEUED": 3.01,
+        "CD_CHECK_INITIATED": 3.32,
+        "ENDORSEMENT_IN_PROGRESS": 3.63,
+        "ENDORSED": 3.94
+      },
+      "rows_per_second": 253.9,
+      "timed_out": false
+    }
+  ]
+}

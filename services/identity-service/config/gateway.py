@@ -7,7 +7,7 @@ Every request must carry a valid signature from the BFF (or from a core service 
 so a signature is good for one method, path, query and user token, for 60 seconds, once. The secret itself never travels.
 The only other way in is a verified SYSTEM token: a super credential (a service account whose secret identity-service stores hashed)
 signs in for a token. A request with neither is refused with an empty 403 before authentication, parsing or any database work.
-Identity's own sign-in for super credentials (/api/v1/auth/service-token/) is the one open door: it is the way to obtain a SYSTEM token, it checks the
+Identity's own sign-ins for super credentials (/api/v1/auth/service-token/, and /api/v1/auth/break-glass/ which also needs the break-glass password) are the open doors: it is the way to obtain a SYSTEM token, it checks the
 client id and a 384-bit secret against a hash, and it is rate limited; SERVICE_TOKEN_ALLOWED_CIDRS (optional) narrows who may even knock.
 Fail closed: with no GATEWAY_SECRET the service refuses to start, unless GATEWAY_ALLOW_UNGUARDED=true (local development; tests set it).
 The same function lives in the BFF (GatewaySeal.php) and the Spring services (GatewaySeal.java): change them together.
@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 VERSION = "v1"
 WINDOW_SECONDS = 60
 MAX_NONCES = 200_000
-OPEN = ("/api/v1/auth/service-token/",)
+OPEN = ("/api/v1/auth/service-token/", "/api/v1/auth/break-glass/")
 
 
 def canonical(ts, nonce, method, path, query, authorization):
@@ -112,6 +112,7 @@ class GatewaySecretMiddleware:
             return False
         try:
             from rest_framework_simplejwt.tokens import AccessToken
-            return AccessToken(parts[1]).get("role") == "SYSTEM"
+            claims = AccessToken(parts[1])
+            return claims.get("role") == "SYSTEM" or claims.get("break_glass") is True      # break_glass: /auth/break-glass/ below
         except Exception:                                           # any failure to verify is "no"
             return False

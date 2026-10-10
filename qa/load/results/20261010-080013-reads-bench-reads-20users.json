@@ -1,0 +1,40 @@
+{
+  "kind": "reads",
+  "label": "bench-reads-20users",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:00:13",
+  "users": 20,
+  "seconds": 20.0,
+  "requests": 543,
+  "requests_per_second": 27.1,
+  "errors": 0,
+  "p50_ms": 645.8,
+  "p95_ms": 796.1,
+  "p99_ms": 1812.5,
+  "per_endpoint": {
+    "/broker/employers?size=20": {
+      "requests": 181,
+      "errors": 0,
+      "p50_ms": 638.0,
+      "p95_ms": 876.7,
+      "p99_ms": 1767.7,
+      "max_ms": 1957.5
+    },
+    "/broker/policies?size=20": {
+      "requests": 199,
+      "errors": 0,
+      "p50_ms": 642.9,
+      "p95_ms": 763.7,
+      "p99_ms": 1360.8,
+      "max_ms": 1874.2
+    },
+    "/broker/endorsements?size=20": {
+      "requests": 163,
+      "errors": 0,
+      "p50_ms": 656.9,
+      "p95_ms": 800.9,
+      "p99_ms": 1812.5,
+      "max_ms": 1910.5
+    }
+  }
+}
