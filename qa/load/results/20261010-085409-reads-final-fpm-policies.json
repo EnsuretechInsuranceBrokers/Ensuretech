@@ -1,0 +1,24 @@
+{
+  "kind": "reads",
+  "label": "final-fpm-policies",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:54:09",
+  "users": 20,
+  "seconds": 11.5,
+  "requests": 2427,
+  "requests_per_second": 210.9,
+  "errors": 0,
+  "p50_ms": 40.8,
+  "p95_ms": 76.1,
+  "p99_ms": 97.7,
+  "per_endpoint": {
+    "/broker/policies?size=20": {
+      "requests": 2427,
+      "errors": 0,
+      "p50_ms": 40.8,
+      "p95_ms": 76.1,
+      "p99_ms": 97.7,
+      "max_ms": 134.9
+    }
+  }
+}

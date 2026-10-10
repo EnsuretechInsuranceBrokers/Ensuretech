@@ -1,0 +1,24 @@
+{
+  "kind": "reads",
+  "label": "bench-fpm-variant",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:41:13",
+  "users": 20,
+  "seconds": 11.5,
+  "requests": 2008,
+  "requests_per_second": 174.9,
+  "errors": 0,
+  "p50_ms": 57.1,
+  "p95_ms": 115.1,
+  "p99_ms": 155.1,
+  "per_endpoint": {
+    "/broker/policies?size=20": {
+      "requests": 2008,
+      "errors": 0,
+      "p50_ms": 57.1,
+      "p95_ms": 115.1,
+      "p99_ms": 155.1,
+      "max_ms": 229.5
+    }
+  }
+}

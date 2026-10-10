@@ -1,0 +1,77 @@
+{
+  "kind": "endorse",
+  "label": "bench-fpm-pooled-1000x3",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:48:31",
+  "rows_per_sheet": 1000,
+  "uploads": 3,
+  "parallel": 3,
+  "succeeded": 0,
+  "wall_seconds": 40.26,
+  "total_rows_endorsed": 0,
+  "overall_rows_per_second": 0.0,
+  "seconds_to_final": {
+    "min": null,
+    "median": null,
+    "max": null
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791622071-1-cf8cd5",
+      "http": 202,
+      "accept_ms": 203.5,
+      "job_id": "2e8c4d61-7bae-47b1-ae87-2af1366a5dc7",
+      "status": "CD_PARTIAL_SUFFICIENT",
+      "seconds_to_final": 40.25,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.3,
+        "VALIDATION_IN_PROGRESS": 0.94,
+        "PREMIUM_CALC_QUEUED": 1.54,
+        "CD_PARTIAL_SUFFICIENT": 2.13
+      },
+      "rows_per_second": null,
+      "timed_out": true
+    },
+    {
+      "n": 2,
+      "rows": 1000,
+      "correlation_id": "load-1791622071-2-e15598",
+      "http": 202,
+      "accept_ms": 193.5,
+      "job_id": "accee66c-21d2-49ca-a095-35eb38c23d90",
+      "status": "CD_PARTIAL_SUFFICIENT",
+      "seconds_to_final": 40.25,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.31,
+        "VALIDATION_IN_PROGRESS": 0.95,
+        "VALIDATION_PASSED": 1.25,
+        "PREMIUM_CALC_QUEUED": 1.56,
+        "PREMIUM_CALCULATED": 1.85,
+        "CD_PARTIAL_SUFFICIENT": 2.13
+      },
+      "rows_per_second": null,
+      "timed_out": true
+    },
+    {
+      "n": 3,
+      "rows": 1000,
+      "correlation_id": "load-1791622071-3-ceb88c",
+      "http": 202,
+      "accept_ms": 172.5,
+      "job_id": "66b14989-25f3-42e5-bd0a-c4966fc4da5a",
+      "status": "CD_PARTIAL_SUFFICIENT",
+      "seconds_to_final": 40.25,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.21,
+        "VALIDATION_QUEUED": 0.79,
+        "VALIDATION_IN_PROGRESS": 1.1,
+        "PREMIUM_CALC_QUEUED": 1.7,
+        "CD_PARTIAL_SUFFICIENT": 2.26
+      },
+      "rows_per_second": null,
+      "timed_out": true
+    }
+  ]
+}

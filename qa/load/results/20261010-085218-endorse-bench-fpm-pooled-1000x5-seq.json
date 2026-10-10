@@ -1,0 +1,138 @@
+{
+  "kind": "endorse",
+  "label": "bench-fpm-pooled-1000x5-seq",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T08:52:18",
+  "rows_per_sheet": 1000,
+  "uploads": 5,
+  "parallel": 1,
+  "succeeded": 5,
+  "wall_seconds": 6.18,
+  "total_rows_endorsed": 5000,
+  "overall_rows_per_second": 809.3,
+  "seconds_to_final": {
+    "min": 1.2,
+    "median": 1.21,
+    "max": 1.27
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791622332-1-923fb7",
+      "http": 202,
+      "accept_ms": 71.7,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "f719024a-c6bf-4a97-8417-e23eeb367a70",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.27,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.1,
+        "VALIDATION_IN_PROGRESS": 0.38,
+        "PREMIUM_CALCULATED": 0.67,
+        "ENDORSEMENT_IN_PROGRESS": 0.99,
+        "ENDORSED": 1.27
+      },
+      "rows_per_second": 789.5,
+      "timed_out": false
+    },
+    {
+      "n": 2,
+      "rows": 1000,
+      "correlation_id": "load-1791622333-2-6a2ded",
+      "http": 202,
+      "accept_ms": 74.9,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "5b023441-d0c4-49d8-be16-1f84ea1f018b",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.27,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.11,
+        "VALIDATION_QUEUED": 0.39,
+        "PREMIUM_CALC_QUEUED": 0.67,
+        "ENDORSEMENT_IN_PROGRESS": 0.99,
+        "ENDORSED": 1.27
+      },
+      "rows_per_second": 786.5,
+      "timed_out": false
+    },
+    {
+      "n": 3,
+      "rows": 1000,
+      "correlation_id": "load-1791622334-3-743625",
+      "http": 202,
+      "accept_ms": 65.5,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "28def91c-3f3a-466f-8305-c67c14793a85",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.21,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.09,
+        "PREMIUM_CALC_QUEUED": 0.65,
+        "ENDORSEMENT_IN_PROGRESS": 0.93,
+        "ENDORSED": 1.21
+      },
+      "rows_per_second": 827.1,
+      "timed_out": false
+    },
+    {
+      "n": 4,
+      "rows": 1000,
+      "correlation_id": "load-1791622335-4-6293b6",
+      "http": 202,
+      "accept_ms": 76.0,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "3f05ccef-c7c6-43fe-a96a-789a61b3b59a",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.21,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.1,
+        "VALIDATION_QUEUED": 0.39,
+        "PREMIUM_CALC_QUEUED": 0.66,
+        "ENDORSEMENT_IN_PROGRESS": 0.94,
+        "ENDORSED": 1.21
+      },
+      "rows_per_second": 823.6,
+      "timed_out": false
+    },
+    {
+      "n": 5,
+      "rows": 1000,
+      "correlation_id": "load-1791622337-5-30a78a",
+      "http": 202,
+      "accept_ms": 62.4,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "b6c9b4f4-79d8-4d76-b60e-a0fb1262f4ae",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.2,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.09,
+        "PREMIUM_CALC_QUEUED": 0.65,
+        "ENDORSEMENT_IN_PROGRESS": 0.92,
+        "ENDORSED": 1.2
+      },
+      "rows_per_second": 832.8,
+      "timed_out": false
+    }
+  ]
+}

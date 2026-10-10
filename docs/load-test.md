@@ -3,7 +3,9 @@
 `qa/load/loadtest.py` drives the platform through the BFF exactly as the portal does and times it. It uses only the Python standard library.
 
 ```bash
-scripts/dev-up.sh --bench --no-kafka --with-sheet      # no Telescope, no query log, BFF rate limits raised, so the numbers are the software's
+scripts/dev-up.sh --bench --no-kafka --with-sheet --skip bff   # no Telescope, no query log, rate limits raised: the numbers are the software's
+scripts/bff-fpm.sh --bench                              # the web tier as a real deployment runs it: nginx + PHP-FPM on :8090 (own terminal)
+#   (leave out --skip bff and bff-fpm.sh to use the development server instead)
 qa/load/loadtest.py endorse --rows 1000                 # one 1000-row sheet, from upload to ENDORSED
 qa/load/loadtest.py endorse --rows 1000 --uploads 10 --parallel 10     # ten sheets at once
 qa/load/loadtest.py reads --users 20 --seconds 20       # 20 users on the list endpoints: p50 / p95 / p99, errors
@@ -25,15 +27,24 @@ Endorsement pipeline (1000 rows = 334 employees with dependants; real validation
 | 1 sheet × 10,000 rows | 7.4 s (1,350 rows/s) |
 | 1 sheet × 25,000 rows | 19.1 s (1,310 rows/s), so the time grows in proportion to the rows |
 
-Read APIs through the BFF (list endpoints, 20 simulated users): about 27 requests/s, p50 646 ms, p95 796 ms. That number is **not good**, and the investigation says why:
+Read APIs through the BFF (20 simulated users, same sandbox). The first measurement, on PHP's built-in development server, was poor, and it was fixed:
 
-| Same call, `GET /broker/policies?size=20`, 20 users | requests/s | p50 | p95 |
-|---|---|---|---|
-| straight to policy-service (break-glass token, no BFF) | 319 | 5.8 ms | 26 ms |
-| through the BFF (PHP built-in development server, 4 workers) | about 50 | about 340 ms | about 390 ms |
-| one request, no concurrency, through the BFF | | 24 ms | |
+| `GET /broker/policies?size=20` and the 3-endpoint mix, 20 users | requests/s | p50 | p95 | errors |
+|---|---|---|---|---|
+| policy-service alone, no BFF (the ceiling) | 319 | 5.8 ms | 26 ms | 0 |
+| BFF on `php artisan serve` (before) | 50 | 340 ms | 390 ms | 0 |
+| BFF on nginx + PHP-FPM, OPcache + JIT, 12 workers | 120 to 150 | 75 to 108 ms | 150 to 200 ms | 0 |
+| + upstreams addressed as `127.0.0.1` (not `localhost`, which tries IPv6 first) | 160 to 170 | 61 to 70 ms | 115 to 135 ms | 0 |
+| + Laravel config and route cache | 212 | 38 ms | 75 to 86 ms | 0 |
+| + optimised Composer autoloader (final) | **197 to 225** | **35 to 47 ms** | **64 to 90 ms** | 0 |
+| the original 3-endpoint mix (policies, employers, endorsements): before | 27 | 646 ms | 796 ms | 0 |
+| the same mix, final (after the engine fix below) | **167 (6×)** | **61 ms** | 130 ms | 0 |
 
-The core service is fast; the BFF as run here (`php artisan serve`, the development server) saturates at about 50 requests a second. Turning on OPcache or using Redis for the cache did not change it (tried). A production deployment would run PHP-FPM behind nginx, or Laravel Octane, and that has not been measured. Until it is, **do not quote a read-throughput comparison**. The honest claim today is about bulk endorsements; the read path needs a measurement on the real web stack.
+What made the difference, in order of effect: FPM with a pool of workers instead of the single-purpose development server; Laravel's config and route cache (`php artisan config:cache route:cache`, done by `scripts/bff-fpm.sh`); addressing upstreams by IP; the optimised autoloader (`composer dump-autoload -o`). At this point PHP is CPU-bound on the sandbox's 4 shared cores (about 12 ms of CPU a request), so more cores raise the ceiling roughly in proportion; 8 vCPU should do clearly better than these figures.
+
+Run it this way: `scripts/bff-fpm.sh` (add `--bench` for load tests). It needs `php-fpm` and `nginx` installed (`apt install php8.3-fpm nginx`), writes its own configuration under `.dev/fpm`, builds the Laravel caches at start and removes them on exit. For a real deployment use the same settings in your own nginx and php-fpm pool: `pm = static` with 2 to 4 workers per core, `opcache.validate_timestamps=0` (restart php-fpm on deploy), `config:cache` and `route:cache` as a deploy step, **no** `fastcgi_keep_conn` or upstream keepalive to a pool this small (kept-alive connections pin FPM workers and the site stalls under load; that happened here, 30-second hangs), and Redis instead of the file cache when more than one BFF host runs.
+
+The load test also found a real bug, now fixed. Under concurrency about 1 in 8 calls to the engine's endorsement list answered 500: `FATAL: remaining connection slots are reserved`. The engine runs under ASGI, where each request gets its own short-lived thread, and `CONN_MAX_AGE=60` left one open database connection per thread that was never reused, until PostgreSQL's 100 connections were gone (the five Spring services hold 50 of them). The engine now uses Django's connection pool (`DB_POOL_MAX`, default 8 per process; `DB_POOL=false` switches it off). After the change: 0 errors, and the engine holds 8 connections.
 
 Other findings from these runs:
 - `GET …/offline-template` takes time proportional to the policy's roster (18 s with 113,000 members on one policy, 0.9 s with a handful); it pages through every member. Worth fixing before a policy with a very large roster uses it.

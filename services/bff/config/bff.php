@@ -10,14 +10,14 @@ return [
 
     // Where each service lives on the private network. (Production: mTLS terminates in front of these; see README.)
     'upstreams' => [
-        'identity' => env('UPSTREAM_IDENTITY', 'http://localhost:8000'),
-        'organization' => env('UPSTREAM_ORGANIZATION', 'http://localhost:8081'),
-        'policy' => env('UPSTREAM_POLICY', 'http://localhost:8082'),
-        'endorsement' => env('UPSTREAM_ENDORSEMENT', 'http://localhost:8083'),
-        'billing' => env('UPSTREAM_BILLING', 'http://localhost:8084'),
-        'integration' => env('UPSTREAM_INTEGRATION', 'http://localhost:8085'),
-        'read' => env('UPSTREAM_READ', 'http://localhost:8087'),
-        'sheets' => env('UPSTREAM_SHEETS', 'http://localhost:8086'),
+        'identity' => env('UPSTREAM_IDENTITY', 'http://127.0.0.1:8000'),
+        'organization' => env('UPSTREAM_ORGANIZATION', 'http://127.0.0.1:8081'),
+        'policy' => env('UPSTREAM_POLICY', 'http://127.0.0.1:8082'),
+        'endorsement' => env('UPSTREAM_ENDORSEMENT', 'http://127.0.0.1:8083'),
+        'billing' => env('UPSTREAM_BILLING', 'http://127.0.0.1:8084'),
+        'integration' => env('UPSTREAM_INTEGRATION', 'http://127.0.0.1:8085'),
+        'read' => env('UPSTREAM_READ', 'http://127.0.0.1:8087'),
+        'sheets' => env('UPSTREAM_SHEETS', 'http://127.0.0.1:8086'),
     ],
 
     // Tools that must never exist in production (they generate test data).

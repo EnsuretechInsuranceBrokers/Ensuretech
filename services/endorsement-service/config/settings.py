@@ -37,7 +37,14 @@ ASGI_APPLICATION = "config.asgi.application"
 # (created by a pre_migrate hook in apps.core so django_migrations also lives there).
 DATABASES = {"default": env.db("DATABASE_URL", default="postgres://ensuretech:ensuretech@localhost:5432/ensuretech")}
 DATABASES["default"]["OPTIONS"] = {"options": "-c search_path=endorsement,public"}
-DATABASES["default"]["CONN_MAX_AGE"] = 60
+# A connection pool, not CONN_MAX_AGE: under ASGI every request runs in its own short-lived thread, and a connection kept per thread is never reused, so under load the engine
+# leaked connections until PostgreSQL ran out of slots and list calls answered 500. The pool is shared by all threads of the process and capped (DB_POOL_MAX per process; Celery
+# workers and the web process each have their own). DB_POOL=false goes back to one connection per request.
+if env.bool("DB_POOL", default=True):
+    DATABASES["default"]["OPTIONS"]["pool"] = {"min_size": env.int("DB_POOL_MIN", default=1), "max_size": env.int("DB_POOL_MAX", default=8), "timeout": 15}
+    DATABASES["default"]["CONN_MAX_AGE"] = 0
+else:
+    DATABASES["default"]["CONN_MAX_AGE"] = 0
 # Indian HR files contain non-ASCII (₹, names): the database must be UTF8, and tests must not depend on the cluster default.
 DATABASES["default"]["TEST"] = {"CHARSET": "UTF8", "TEMPLATE": "template0"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

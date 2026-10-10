@@ -75,7 +75,7 @@ if [ -n "${BREAK_GLASS_PASSWORD:-}" ] && [ -n "$BGID" ]; then
   expect 200 "...and against organization-service" -H "Authorization: Bearer $BGT" "127.0.0.1:8081/api/v1/broker/employers?size=1"
   expect 403 "break glass token is not a SYSTEM token (no actuator controls)" -H "Authorization: Bearer $BGT" 127.0.0.1:8082/actuator/loggers
 else skip "break glass: BREAK_GLASS_PASSWORD or psql not available"; fi
-if [ "${QUERYLOG_ENABLED:-false}" = true ] && up 8100; then
+if [ "${QUERYLOG_ENABLED:-false}" = true ] && up 8100 && ! curl -s -m 20 -u "$ADMIN_UI_USER:$ADMIN_UI_PASSWORD" "127.0.0.1:8100/ops-api/queries?limit=1" | grep -q "query log is off"; then
   sleep 2; Q="$(curl -s -m 20 -u "$ADMIN_UI_USER:$ADMIN_UI_PASSWORD" "127.0.0.1:8100/ops-api/queries?limit=50")"
   echo "$Q" | python3 -c "import sys,json;d=json.load(sys.stdin);bad=[k for k,v in d['services'].items() if v!='ok'];rows=[r for r in d['requests'] if r['kind']=='request' and r.get('role')];sys.exit(0 if not bad and rows else 1)" 2>/dev/null \
     && ok "live query log: every service reports in, and requests carry user, role and controller method" || no "query log: $(echo "$Q" | head -c 300)"
