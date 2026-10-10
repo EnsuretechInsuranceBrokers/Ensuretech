@@ -28,6 +28,14 @@ Services: `identity org policy engine billing integration sheet read`. The scrip
 By hand: sign in with the service account for a SYSTEM token, then
 `POST /api/v1/auth/break-glass/` with `Authorization: Bearer <system token>` and `{"break_glass_password":"…","user_id":"<uuid>","reason":"…"}`; use the returned `access_token` as a bearer token directly against the service's port.
 
+## Where the password lives
+Not in git. `local.env` ends by sourcing `local.env.private` if it exists (the file is in `.gitignore`). Create it at the repo root on each machine:
+```bash
+export BREAK_GLASS_PASSWORD='choose-16-or-more-characters'
+export BREAK_GLASS_THROTTLE_RATE=30/min      # optional, for repeated QA runs; the default is 5 a minute
+```
+Without the file the feature is off (the endpoint answers 404) and `scripts/breakglass.sh` prompts for a password.
+
 ## Before this goes anywhere real
 - `local.env` holds a **development** password. Replace it with a long random one from your secret manager (`openssl rand -base64 24`) and rotate it after every use.
 - Keep the service ports (8081 to 8087, 8000) off public networks; the lock does not make them safe to expose.
