@@ -65,3 +65,18 @@ Other findings from these runs:
 | 1 × 10,000 rows | _ s | _ s | 7.4 s |
 
 The new platform's time includes real validation, pricing and the deposit check. Confirm the legacy time includes the same work, or the comparison flatters one side.
+
+## Legacy comparison, 10 Oct 2026 (1000 members, Endorsement / Add)
+Legacy figures are from your production server (8 vCPU, Horizon queue; details in your timing note). New-platform figures are from the 4 vCPU build sandbox with the BFF on nginx + PHP-FPM, three runs each, same-size sheet (`qa/load/loadtest.py endorse --rows 1000 [--fail N] --uploads 3`). Different hardware, so read the ratio as an order of magnitude, not a precise one.
+
+| Case (1000 rows) | Legacy (prod) | New (sandbox) |
+|---|---|---|
+| All rows invalid (error sheet produced) | about 1 min, and 1 min 3 s on a repeat | **0.65 to 0.68 s** to `VALIDATION_FAILED`; all 1000 errors then available as JSON in 0.07 s |
+| 996 valid, 4 invalid | more than 3 min (stopped counting) | **1.2 to 2.1 s** to `ENDORSED` (996 members written, 4 errors recorded) after the person continues with the valid rows |
+| 1000 valid | 3 min 52 s to the last member, 4 min 23 s for the whole pipeline | **1.22 to 1.25 s** to `ENDORSED` |
+
+**Is it a fair fight? Not yet, on two counts.**
+1. **The new platform does not produce an error spreadsheet.** The legacy run writes `AddMemberError.xlsx`; here the errors are available only as JSON (`GET /endorsements/{id}/errors`, paged, with line, employee code, field, rule and message) and the portal shows them. Building the workbook is cheap (an 83 ms test for 1000 rows with openpyxl, which the engine already depends on), so adding a download would not change the result, but until it exists the new figure for the failure cases leaves that step out.
+2. **A partly failed upload waits for a person.** The engine stops at `VALIDATION_PARTIAL` and continues only after the broker confirms (`POST /endorsements/{id}/proceed/`). The BFF has no route for that call, so the portal cannot confirm today; the test above made the call straight to the engine with a break-glass token. The measured 1.2 to 2.1 s includes that call being made immediately. Legacy appears to continue on its own.
+
+Both are worth settling before anyone quotes these numbers outside the team: add the error-sheet download, and decide whether a partial upload should continue by itself or wait, then expose whichever it is through the BFF.

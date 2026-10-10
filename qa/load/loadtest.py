@@ -35,7 +35,7 @@ def letters(n):
     return "".join(random.choices(string.ascii_uppercase, k=n))
 
 
-def make_sheet(rows, path, start_code=None, effective=""):
+def make_sheet(rows, path, start_code=None, effective="", fail=0):
     """Employees with a spouse and one child each (3 rows), then single employees to reach exactly `rows`. Codes and PANs are fresh on every call."""
     code = start_code or random.randint(100000, 800000)
     out = []
@@ -48,10 +48,23 @@ def make_sheet(rows, path, start_code=None, effective=""):
             out.append([code, "Spouse", f"Load Spouse {code}", "02/02/1983", "M", 500000, effective, ""])
         if len(out) < rows:
             out.append([code, "SON", f"Load Child {code}", "01/01/2015", "M", 500000, effective, ""])
+    out = out[:rows]
+    if fail:                                       # spoil `fail` rows, spread evenly, cycling through three kinds of mistake that real sheets have
+        step = max(1, rows // fail)
+        for n, i in enumerate(range(0, rows, step)):
+            if n >= fail:
+                break
+            kind = n % 3
+            if kind == 0:
+                out[i][3] = "99/99/9999"           # a date that does not exist
+            elif kind == 1:
+                out[i][2] = ""                     # no member name
+            else:
+                out[i][1] = "NEPHEW"               # a relationship the policy does not know
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["Emp Code", "Relationship", "Member Name", "DOB", "Gender", "Sum Insured", "Effective Date", "PAN"])
-        w.writerows(out[:rows])
+        w.writerows(out)
     return path
 
 
@@ -61,15 +74,15 @@ class Api:
         self.token = None
         self.email, self.password = email, password
 
-    def call(self, method, path, body=None, headers=None, raw=None, timeout=60):
+    def call(self, method, path, body=None, headers=None, raw=None, timeout=60, base=None):
         h = {"Accept": "application/json", **(headers or {})}
         data = raw
         if body is not None:
             data = json.dumps(body).encode()
             h["Content-Type"] = "application/json"
-        if self.token:
+        if self.token and "Authorization" not in h:
             h["Authorization"] = f"Bearer {self.token}"
-        req = urllib.request.Request(self.base + path, data=data, method=method, headers=h)
+        req = urllib.request.Request((base or self.base) + path, data=data, method=method, headers=h)
         t = time.perf_counter()
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -125,7 +138,7 @@ def fresh_code_base(n):
 def run_one(args, n, effective, token):
     api = Api(args.base, args.email, args.password)
     api.token = token
-    path = make_sheet(args.rows, os.path.join(args.workdir, f"load-{os.getpid()}-{n}.csv"), start_code=fresh_code_base(n), effective=args.sheet_effective_date)
+    path = make_sheet(args.rows, os.path.join(args.workdir, f"load-{os.getpid()}-{n}.csv"), start_code=fresh_code_base(n), effective=args.sheet_effective_date, fail=args.fail)
     cid = f"load-{int(time.time())}-{n}-{uuid.uuid4().hex[:6]}"
     t0 = time.perf_counter()
     code, job, accept_ms = api.upload(path, args.policy_id, args.op_type, effective, cid, f"{cid}")
@@ -142,13 +155,28 @@ def run_one(args, n, effective, token):
             if st != last:
                 seen[st] = round(time.perf_counter() - t0, 2)
                 last = st
-            if st in DONE or "FAILED" in st or st in ("CD_INSUFFICIENT", "VALIDATION_PARTIAL", "CANCELLED"):
+            if st == "VALIDATION_PARTIAL" and args.proceed_base and "PROCEEDED" not in seen:
+                seen["PROCEEDED"] = round(time.perf_counter() - t0, 2)           # the person clicks "continue with the valid rows"
+                api.call("POST", f"/broker/endorsements/{jid}/proceed/", base=args.proceed_base, headers={"Authorization": f"Bearer {args.proceed_token}"})
+            waiting = st == "VALIDATION_PARTIAL" and not args.proceed_base
+            if st in DONE or "FAILED" in st or waiting or st in ("CD_INSUFFICIENT", "CANCELLED"):
                 res.update(total_rows=j.get("total_rows"), failed_rows=j.get("failed_rows"), chunks=j.get("chunk_count"), total_premium=j.get("total_premium"), cd_status=j.get("cd_status"))
                 break
         time.sleep(args.poll)
     total = time.perf_counter() - t0
+    if res.get("failed_rows"):                                              # what a person downloads as the error list: every error, all pages
+        e0, errs, page = time.perf_counter(), 0, 1
+        while True:
+            c, j, _ = api.call("GET", f"/broker/endorsements/{jid}/errors?page={page}&page_size=500")
+            if c != 200 or not j.get("items"):
+                break
+            errs += len(j["items"])
+            if errs >= j.get("total", 0):
+                break
+            page += 1
+        res.update(error_rows_fetched=errs, seconds_to_fetch_all_errors=round(time.perf_counter() - e0, 2))
     res.update(job_id=jid, status=last or "NO_STATUS", seconds_to_final=round(total, 2), first_seen_at_seconds=seen,
-               rows_per_second=round(args.rows / total, 1) if last in DONE else None, timed_out=time.perf_counter() >= deadline)
+               rows_per_second=round(args.rows / total, 1) if last in DONE else None, failed=res.get("failed_rows"), timed_out=time.perf_counter() >= deadline)
     os.remove(path)
     return res
 
@@ -216,6 +244,9 @@ def main():
     ap.add_argument("--email", default=os.environ.get("ENSURETECH_EMAIL", "meera.kapoor@northwind.example"))
     ap.add_argument("--password", default=os.environ.get("ENSURETECH_PASSWORD", "Str0ng-Pass-123!"))
     ap.add_argument("--token", default=os.environ.get("ENSURETECH_TOKEN", ""), help="use this bearer token instead of signing in (e.g. a break-glass token, with --base pointing straight at a core service, to time it without the BFF)")
+    ap.add_argument("--fail", type=int, default=0, help="spoil this many rows of the sheet (a bad date, a missing name, an unknown relationship)")
+    ap.add_argument("--proceed-base", default="", help="when validation leaves some rows failed, continue with the valid ones by calling the engine's proceed endpoint at this base (e.g. http://127.0.0.1:8083/api/v1 with --token a break-glass token): the BFF has no such route")
+    ap.add_argument("--proceed-token", default=os.environ.get("ENSURETECH_PROCEED_TOKEN", ""), help="a break-glass token for a broker admin, used only for the proceed call")
     ap.add_argument("--label", default="local", help="a name for this run in the results file, e.g. 'local-4workers' or 'prod'")
     ap.add_argument("--rows", type=int, default=1000)
     ap.add_argument("--uploads", type=int, default=1)

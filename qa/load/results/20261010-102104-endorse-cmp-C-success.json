@@ -1,0 +1,94 @@
+{
+  "kind": "endorse",
+  "label": "cmp-C-success",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T10:21:04",
+  "rows_per_sheet": 1000,
+  "uploads": 3,
+  "parallel": 1,
+  "succeeded": 3,
+  "wall_seconds": 3.71,
+  "total_rows_endorsed": 3000,
+  "overall_rows_per_second": 807.7,
+  "seconds_to_final": {
+    "min": 1.22,
+    "median": 1.23,
+    "max": 1.25
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791627660-1-b4f237",
+      "http": 202,
+      "accept_ms": 86.3,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "36812033-0224-4312-a19e-a1c67c88f583",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.23,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.11,
+        "VALIDATION_QUEUED": 0.39,
+        "PREMIUM_CALC_QUEUED": 0.67,
+        "ENDORSEMENT_IN_PROGRESS": 0.95,
+        "ENDORSED": 1.23
+      },
+      "rows_per_second": 810.3,
+      "failed": 0,
+      "timed_out": false
+    },
+    {
+      "n": 2,
+      "rows": 1000,
+      "correlation_id": "load-1791627661-2-c3cf78",
+      "http": 202,
+      "accept_ms": 102.5,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "9551b3d1-0905-48a7-a539-672ac77992f2",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.25,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.13,
+        "PREMIUM_CALC_QUEUED": 0.69,
+        "ENDORSEMENT_IN_PROGRESS": 0.97,
+        "ENDORSED": 1.25
+      },
+      "rows_per_second": 800.4,
+      "failed": 0,
+      "timed_out": false
+    },
+    {
+      "n": 3,
+      "rows": 1000,
+      "correlation_id": "load-1791627662-3-232199",
+      "http": 202,
+      "accept_ms": 79.1,
+      "total_rows": 1000,
+      "failed_rows": 0,
+      "chunks": 2,
+      "total_premium": "4917653.33",
+      "cd_status": "SUFFICIENT",
+      "job_id": "768e349c-cb3a-4fcf-9dc3-44a0a7605e66",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.22,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.1,
+        "VALIDATION_QUEUED": 0.38,
+        "PREMIUM_CALC_QUEUED": 0.67,
+        "ENDORSEMENT_IN_PROGRESS": 0.94,
+        "ENDORSED": 1.22
+      },
+      "rows_per_second": 819.8,
+      "failed": 0,
+      "timed_out": false
+    }
+  ]
+}
