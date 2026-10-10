@@ -40,12 +40,12 @@ A run takes about an hour. Tick them off; each says what you should see.
 
 | Layer | Where | Run | Count |
 |---|---|---|---|
-| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 93 |
-| identity | `services/identity-service/tests` | `pytest -q` | 43 |
-| endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 319 |
+| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 95 |
+| identity | `services/identity-service/tests` | `pytest -q` | 62 |
+| endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 333 |
 | notification | `services/notification-service/tests` | `pytest -q` | 42 |
 | read-service | `services/read-service/tests` | `TEST_MONGO_URI=... pytest -q` (needs MongoDB) | not run in the build sandbox |
-| policy / billing / organization / integration / sheet-generator / admin | `services/*/src/test` | `DATABASE_URL=jdbc:... mvn test` | 91 / 42 / 29 / 47 / 56 / 3 |
+| policy / billing / organization / integration / sheet-generator / admin | `services/*/src/test` | `DATABASE_URL=jdbc:... mvn test` | 101 / 51 / 38 / 56 / 65 / 8 |
 | whole stack through its doors | `qa/smoke.sh` | stack running | 57 checks |
 | the portal in a browser | `qa/portal-smoke.js` | stack running + Playwright | 11 pages |
 

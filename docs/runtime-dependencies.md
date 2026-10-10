@@ -41,6 +41,9 @@ Cost of *hosting* the free pieces in production (servers, managed databases) is 
 | Payment collection / CD top-ups | Payment gateway and bank | Ledger only; no gateway | Payment gateway (Razorpay etc.) and bank account |
 | Government/identity checks (PAN, Aadhaar, KYC) | Licensed providers | PAN is only stored, not verified | KYC provider |
 
+## Production web tier for the BFF
+Not the development server. `nginx` in front of `php-fpm` (8.3) with OPcache, a static worker pool, and Laravel's config and route cache built at deploy (`scripts/bff-fpm.sh` shows the settings; `docs/load-test.md` explains why). Redis for the BFF's cache when more than one BFF host runs. PostgreSQL `max_connections` of 200 or more (the five Spring services hold 10 each, the engine up to 8 per process).
+
 ## Bottom line
 Everything we have written can be developed, tested and demonstrated locally at no cost. Money is needed only at the edges: real TPAs and insurers (contracts), real
 email/SMS delivery, an LLM or embedding API if you want AI answers, payments, and production hosting.
