@@ -1,0 +1,50 @@
+{
+  "kind": "endorse",
+  "label": "final-mixed2",
+  "base": "http://127.0.0.1:8090/api/v1",
+  "when": "2026-10-10T11:33:24",
+  "rows_per_sheet": 1000,
+  "uploads": 1,
+  "parallel": 1,
+  "succeeded": 1,
+  "wall_seconds": 1.92,
+  "total_rows_endorsed": 1000,
+  "overall_rows_per_second": 520.5,
+  "seconds_to_final": {
+    "min": 1.63,
+    "median": 1.63,
+    "max": 1.63
+  },
+  "runs": [
+    {
+      "n": 1,
+      "rows": 1000,
+      "correlation_id": "load-1791632002-1-c8439c",
+      "http": 202,
+      "accept_ms": 728.7,
+      "total_rows": 1000,
+      "failed_rows": 4,
+      "chunks": 2,
+      "total_premium": "4897003.33",
+      "cd_status": "SUFFICIENT",
+      "error_rows_fetched": 4,
+      "seconds_to_fetch_all_errors": 0.04,
+      "error_sheet_http": 200,
+      "error_sheet_bytes": 42066,
+      "error_sheet_is_xlsx": true,
+      "seconds_to_download_error_sheet": 0.25,
+      "job_id": "ac4b756b-b015-4eaa-be70-27519ed63533",
+      "status": "ENDORSED",
+      "seconds_to_final": 1.63,
+      "first_seen_at_seconds": {
+        "REQUEST_RAISED": 0.77,
+        "VALIDATION_IN_PROGRESS": 1.05,
+        "CD_CHECK_INITIATED": 1.34,
+        "ENDORSED": 1.63
+      },
+      "rows_per_second": 613.5,
+      "failed": 4,
+      "timed_out": false
+    }
+  ]
+}

@@ -32,6 +32,7 @@ class QaTimingController extends Controller
 
         return view('portal.qa_timing', ['user' => $r->session()->get('portal.user'), 'gw' => 'broker', 'nonce' => $r->attributes->get('csp_nonce'),
             'policies' => array_values(array_filter($pol, fn ($p) => ($p['status'] ?? '') === 'APPROVED_AND_LIVE')),
+            'employers' => collect($this->api->call($r, 'GET', '/broker/employers', ['page_size' => 100])['json']['items'] ?? [])->mapWithKeys(fn ($e) => [$e['id'] => $e['display_name'] ?? $e['legal_name'] ?? ('Employer '.$e['id'])])->all(),
             'effective' => now()->addDays(35)->toDateString(), 'token' => csrf_token()]);
     }
 

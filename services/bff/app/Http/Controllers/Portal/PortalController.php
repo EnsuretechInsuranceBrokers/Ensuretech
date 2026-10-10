@@ -27,6 +27,20 @@ class PortalController extends Controller
         return [$res['json'], $res['status']];
     }
 
+    /** id => name of the employers a broker works with, for the employer dropdown that narrows the policy dropdown. Employer users have just one, so no dropdown. */
+    private function employerChoices(Request $r): array
+    {
+        if ($this->gw($r) !== 'broker') {
+            return [];
+        }
+        $out = [];
+        foreach ($this->api->call($r, 'GET', '/broker/employers', ['page_size' => 100])['json']['items'] ?? [] as $e) {
+            $out[$e['id']] = $e['display_name'] ?? $e['legal_name'] ?? ('Employer '.$e['id']);
+        }
+
+        return $out;
+    }
+
     private function view(Request $r, string $name, array $data = [])
     {
         return view("portal.$name", $data + ['user' => $r->session()->get('portal.user'), 'gw' => $r->attributes->get('gw'), 'nonce' => $r->attributes->get('csp_nonce')]);
@@ -156,7 +170,7 @@ class PortalController extends Controller
         [$list] = $this->get($r, '/endorsements', ['page' => (int) $r->query('page', 1), 'page_size' => 25]);
         [$pols] = $this->get($r, '/policies', ['page_size' => 100]);
 
-        return $this->view($r, 'endorsements', ['page' => $list, 'policies' => array_values(array_filter($pols['items'] ?? [], fn ($p) => $p['status'] === 'APPROVED_AND_LIVE'))]);
+        return $this->view($r, 'endorsements', ['page' => $list, 'policies' => array_values(array_filter($pols['items'] ?? [], fn ($p) => $p['status'] === 'APPROVED_AND_LIVE')), 'employers' => $this->employerChoices($r)]);
     }
 
     public function upload(Request $r)
@@ -175,7 +189,7 @@ class PortalController extends Controller
     {
         [$pols] = $this->get($r, '/policies', ['page_size' => 100]);
 
-        return $this->view($r, 'intake', ['policies' => array_values(array_filter($pols['items'] ?? [], fn ($p) => $p['status'] === 'APPROVED_AND_LIVE'))]);
+        return $this->view($r, 'intake', ['policies' => array_values(array_filter($pols['items'] ?? [], fn ($p) => $p['status'] === 'APPROVED_AND_LIVE')), 'employers' => $this->employerChoices($r)]);
     }
 
     public function intakePlan(Request $r)

@@ -27,7 +27,7 @@
     var p = params(scenario), inv = scenario === "invalid" ? p.rows : scenario === "valid" ? 0 : Math.min(p.invalid_rows, p.rows);
     var tr = newRow(scenario, p.rows, inv), c = tr.children, t0 = performance.now();
     say("Uploading " + p.rows + " rows (" + NAMES[scenario].toLowerCase() + ")…");
-    return post("/app/qa/timing/run", Object.assign({ policy_id: +$("policy").value, effective_date: $("eff").value }, p)).then(function (r) {
+    return post("/app/qa/timing/run", Object.assign({ policy_id: +$("policy-pick").value, effective_date: $("eff").value }, p)).then(function (r) {
       if (!r.ok) { c[2].textContent = "refused"; c[3].textContent = (r.body && (r.body.error || r.body.message)) || ("HTTP " + r.status); say("The upload was refused."); return; }
       c[2].textContent = r.body.upload_ms + " ms";
       var id = r.body.job_id;
@@ -68,7 +68,7 @@
     } else if (t.dataset.sheet) {
       var p = params(t.dataset.sheet); window.location.href = "/app/qa/timing/sheet?" + new URLSearchParams(p).toString();
     } else if (t.id === "topup") {
-      post("/app/qa/timing/deposit", { policy_id: +$("policy").value, amount: +$("amount").value }).then(function (r) { say(r.ok ? "Deposit added." : "The deposit was not added (HTTP " + r.status + ")."); });
+      post("/app/qa/timing/deposit", { policy_id: +$("policy-pick").value, amount: +$("amount").value }).then(function (r) { say(r.ok ? "Deposit added." : "The deposit was not added (HTTP " + r.status + ")."); });
     }
   });
 })();

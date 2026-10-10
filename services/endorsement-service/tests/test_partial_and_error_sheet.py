@@ -42,27 +42,39 @@ def test_a_fully_failed_upload_stops_and_does_not_continue(flow):
     assert job.status == "VALIDATION_FAILED" and EndorsementMember.objects.count() == 0
 
 
-def test_the_error_sheet_lists_the_rows_to_fix_and_every_finding(flow):
+def test_the_result_sheet_has_the_legacy_layout_and_one_row_per_uploaded_row(flow):
+    from apps.validation import legacy_layouts
     job = job_from(upload(client_for(), MIXED, effective_date="2030-04-01"))
     r = client_for().get(f"{BASE}{job.id}/errors/download/")
     assert r.status_code == 200 and r["Content-Type"] == XLSX
-    assert r["Content-Disposition"].startswith('attachment; filename="') and r["Content-Disposition"].endswith('_errors.xlsx"')
+    assert r["Content-Disposition"] == 'attachment; filename="AddMemberError.xlsx"'
     wb = sheet(r)
-    assert wb.sheetnames == ["Rows to fix", "All findings"]
-    rows = list(wb["Rows to fix"].iter_rows(values_only=True))
+    assert wb.sheetnames == ["Worksheet"]
+    rows = list(wb["Worksheet"].iter_rows(values_only=True))
     header = list(rows[0])
-    assert header[0] == "Line" and "Employee Code" in header and header[-2:] == ["Problems", "Rules"]
-    assert len(rows) == 2                                                                       # one bad line, so one row to fix
-    bad = dict(zip(header, rows[1]))
-    assert bad["Employee Code"] == "2" and bad["Problems"] and bad["Rules"]
-    findings = list(wb["All findings"].iter_rows(values_only=True))
-    assert findings[0][:4] == ("Line", "Employee Code", "Field", "Rule") and len(findings) >= 2
+    assert header == legacy_layouts.ADD + ["Status", "Reason"] and len(header) == 108
+    assert len(rows) == 4                                                                       # every uploaded row, good or bad
+    by_code = {dict(zip(header, r))["Employee Code"]: dict(zip(header, r)) for r in rows[1:]}
+    assert by_code["1"]["Status"] == "Member added successfully." and by_code["1"]["Reason"] is None
+    assert by_code["3"]["Status"] == "Member added successfully."
+    assert by_code["2"]["Status"] == "Failed to add." and by_code["2"]["Reason"]
+    assert by_code["1"]["Employee First Name"] == "Good" and by_code["1"]["Employee DOB"] == "01-01-1990" and by_code["1"]["Suminsured"] == 500000
+    assert by_code["1"]["Relationship with Employee"] == "Self" and by_code["1"]["Inception/Endorsement Date"] == "01-04-2030"
 
 
-def test_a_clean_job_gives_an_empty_error_sheet(flow):
+def test_a_row_that_passed_but_was_not_endorsed_is_not_reported_as_added(flow, settings):
+    settings.PARTIAL_AUTO_CONTINUE = False
+    job = job_from(upload(client_for(), MIXED, effective_date="2030-04-01"))
+    rows = list(sheet(client_for().get(f"{BASE}{job.id}/errors/download/"))["Worksheet"].iter_rows(values_only=True))
+    h = list(rows[0])
+    status = {dict(zip(h, r))["Employee Code"]: dict(zip(h, r))["Status"] for r in rows[1:]}
+    assert status == {"1": "Not yet added.", "2": "Failed to add.", "3": "Not yet added."}
+
+
+def test_a_clean_job_reports_every_row_as_added(flow):
     job = job_from(upload(client_for(), csv_text("1,Self,A,1990-01-01,M,500000,,"), effective_date="2030-04-01"))
-    wb = sheet(client_for().get(f"{BASE}{job.id}/errors/download/"))
-    assert len(list(wb["Rows to fix"].iter_rows(values_only=True))) == 1                        # the header only
+    rows = list(sheet(client_for().get(f"{BASE}{job.id}/errors/download/"))["Worksheet"].iter_rows(values_only=True))
+    assert len(rows) == 2 and rows[1][-2] == "Member added successfully."
 
 
 def test_values_that_look_like_formulas_are_written_as_text(flow):

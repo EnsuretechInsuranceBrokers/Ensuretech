@@ -10,7 +10,7 @@ const ROWS = process.argv[2] || '1000', ROUNDS = +(process.argv[3] || 1);
   await page.fill('input[name=email]', 'meera.kapoor@northwind.example'); await page.fill('input[name=password]', 'Str0ng-Pass-123!');
   await page.click('button'); await page.waitForURL(u => !u.toString().includes('/login'), { timeout: 30000 });
   await page.goto(BASE + '/app/qa/timing');
-  await page.selectOption('#policy', { index: 1 }).catch(() => {});                 // policy 2 (the first is the small sample policy)
+  await page.selectOption('#policy-pick', { index: 1 }).catch(() => {});                 // policy 2 (the first is the small sample policy)
   await page.fill('#rows', ROWS);
   const out = [];
   for (let i = 0; i < ROUNDS; i++) {
@@ -20,6 +20,6 @@ const ROWS = process.argv[2] || '1000', ROUNDS = +(process.argv[3] || 1);
   }
   await page.screenshot({ path: __dirname + '/out/qa-timing.png', fullPage: true });
   for (const [i, r] of out.entries()) { console.log('--- round ' + (i + 1)); r.reverse().forEach(l => console.log(l)); }
-  console.log('policy:', await page.$eval('#policy', s => s.selectedOptions[0].textContent), '| page errors:', errors.length ? errors : 'none');
+  console.log('policy:', await page.$eval('#policy-pick', s => s.selectedOptions[0].textContent), '| page errors:', errors.length ? errors : 'none');
   await browser.close();
 })();

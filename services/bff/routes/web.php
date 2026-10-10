@@ -44,6 +44,10 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
         Route::post('/qa/timing/deposit', [\App\Http\Controllers\Portal\QaTimingController::class, 'deposit'])->middleware('throttle:30,1');
         Route::get('/qa/timing/job/{id}', [\App\Http\Controllers\Portal\QaTimingController::class, 'job'])->middleware('throttle:600,1');
     }
+    Route::get('/manage', [\App\Http\Controllers\Portal\ManageController::class, 'index']);
+    Route::get('/manage/download/{name}', [\App\Http\Controllers\Portal\ManageController::class, 'download'])->where('name', '[a-z_.]+');
+    Route::post('/manage/call', [\App\Http\Controllers\Portal\ManageController::class, 'call'])->middleware('throttle:120,1');
+    Route::get('/manage/{module}', [\App\Http\Controllers\Portal\ManageController::class, 'module'])->where('module', '[a-z]+');
     Route::get('/cd', [P::class, 'cd']);
     Route::post('/cd/{policyId}/credit', [P::class, 'cdCredit'])->whereNumber('policyId');
     Route::post('/cd/{policyId}/replenish', [P::class, 'cdReplenish'])->whereNumber('policyId');

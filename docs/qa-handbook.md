@@ -6,7 +6,7 @@ Everything runs on your machine. Setup is `run.html` (§0 gives the order; §3a 
 
 ```
 scripts/dev-up.sh --no-kafka        # or without --no-kafka when Kafka is running
-qa/smoke.sh                         # 59 checks, about 50 s; --quick skips the endorsement upload
+qa/smoke.sh                         # 60 checks, about 50 s; --quick skips the endorsement upload
 node qa/portal-smoke.js             # opens the portal in a real browser as a broker and as HR (needs Playwright, see the file's header)
 ```
 `smoke.sh` drives the stack only through the doors a user or an operator has and prints PASS or FAIL for each: sign-in and tenant isolation; **the lock** (direct calls to every core service with a valid token are refused, the actuator controls, metrics token, super credentials); the **job controls** with the wrong and the right job-killer password and the audit trail;
@@ -40,13 +40,13 @@ A run takes about an hour. Tick them off; each says what you should see.
 
 | Layer | Where | Run | Count |
 |---|---|---|---|
-| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 99 |
+| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 108 |
 | identity | `services/identity-service/tests` | `pytest -q` | 62 |
-| endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 341 |
+| endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 342 |
 | notification | `services/notification-service/tests` | `pytest -q` | 42 |
 | read-service | `services/read-service/tests` | `TEST_MONGO_URI=... pytest -q` (needs MongoDB) | not run in the build sandbox |
 | policy / billing / organization / integration / sheet-generator / admin | `services/*/src/test` | `DATABASE_URL=jdbc:... mvn test` | 101 / 51 / 38 / 56 / 66 / 8 |
-| whole stack through its doors | `qa/smoke.sh` | stack running | 59 checks |
+| whole stack through its doors | `qa/smoke.sh` | stack running | 60 checks |
 | the portal in a browser | `qa/portal-smoke.js` | stack running + Playwright | 11 pages |
 
 **Rules that keep tests honest here**
@@ -89,3 +89,5 @@ Verified by running it, on Linux, in a build sandbox: the lock on every service;
 - **Live requests and SQL** (`docs/observability.md`): `http://127.0.0.1:8100/queries.html`, same login as the console. Use it while testing: filter by your user id or the page's path and see the controller method and every query.
 - **Load tests** (`docs/load-test.md`): `qa/load/loadtest.py`. Time a 1000-row sheet end to end, run sheets in parallel, hammer the list endpoints, and compare with the legacy system on the same sheet.
 - **QA timing page** (`/app/qa/timing`, needs `BFF_QA_TOOLS=true`): buttons that upload a generated 1000-row sheet (valid, mixed, all invalid) and time every step to the result and to the error sheet. See the end of `docs/load-test.md`.
+- **Settings and tools** (`/app/manage`): every BFF API that has no purpose-built page has a card here with a plain-language title and a form built from the API's own rules (`config/portal_modules.php`). `tests/Feature/PortalCoverageTest.php` fails if an API is added without a page or a card. `NODE_PATH=/opt/node-tools/node_modules node qa/portal-manage-smoke.js` opens every area as a broker and as HR, runs the read-only cards, and checks the employer dropdown narrows the policy dropdown.
+- **How requests are signed and authorised:** `docs/request-signing.md`.
