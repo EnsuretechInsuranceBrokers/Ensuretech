@@ -155,10 +155,13 @@ def run_one(args, n, effective, token):
             if st != last:
                 seen[st] = round(time.perf_counter() - t0, 2)
                 last = st
-            if st == "VALIDATION_PARTIAL" and args.proceed_base and "PROCEEDED" not in seen:
-                seen["PROCEEDED"] = round(time.perf_counter() - t0, 2)           # the person clicks "continue with the valid rows"
-                api.call("POST", f"/broker/endorsements/{jid}/proceed/", base=args.proceed_base, headers={"Authorization": f"Bearer {args.proceed_token}"})
-            waiting = st == "VALIDATION_PARTIAL" and not args.proceed_base
+            if st == "VALIDATION_PARTIAL" and (args.proceed or args.proceed_base) and "PROCEEDED" not in seen:
+                seen["PROCEEDED"] = round(time.perf_counter() - t0, 2)           # the person clicks "continue with the valid rows" (only needed when PARTIAL_AUTO_CONTINUE=false)
+                if args.proceed_base:
+                    api.call("POST", f"/broker/endorsements/{jid}/proceed/", base=args.proceed_base, headers={"Authorization": f"Bearer {args.proceed_token}"})
+                else:
+                    api.call("POST", f"/broker/endorsements/{jid}/proceed")           # through the BFF, like the portal's button
+            waiting = st == "VALIDATION_PARTIAL" and not (args.proceed or args.proceed_base)
             if st in DONE or "FAILED" in st or waiting or st in ("CD_INSUFFICIENT", "CANCELLED"):
                 res.update(total_rows=j.get("total_rows"), failed_rows=j.get("failed_rows"), chunks=j.get("chunk_count"), total_premium=j.get("total_premium"), cd_status=j.get("cd_status"))
                 break
@@ -254,7 +257,8 @@ def main():
     ap.add_argument("--password", default=os.environ.get("ENSURETECH_PASSWORD", "Str0ng-Pass-123!"))
     ap.add_argument("--token", default=os.environ.get("ENSURETECH_TOKEN", ""), help="use this bearer token instead of signing in (e.g. a break-glass token, with --base pointing straight at a core service, to time it without the BFF)")
     ap.add_argument("--fail", type=int, default=0, help="spoil this many rows of the sheet (a bad date, a missing name, an unknown relationship)")
-    ap.add_argument("--proceed-base", default="", help="when validation leaves some rows failed, continue with the valid ones by calling the engine's proceed endpoint at this base (e.g. http://127.0.0.1:8083/api/v1 with --token a break-glass token): the BFF has no such route")
+    ap.add_argument("--proceed-base", default="", help="advanced: call the engine's proceed endpoint directly at this base (e.g. http://127.0.0.1:8083/api/v1, with --proceed-token a break-glass token) instead of the BFF's")
+    ap.add_argument("--proceed", action="store_true", help="when the engine holds a partly failed upload (PARTIAL_AUTO_CONTINUE=false), continue with the valid rows through the BFF's POST /endorsements/{id}/proceed")
     ap.add_argument("--proceed-token", default=os.environ.get("ENSURETECH_PROCEED_TOKEN", ""), help="a break-glass token for a broker admin, used only for the proceed call")
     ap.add_argument("--label", default="local", help="a name for this run in the results file, e.g. 'local-4workers' or 'prod'")
     ap.add_argument("--rows", type=int, default=1000)
