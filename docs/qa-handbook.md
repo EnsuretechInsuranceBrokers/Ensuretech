@@ -40,7 +40,7 @@ A run takes about an hour. Tick them off; each says what you should see.
 
 | Layer | Where | Run | Count |
 |---|---|---|---|
-| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 96 |
+| BFF (API contract, portal pages, signing, Telescope) | `services/bff/tests` | `php artisan test` | 99 |
 | identity | `services/identity-service/tests` | `pytest -q` | 62 |
 | endorsement engine (rules, pricing, Celery topology, internal API) | `services/endorsement-service/tests` | `DATABASE_URL=... pytest -q` | 341 |
 | notification | `services/notification-service/tests` | `pytest -q` | 42 |
@@ -88,3 +88,4 @@ Verified by running it, on Linux, in a build sandbox: the lock on every service;
 - **Break glass** (`docs/break-glass.md`): act as one named user straight against the core services when the BFF is down. `scripts/breakglass.sh`. Section 3b of `qa/smoke.sh` checks it.
 - **Live requests and SQL** (`docs/observability.md`): `http://127.0.0.1:8100/queries.html`, same login as the console. Use it while testing: filter by your user id or the page's path and see the controller method and every query.
 - **Load tests** (`docs/load-test.md`): `qa/load/loadtest.py`. Time a 1000-row sheet end to end, run sheets in parallel, hammer the list endpoints, and compare with the legacy system on the same sheet.
+- **QA timing page** (`/app/qa/timing`, needs `BFF_QA_TOOLS=true`): buttons that upload a generated 1000-row sheet (valid, mixed, all invalid) and time every step to the result and to the error sheet. See the end of `docs/load-test.md`.

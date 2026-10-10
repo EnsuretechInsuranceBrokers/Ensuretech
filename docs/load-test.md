@@ -88,3 +88,21 @@ Re-measured, 3 runs each, no manual step, error sheet downloaded afterwards:
 | 1000 valid | 3 min 52 s | **0.92 to 1.25 s** to `ENDORSED` |
 
 A real bug turned up while checking the download: **every file download through the BFF (templates, reports, the new error sheet) arrived empty (HTTP 200, 0 bytes)** on a machine with the Ray or Telescope development packages installed. Both listen for the HTTP client's response event and read the body, and the BFF streamed it from a live socket that can be read only once. Tests used fakes, and `qa/smoke.sh` checked only the status code, so it went unseen. The BFF now takes the file as a seekable stream and rewinds it before sending, and `qa/smoke.sh` checks that downloads are real `.xlsx` files.
+
+## The QA timing page (buttons in the portal)
+With `BFF_QA_TOOLS=true` (the default in `local.env`; off everywhere else, the routes do not exist) a broker sees **QA timing** in the portal's menu, `http://127.0.0.1:8090/app/qa/timing`. It builds a sheet and sends it through the same API the portal uses, and times each step in your browser from the click:
+
+- **Run: all rows valid / some rows invalid / all rows invalid**, and **Run all three, one after another**. Choose the policy, the number of rows (default 1000), how many rows are invalid in the mixed case (default 4) and the effective date.
+- Each result row shows: upload accepted (ms), the status reached, time until that result, the error sheet size, and the time until the **error sheet is ready** (with how much of that was building it). Links: open the upload, download its error sheet; **Continue with valid rows** appears only if the engine is set to hold partial uploads (`PARTIAL_AUTO_CONTINUE=false`).
+- **Download valid / mixed / invalid sheet** gives the exact CSV, to submit to the legacy system for a like-for-like comparison.
+- **Add deposit** tops up the chosen policy's deposit so a big sheet is not stopped by the deposit check.
+
+The same flow, driven by a real browser: `NODE_PATH=/opt/node-tools/node_modules node qa/qa-timing-page.js 1000 3` (Playwright; rows, rounds).
+
+Measured through that page on the build sandbox (4 vCPU, BFF on nginx + PHP-FPM), 1000 rows, three rounds; "until result" includes the 250 ms the page waits between checks:
+
+| Case | Upload accepted | Until result | Until error sheet is ready |
+|---|---|---|---|
+| All rows valid | 65 to 80 ms | **0.98 to 1.00 s** (first run of the day 2.5 s, warming up) | not needed |
+| 996 valid + 4 invalid | 65 to 81 ms | **0.98 to 1.30 s** (ENDORSED on its own) | **1.03 to 1.35 s** (the sheet adds about 0.05 s) |
+| All 1000 invalid | 63 to 82 ms | **0.68 to 0.71 s** (VALIDATION FAILED) | **0.99 to 1.06 s** (building the 84 KB sheet takes about 0.33 s) |

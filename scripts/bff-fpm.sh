@@ -88,7 +88,7 @@ http {
 }
 EOF
 cd "$ROOT/services/bff" || exit 1
-export APP_ENV="${APP_ENV:-local}" LOG_STACK="${LOG_STACK:-single,stderr}"
+export APP_ENV="${APP_ENV:-local}" LOG_STACK="${LOG_STACK:-single,stderr}" SESSION_DRIVER="${SESSION_DRIVER:-file}"   # the portal pages keep a session; the JSON API does not need one
 if [ $CACHE = 1 ]; then php artisan config:cache >/dev/null && php artisan route:cache >/dev/null && echo "[$(date +%T)] bff: config and routes cached"; fi
 "$FPM" -R -y "$D/php-fpm.conf" -c "$D/php.ini" &
 FPM_PID=$!

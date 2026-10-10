@@ -14,6 +14,7 @@
     @php $nav = [['/app', 'Dashboard', 'app'], ['/app/announcements', 'Announcements', 'app/announcements*'], ['/app/policies', 'Policies', 'app/policies*'], ['/app/endorse', 'Add or remove people', ['app/endorse', 'app/endorse/*']], ['/app/endorsements', 'Endorsements', 'app/endorsements*'], ['/app/cd', 'CD balance', 'app/cd*'], ['/app/assistant', 'Assistant', 'app/assistant*']];
        if ($gw === 'broker') array_splice($nav, 1, 0, [['/app/employers', 'Employers', 'app/employers*']]);
        if ($gw === 'broker') $nav[] = ['/app/member-ids', 'TPA member ids', 'app/member-ids*'];
+       if ($gw === 'broker' && config('bff.features.qa_tools')) $nav[] = ['/app/qa/timing', 'QA timing', 'app/qa/*'];
        if ($gw === 'tpa') $nav = [['/app/member-ids', 'Member ids and e-cards', 'app/member-ids*']]; @endphp
     <nav class="nav">
       @foreach($nav as [$href, $label, $pattern])

@@ -37,6 +37,13 @@ Route::middleware('portal.auth')->prefix('app')->group(function () {
     Route::get('/endorsements/{id}/progress', [P::class, 'progress']);
     Route::get('/endorsements/{id}/errors.xlsx', [P::class, 'errorSheet']);
     Route::post('/endorsements/{id}/{action}', [P::class, 'jobAction']);
+    if (config('bff.features.qa_tools')) {                           // QA only: BFF_QA_TOOLS=true; not routed at all otherwise
+        Route::get('/qa/timing', [\App\Http\Controllers\Portal\QaTimingController::class, 'page']);
+        Route::get('/qa/timing/sheet', [\App\Http\Controllers\Portal\QaTimingController::class, 'sheet']);
+        Route::post('/qa/timing/run', [\App\Http\Controllers\Portal\QaTimingController::class, 'run'])->middleware('throttle:60,1');
+        Route::post('/qa/timing/deposit', [\App\Http\Controllers\Portal\QaTimingController::class, 'deposit'])->middleware('throttle:30,1');
+        Route::get('/qa/timing/job/{id}', [\App\Http\Controllers\Portal\QaTimingController::class, 'job'])->middleware('throttle:600,1');
+    }
     Route::get('/cd', [P::class, 'cd']);
     Route::post('/cd/{policyId}/credit', [P::class, 'cdCredit'])->whereNumber('policyId');
     Route::post('/cd/{policyId}/replenish', [P::class, 'cdReplenish'])->whereNumber('policyId');
