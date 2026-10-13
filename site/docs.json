@@ -1,0 +1,14 @@
+[
+ {"group":"Understand","items":[
+  {"id":"request-signing","title":"How the BFF signs every core request"},
+  {"id":"observability","title":"Observability and live query dashboard"},
+  {"id":"intake-routing","title":"Intake routing"},
+  {"id":"tpa-offline","title":"TPA offline uploads"},
+  {"id":"runtime-dependencies","title":"Runtime dependencies"}]},
+ {"group":"Prove it","items":[
+  {"id":"load-test","title":"Load test and legacy comparison"},
+  {"id":"qa-handbook","title":"QA handbook"},
+  {"id":"aws-cost-estimate","title":"AWS cost estimate"}]},
+ {"group":"Run it","items":[
+  {"id":"full-stack-local","title":"Full stack, locally"}]}
+]

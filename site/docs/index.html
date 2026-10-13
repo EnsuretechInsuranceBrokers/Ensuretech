@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ensuretech documentation</title><link rel="icon" href="../assets/banner.svg"><link rel="stylesheet" href="../site.css">
+<style>
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1200px;margin:0 auto}
+nav.side{position:sticky;top:49px;align-self:start;height:calc(100vh - 49px);overflow:auto;padding:1.2rem 1rem;border-right:1px solid var(--line);font-size:.92rem}
+nav.side .g{margin:1rem 0 .2rem;color:var(--mut);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+nav.side a{display:block;color:var(--ink);text-decoration:none;padding:.2rem .5rem;border-radius:6px}nav.side a:hover{background:var(--card)}nav.side a.on{background:var(--card);color:var(--brand);font-weight:600}
+article{padding:1.5rem 1.8rem 6rem;min-width:0}article>*{max-width:80ch}article pre,article table,article .mermaid{max-width:100%}
+h1{font-size:1.9rem}h2{margin-top:2.2rem;padding-top:.6rem;border-top:1px solid var(--line)}
+code{font:.88em ui-monospace,monospace;background:color-mix(in srgb,var(--brand) 10%,transparent);padding:.05em .3em;border-radius:4px}
+pre{background:var(--code);color:var(--codeink);padding:.9rem 1rem;border-radius:8px;overflow-x:auto;font:.85rem/1.5 ui-monospace,monospace}pre code{background:none;padding:0;color:inherit}
+table{border-collapse:collapse;display:block;overflow-x:auto;font-size:.92rem}th,td{text-align:left;padding:.4rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+blockquote{margin:1rem 0;padding:.4rem 1rem;border-left:4px solid var(--brand);background:var(--card);border-radius:0 8px 8px 0}
+.mermaid{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem;text-align:center;overflow-x:auto}
+@media(max-width:820px){.layout{display:block}nav.side{position:static;height:auto;border:0;border-bottom:1px solid var(--line)}}
+</style></head>
+<body>
+<header class="top"><strong>ENSURETECH</strong><a href="../demo/">Demo</a><a href="./" aria-current="page">Documentation</a><a href="../run/">Run it locally</a><span class="sp"></span><a href="https://github.com/EnsuretechInsuranceBrokers/Ensuretech">GitHub</a></header>
+<div class="layout"><nav class="side" id="nav"></nav><article id="doc"><p>Loading...</p></article></div>
+<script src="../vendor/marked.min.js"></script>
+<script>
+(async()=>{
+const nav=document.getElementById('nav'),doc=document.getElementById('doc');
+const toc=await (await fetch('../docs.json')).json();
+const flat=toc.flatMap(g=>g.items);
+let id=new URLSearchParams(location.search).get('doc')||flat[0].id;
+if(!flat.some(i=>i.id===id)) id=flat[0].id;
+nav.innerHTML=toc.map(g=>'<div class="g">'+g.group+'</div>'+g.items.map(i=>'<a href="?doc='+i.id+'"'+(i.id===id?' class="on"':'')+'>'+i.title+'</a>').join('')).join('');
+const known=new Set(flat.map(i=>i.id));
+try{
+ const md=await (await fetch('md/'+id+'.md')).text();
+ doc.innerHTML=marked.parse(md);
+ doc.querySelectorAll('h1,h2,h3,h4').forEach(h=>{h.id=h.textContent.toLowerCase().replace(/[^\w\- ]/g,'').trim().replace(/ /g,'-')});
+ document.title=(doc.querySelector('h1')?.textContent||id)+' | Ensuretech';
+ doc.querySelectorAll('a[href]').forEach(a=>{ // rewrite repo-relative doc links
+  const h=a.getAttribute('href');const m=h.match(/^(?:\.\/|docs\/)?([\w-]+)\.md(#.*)?$/);
+  if(m&&known.has(m[1])) a.href='?doc='+m[1]+(m[2]||'');
+  else if(!/^(https?:|#|mailto:)/.test(h)) a.href='https://github.com/EnsuretechInsuranceBrokers/Ensuretech/blob/main/'+(id==='x'?'':'docs/')+h.replace(/^\.\.\//,'');
+  if(/^https?:/.test(h)){a.rel='noopener'}
+ });
+ const mm=[...doc.querySelectorAll('pre > code.language-mermaid')];
+ if(mm.length){
+  mm.forEach(c=>{const d=document.createElement('div');d.className='mermaid';d.textContent=c.textContent;c.parentElement.replaceWith(d)});
+  await new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mermaid@12.1.0/dist/mermaid.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+  mermaid.initialize({startOnLoad:false,theme:matchMedia('(prefers-color-scheme:dark)').matches?'dark':'default'});
+  await mermaid.run({querySelector:'.mermaid'});
+ }
+ if(location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+}catch(e){doc.innerHTML='<p>Could not load this page.</p>'}
+})();
+</script></body></html>
