@@ -8,3 +8,4 @@ observability/flower-password
 
 # secrets that stay on one machine (see docs/break-glass.md)
 local.env.private
+_site/

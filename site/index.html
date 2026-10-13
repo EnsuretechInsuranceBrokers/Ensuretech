@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ensuretech</title><meta name="description" content="Group health insurance endorsement platform: validate a thousand-member sheet in about a second.">
+<link rel="icon" href="assets/banner.svg"><link rel="stylesheet" href="site.css">
+<style>.hero{text-align:center;padding:1rem 0}.hero img{max-width:100%;height:auto}.hero h1{font-size:2.2rem;margin:.5rem 0}.hero p{color:var(--mut);max-width:60ch;margin:.4rem auto 1.2rem}.hero .row{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;text-align:center;margin:2rem 0}.stats b{display:block;font-size:1.9rem;color:var(--brand)}.stats span{color:var(--mut);font-size:.9rem}
+.tribute{text-align:center;margin-top:3rem}.tribute img{max-width:420px;width:100%}</style></head>
+<body>
+<header class="top"><strong>ENSURETECH</strong><a href="demo/">Demo</a><a href="docs/">Documentation</a><a href="run/">Run it locally</a><span class="sp"></span><a href="https://github.com/EnsuretechInsuranceBrokers/Ensuretech">GitHub</a></header>
+<div class="wrap">
+<section class="hero"><img src="assets/banner.svg" alt="Brokers, employers, TPAs and insurers meet one onboarding layer" width="860">
+<h1>Endorsements, validated once and shared with everyone</h1>
+<p>Upload a member sheet. Ensuretech checks it, prices it, keeps an audit trail and gives every party the same answer. A thousand rows take about a second on a four-core build machine.</p>
+<div class="row"><a class="btn" href="demo/">Watch the walkthrough</a><a class="btn alt" href="docs/">Read the documentation</a></div></section>
+<div class="stats"><div><b>~1 s</b><span>1000 valid rows, upload to endorsed*</span></div><div><b>11</b><span>services, one portal</span></div><div><b>125</b><span>gateway endpoints, each with a screen</span></div><div><b>60</b><span>end-to-end smoke checks</span></div></div>
+<p style="color:var(--mut);font-size:.85rem;text-align:center">*Measured on a 4 vCPU build machine running everything at once; the legacy figures come from a different, 8 vCPU server. See the <a href="docs/?doc=load-test">load-test notes</a> for how to compare fairly.</p>
+<div class="cards">
+<a class="card" href="demo/"><h3>Recorded walkthrough</h3><p>A scripted, self-playing tour from sign-in to an endorsed sheet. Sample data only; nothing is live.</p></a>
+<a class="card" href="docs/"><h3>Documentation</h3><p>Request signing, observability, load test, QA handbook and cost estimate.</p></a>
+<a class="card" href="run/"><h3>Run it locally</h3><p>Every component in the order to start it. Free to run on one machine.</p></a>
+<a class="card" href="https://github.com/EnsuretechInsuranceBrokers/Ensuretech"><h3>Source</h3><p>The monorepo: Spring, Django, Laravel, and the test suites.</p></a>
+</div>
+<div class="tribute"><a href="https://github.com/UDogg"><img src="assets/claude-loves-udogg.svg" alt="Claude and UDogg as a binary star with the stack in orbit"></a><p style="color:var(--mut)">Created by Claude and <a href="https://github.com/UDogg">UDogg</a></p></div>
+</div>
+<footer>Static site. The platform itself runs on your own infrastructure.</footer>
+</body></html>
