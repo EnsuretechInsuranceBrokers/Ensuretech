@@ -3,30 +3,48 @@ name: Deploy site
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'docs/**', 'run.html', 'scripts/build-site.sh', 'README.md']
+    paths: ['site/**', 'docs/**', 'run.html', 'scripts/build-site.sh', '.github/workflows/pages.yml']
+  pull_request:
+    paths: ['site/**', 'docs/**', 'run.html', 'scripts/build-site.sh', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the site
+        run: scripts/build-site.sh
+      - name: Check that every published page exists
+        run: |
+          set -e
+          test -s _site/index.html -a -s _site/demo/demo.js -a -s _site/docs/index.html -a -s _site/run/index.html
+          for id in $(python3 -c "import json;print(' '.join(i['id'] for g in json.load(open('site/docs.json')) for i in g['items']))"); do
+            test -s "_site/docs/md/$id.md"
+          done
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - run: scripts/build-site.sh
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
